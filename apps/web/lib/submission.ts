@@ -314,9 +314,43 @@ export function readingsReported(status: SubmissionStatus | null): [string | nul
  * payload that has moved on.
  */
 export interface PipelineTrace {
-  walrus?: { blobId?: string; contentSha256?: string; registeredBy?: string };
+  /**
+   * Every stage the watch has actually SEEN reported, in first-seen order.
+   *
+   * Not the same thing as "every stage that ran", and the difference is the whole
+   * reason it is recorded: the poll is 1800 ms and a short stage passes between
+   * two requests. So this is only ever used to decide whether to DRAW a tile that
+   * the pipeline does not always emit (`starting`), never to claim that a stage
+   * did or did not happen.
+   */
+  seen?: SubmissionStage[];
+  resolving?: {
+    repo?: string;
+    commit?: string;
+    release?: string;
+    package?: string;
+    version?: string;
+    tier?: string;
+  };
+  licence?: { spdx?: string };
+  fetching?: { artifact?: string; integrity?: string };
+  starting?: { artifact?: string };
+  walrus?: {
+    blobId?: string;
+    contentSha256?: string;
+    registeredBy?: string;
+    /**
+     * Absent on the publisher path, and that absence is a fact rather than a gap
+     * — a public publisher's wallet registers the blob, so there is no object of
+     * ours to link. Read as "not stated", never as "ours".
+     */
+    suiObjectId?: string;
+    registerTx?: string;
+    certifyTx?: string;
+  };
   arkiv?: { entityKey?: string; txHash?: string };
-  reviewing?: { model?: string; promptVersion?: string; run?: number };
+  reviewing?: { model?: string; promptVersion?: string; run?: number; files?: number; runs?: number };
+  done?: { state?: string; reason?: string };
   /** The fingerprint of the entry this run produced — the link to its own page. */
   fingerprint?: string;
 }
@@ -337,11 +371,47 @@ export function traceFrom(prev: PipelineTrace, status: SubmissionStatus | null):
   const stage = stageOf(status);
   const detail = status.progress?.detail ?? {};
 
+  // Seen, in first-seen order. Append-only, like everything else here.
+  if (stage && !(prev.seen ?? []).includes(stage)) {
+    next.seen = [...(prev.seen ?? []), stage];
+  }
+
+  if (stage === 'resolving') {
+    next.resolving = merge(prev.resolving, {
+      repo: str(detail.repo),
+      commit: str(detail.commit),
+      release: str(detail.release),
+      package: str(detail.package),
+      version: str(detail.version),
+      tier: str(detail.tier),
+    });
+    // The pipeline says the fingerprint here, minutes before the run finishes,
+    // precisely so a watcher can open the entry page under the name they were
+    // already given. Same shape check as the result path — a value that is not a
+    // fingerprint is not recorded as one.
+    const early = str(detail.fingerprint);
+    if (early && FINGERPRINT_RE.test(early)) next.fingerprint = early;
+  }
+  if (stage === 'licence') {
+    next.licence = merge(prev.licence, { spdx: str(detail.spdx) });
+  }
+  if (stage === 'fetching') {
+    next.fetching = merge(prev.fetching, {
+      artifact: str(detail.artifact),
+      integrity: str(detail.integrity),
+    });
+  }
+  if (stage === 'starting') {
+    next.starting = merge(prev.starting, { artifact: str(detail.artifact) });
+  }
   if (stage === 'walrus') {
     next.walrus = merge(prev.walrus, {
       blobId: str(detail.blobId),
       contentSha256: str(detail.contentSha256),
       registeredBy: str(detail.registeredBy),
+      suiObjectId: str(detail.suiObjectId),
+      registerTx: str(detail.registerTx),
+      certifyTx: str(detail.certifyTx),
     });
   }
   if (stage === 'arkiv') {
@@ -355,7 +425,12 @@ export function traceFrom(prev: PipelineTrace, status: SubmissionStatus | null):
       model: str(detail.model),
       promptVersion: str(detail.promptVersion),
       run: num(detail.run),
+      files: num(detail.files),
+      runs: num(detail.runs),
     });
+  }
+  if (stage === 'done') {
+    next.done = merge(prev.done, { state: str(detail.state), reason: str(detail.reason) });
   }
 
   // The final result carries the same pointers, and on a fast run it is the only
@@ -470,10 +545,365 @@ export function suiTxUrl(digest: string | undefined | null): string | null {
   return `${b}/tx/${encodeURIComponent(digest)}`;
 }
 
+export function suiObjectUrl(objectId: string | undefined | null): string | null {
+  if (!objectId) return null;
+  const b = base(process.env.NEXT_PUBLIC_SUREX_SUI_EXPLORER, DEFAULT_SUI_EXPLORER);
+  return `${b}/object/${encodeURIComponent(objectId)}`;
+}
+
 /** The entry's own page, once the run has produced a fingerprint. */
 export function entryHref(fingerprint: string | undefined | null): string | null {
   if (!fingerprint || !FINGERPRINT_RE.test(fingerprint)) return null;
   return `/r/${fingerprint}`;
+}
+
+/* ------------------------------------------------- where the source came from */
+
+/**
+ * GitHub and npm are NOT in `apps/api/src/links.mjs`, and that is not an
+ * oversight to fix later: that file turns the identifiers a RECORD carries —
+ * blob, Sui object, both digests, Arkiv entity — into explorer URLs, and the API
+ * never builds a link to somebody's repository. These two are the run's inputs
+ * rather than its outputs, so they live here, and the shapes they accept are the
+ * shapes `scripts/ingest-submission.mjs` itself enforces: `owner/name` and a
+ * 40-character hex sha, never a tag.
+ */
+export const DEFAULT_GITHUB = 'https://github.com';
+export const DEFAULT_NPM = 'https://www.npmjs.com';
+
+const REPO_RE = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
+const SHA_RE = /^[0-9a-f]{40}$/i;
+/** npm's own name rule, minus the length cap it enforces at publish time. */
+const NPM_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+
+export function githubRepoUrl(repo: string | undefined | null): string | null {
+  if (!repo || !REPO_RE.test(repo)) return null;
+  return `${DEFAULT_GITHUB}/${repo.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+/**
+ * A commit, never a tag. A tag can be repointed, so a link built from one would
+ * quietly stop pointing at the bytes this entry is about — which is the exact
+ * gap Tier exists to describe.
+ */
+export function githubCommitUrl(
+  repo: string | undefined | null,
+  commit: string | undefined | null,
+): string | null {
+  const base = githubRepoUrl(repo);
+  if (!base || !commit || !SHA_RE.test(commit)) return null;
+  return `${base}/commit/${commit.toLowerCase()}`;
+}
+
+export function npmVersionUrl(
+  name: string | undefined | null,
+  version?: string | undefined | null,
+): string | null {
+  if (!name || !NPM_NAME_RE.test(name)) return null;
+  const path = name.split('/').map(encodeURIComponent).join('/');
+  const v = String(version ?? '').trim();
+  return v ? `${DEFAULT_NPM}/package/${path}/v/${encodeURIComponent(v)}` : `${DEFAULT_NPM}/package/${path}`;
+}
+
+/**
+ * `npm:<name>@<version>` or `github:<owner>/<repo>@<sha>` — the two forms the
+ * pipeline records as `reviewedArtifact`, and the two things it can actually have
+ * read. Anything else produces no link rather than a guess.
+ */
+export function artifactUrl(artifact: string | undefined | null): string | null {
+  const raw = String(artifact ?? '').trim();
+  if (!raw) return null;
+  const split = (rest: string): [string, string] | null => {
+    const at = rest.lastIndexOf('@');
+    // `<= 0` and not `=== -1`: a scoped npm name starts with `@`, and that one is
+    // the scope rather than a version separator.
+    return at <= 0 ? null : [rest.slice(0, at), rest.slice(at + 1)];
+  };
+  if (raw.startsWith('npm:')) {
+    const parts = split(raw.slice('npm:'.length));
+    return parts ? npmVersionUrl(parts[0], parts[1]) : null;
+  }
+  if (raw.startsWith('github:')) {
+    const parts = split(raw.slice('github:'.length));
+    return parts ? githubCommitUrl(parts[0], parts[1]) : null;
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------- the ens name */
+
+/**
+ * The label encoding, a second time.
+ *
+ * `lib/ens.ts` is the authority and it is SERVER ONLY — it holds the gateway's
+ * signing configuration and reaches `@surex/core`, which reaches `node:crypto`.
+ * Importing it here would pull both into the browser bundle. So the two constants
+ * are copied, exactly as the link bases are, and `test/stage-rail.test.mjs` reads
+ * `lib/ens.ts` as text to prove they are still the same two.
+ *
+ * `sxf1-`, not `sxf1_`: ENSIP-15 rejects a mid-label underscore, so our own
+ * published identifier is not a legal ENS label as written (FRICTION-LOG E1).
+ * 40 hex characters and not 64, because clients disagree above a 63-byte label
+ * (E2). The truncation is a naming convenience and never the identity.
+ */
+export const ENS_LABEL_PREFIX = 'sxf1-';
+export const ENS_LABEL_HEX_LENGTH = 40;
+export const DEFAULT_ENS_APP_HOST = 'app.ens.domains';
+
+export function ensLabelFor(fingerprint: string | undefined | null): string | null {
+  if (!fingerprint || !FINGERPRINT_RE.test(fingerprint)) return null;
+  return ENS_LABEL_PREFIX + fingerprint.slice('sxf1_'.length, 'sxf1_'.length + ENS_LABEL_HEX_LENGTH);
+}
+
+/** The parent this deployment was configured with, or `null`. */
+export function ensParent(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUREX_ENS_PARENT?.trim();
+  return raw ? raw.replace(/^\.+|\.+$/g, '') : null;
+}
+
+/**
+ * `null` when no parent is configured, and the row is then omitted rather than
+ * rendered grey — the same rule the provenance panel follows. A deployment that
+ * never set the parent has no name to show, and inventing one would be inventing
+ * a read interface that does not answer.
+ */
+export function ensNameFor(fingerprint: string | undefined | null): string | null {
+  const parent = ensParent();
+  const label = ensLabelFor(fingerprint);
+  return parent && label ? `${label}.${parent}` : null;
+}
+
+/** Where a human looks at a name. Mainnet unless the deployment says otherwise. */
+export function ensAppUrl(name: string | undefined | null): string | null {
+  if (!name) return null;
+  const chain = process.env.NEXT_PUBLIC_SUREX_ENS_CHAIN?.trim() || 'mainnet';
+  const host = chain === 'mainnet' ? DEFAULT_ENS_APP_HOST : `${chain}.${DEFAULT_ENS_APP_HOST}`;
+  return `https://${host}/name/${encodeURIComponent(name)}`;
+}
+
+/* --------------------------------------------------------------- the rail --*/
+
+/**
+ * Which technology each stage touches.
+ *
+ * This is the question the halftone cannot answer. It says how far the run has
+ * got; it does not say whose machine is reading the source right now, or what
+ * just landed where. `null` is a real answer — the licence gate touches none of
+ * the four, and a tile that invented a chip for it would be decorating.
+ */
+export type StageTech = 'source' | 'dgx' | 'walrus' | 'arkiv' | 'ens';
+
+export const STAGE_TECH: Record<SubmissionStage, StageTech | null> = {
+  resolving: 'source',
+  licence: null,
+  fetching: 'source',
+  starting: null,
+  reviewing: 'dgx',
+  walrus: 'walrus',
+  arkiv: 'arkiv',
+  // Not a write to ENS — nothing is ever written there. Once the head is indexed
+  // the wildcard resolver can answer for it, which is when the entry becomes
+  // readable as a name. That is what this tile claims and all it claims.
+  done: 'ens',
+};
+
+/**
+ * The tiles to draw.
+ *
+ * `starting` is in the shared stage list because `GET /v1/submissions/:id` can
+ * report it, but `scripts/ingest-submission.mjs` never emits it — it reads the
+ * tool list out of the README rather than installing and starting the server, and
+ * says so in a comment where the list is defined. Drawing a step that does not run
+ * is a fabricated fact on a progress screen, so the tile appears only for a run
+ * that actually reported the stage.
+ */
+export function railStages(trace: PipelineTrace): SubmissionStage[] {
+  const seen = trace.seen ?? [];
+  return SUBMISSION_STAGES.filter((stage) => stage !== 'starting' || seen.includes('starting'));
+}
+
+/**
+ * `done` says the RUN moved past this stage. It does not say the stage ran.
+ *
+ * The two are genuinely different and the pipeline is explicit about it: a licence
+ * refusal jumps from `licence` straight to `walrus`, so a stage number the run
+ * skipped looks identical from out here to one it completed in under a poll
+ * interval. The copy for this phase is worded accordingly, and the facts panel
+ * prints nothing for a stage that reported nothing.
+ */
+export type StagePhase = 'pending' | 'active' | 'done' | 'stopped';
+
+export function stagePhase(stage: SubmissionStage, status: SubmissionStatus | null): StagePhase {
+  const current = stageOf(status);
+  if (!status || !current) return 'pending';
+  const at = SUBMISSION_STAGES.indexOf(stage);
+  const now = SUBMISSION_STAGES.indexOf(current);
+  if (at < now) return 'done';
+  if (at > now) {
+    // A finished run is past everything, including a stage whose report the poll
+    // never caught. `pending` on a run that has ended would be the false one.
+    return status.status === 'done' ? 'done' : 'pending';
+  }
+  if (status.status === 'failed') return 'stopped';
+  if (status.status === 'done') return 'done';
+  return 'active';
+}
+
+/**
+ * Which stage the detail panel describes.
+ *
+ * Keyed on the stage the run last REPORTED, never on the one that is `active` —
+ * they are the same thing while a run is in flight and part company the moment it
+ * ends, because a finished run has no active stage. Keying it off `active` made a
+ * completed run describe stage one, which was caught in a render rather than in
+ * review, which is why the choice is a function with a test now.
+ *
+ * A pick wins over both, and a pick for a stage that is not on the rail is
+ * ignored rather than blanking the panel.
+ */
+export function shownStage(
+  stages: readonly SubmissionStage[],
+  picked: SubmissionStage | null,
+  status: SubmissionStatus | null,
+): SubmissionStage | null {
+  if (picked && stages.includes(picked)) return picked;
+  const reported = stageOf(status);
+  if (reported && stages.includes(reported)) return reported;
+  return stages[0] ?? null;
+}
+
+/**
+ * Custody the record itself calls thinner: a public HTTP publisher's wallet
+ * registered the blob, so the Sui object and any digest are theirs. Rendered as a
+ * dashed tile — the house border grammar, where dashed means a state we did not
+ * measure ourselves (see `Chip.tsx`).
+ */
+export function stageProvisional(stage: SubmissionStage, trace: PipelineTrace): boolean {
+  return stage === 'walrus' && trace.walrus?.registeredBy === 'publisher';
+}
+
+/** A gate the run reported an answer for, and then continued past. */
+export function stageGatePassed(
+  stage: SubmissionStage,
+  trace: PipelineTrace,
+  status: SubmissionStatus | null,
+): boolean {
+  if (stage !== 'licence') return false;
+  return Boolean(trace.licence?.spdx) && stagePhase('licence', status) === 'done';
+}
+
+export interface StageFact {
+  /** From `COPY`. Never a value. */
+  label: string;
+  /** As reported. Never derived, never filled in. */
+  value: string;
+  /** Only when a real link can be built from a real identifier. */
+  href?: string;
+}
+
+/** Drops anything the run did not report, so an absent fact is an absent row. */
+function fact(label: string, value: unknown, href?: string | null): StageFact | null {
+  const text = typeof value === 'number' ? String(value) : str(value);
+  if (!text) return null;
+  return href ? { label, value: text, href } : { label, value: text };
+}
+
+/**
+ * The `▸` lines under a stage. Built ONLY from identifiers the run reported —
+ * there is no placeholder row, and a stage that reported nothing returns `[]` so
+ * the panel can say so in words instead of showing an empty list.
+ */
+export function stageFacts(
+  stage: SubmissionStage,
+  trace: PipelineTrace,
+  status: SubmissionStatus | null,
+): StageFact[] {
+  const F = COPY.pipeline.rail.fact;
+  const P = COPY.pipeline;
+  const out: (StageFact | null)[] = [];
+
+  switch (stage) {
+    case 'resolving': {
+      const r = trace.resolving ?? {};
+      out.push(fact(F.repo, r.repo, githubRepoUrl(r.repo)));
+      out.push(fact(F.commit, r.commit, githubCommitUrl(r.repo, r.commit)));
+      out.push(fact(F.release, r.release));
+      out.push(
+        fact(
+          F.package,
+          r.package && r.version ? `${r.package}@${r.version}` : r.package,
+          npmVersionUrl(r.package, r.version),
+        ),
+      );
+      out.push(fact(F.tier, r.tier));
+      break;
+    }
+    case 'licence':
+      out.push(fact(F.licence, trace.licence?.spdx));
+      break;
+    case 'fetching':
+      out.push(fact(F.artifact, trace.fetching?.artifact, artifactUrl(trace.fetching?.artifact)));
+      out.push(fact(F.integrity, trace.fetching?.integrity));
+      break;
+    case 'starting':
+      out.push(fact(F.artifact, trace.starting?.artifact, artifactUrl(trace.starting?.artifact)));
+      break;
+    case 'reviewing': {
+      const v = trace.reviewing ?? {};
+      // The reviewer block on the status payload is the same two strings by
+      // another route, so either source is the run's own answer — but neither is
+      // ever invented, and an unset model stays unset.
+      out.push(fact(F.model, v.model ?? status?.reviewer?.model));
+      out.push(fact(F.prompt, v.promptVersion ?? status?.reviewer?.promptVersion));
+      out.push(fact(F.files, v.files));
+      out.push(fact(F.readings, v.runs));
+      break;
+    }
+    case 'walrus': {
+      const w = trace.walrus ?? {};
+      out.push(fact(P.blobLabel, w.blobId, walrusBlobUrl(w.blobId)));
+      out.push(fact(P.sha256Label, w.contentSha256));
+      out.push(fact(F.suiObject, w.suiObjectId, suiObjectUrl(w.suiObjectId)));
+      out.push(fact(F.registerTx, w.registerTx, suiTxUrl(w.registerTx)));
+      out.push(fact(F.certifyTx, w.certifyTx, suiTxUrl(w.certifyTx)));
+      out.push(
+        fact(
+          F.custody,
+          w.registeredBy === 'publisher'
+            ? COPY.pipeline.rail.custodyPublisher
+            : w.registeredBy === 'wallet'
+              ? COPY.pipeline.rail.custodyWallet
+              : undefined,
+        ),
+      );
+      break;
+    }
+    case 'arkiv':
+      out.push(fact(P.entityLabel, trace.arkiv?.entityKey, arkivEntityUrl(trace.arkiv?.entityKey)));
+      // No link: `apps/api/src/links.mjs` builds an entity URL and nothing else for
+      // Arkiv, and a transaction path nobody has confirmed would be a guess.
+      out.push(fact(P.txLabel, trace.arkiv?.txHash));
+      break;
+    case 'done': {
+      const d = trace.done ?? {};
+      // A reason with no state is not a state. The pair renders together or the
+      // row does not render at all.
+      out.push(fact(F.state, d.state ? (d.reason ? `${d.state} (${d.reason})` : d.state) : undefined));
+      const name = ensNameFor(trace.fingerprint);
+      // Deliberately NOT a link. An offchain resolver cannot enumerate its keys,
+      // so the ENS app queries a fixed profile set and renders an empty Records
+      // tab for a name that is answering perfectly well (FRICTION-LOG E9).
+      // Sending anyone there to check makes them conclude it is broken.
+      out.push(fact(F.ensName, name));
+      out.push(fact(F.ensRead, name ? COPY.verdict.ensExample : undefined));
+      out.push(fact(F.ensParent, ensParent(), ensAppUrl(ensParent())));
+      break;
+    }
+    default:
+      break;
+  }
+
+  return out.filter((f): f is StageFact => f !== null);
 }
 
 /* --------------------------------------------------------------- the poll --*/

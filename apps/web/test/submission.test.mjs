@@ -362,6 +362,16 @@ test('the link bases have not drifted from the API lane', () => {
     DEFAULT_WALRUS_AGGREGATOR,
     'DEFAULT_AGGREGATORS[0] moved; the browser copy must move with it',
   );
+
+  /**
+   * The PATHS, not only the bases. The rail added `/object/<id>` on the browser
+   * side, and `links.mjs` is where every one of these was confirmed against a live
+   * explorer — `/entities/<key>` and `/storage/entity/<key>` both 404, so these
+   * are not guessable and a silent change to one is a page full of dead links.
+   */
+  for (const path of ['/v1/blobs/', '/object/', '/tx/', '/entity/']) {
+    assert.ok(links.includes(path), `apps/api/src/links.mjs no longer builds ${path}`);
+  }
 });
 
 test('the entry link is the entry page, not an explorer', () => {

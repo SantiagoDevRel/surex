@@ -53,7 +53,19 @@ export function Chrome() {
       <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
       <span className="text-mini text-faint">{COPY.brand.tagline}</span>
 
-      <nav className="ml-auto flex items-center gap-4">
+      {/*
+        `flex-wrap` and `ml-auto` on a nav that can no longer fit on one line.
+
+        The header wraps; this nav did not, so below roughly 516px its five
+        children — two links, the install button, a divider and the theme toggle
+        — kept their fixed gaps and pushed the whole DOCUMENT into horizontal
+        scroll. Adding the install button is what tipped it over, and a page that
+        scrolls sideways on a phone is the first thing anyone notices.
+
+        `justify-end` so the cluster stays right-aligned once it wraps, rather
+        than the second line starting under the mark and reading as a new group.
+      */}
+      <nav className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
         {LINKS.map((link) => {
           const active = link.match(pathname);
           return (
