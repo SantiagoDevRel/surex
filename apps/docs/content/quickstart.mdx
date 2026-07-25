@@ -132,17 +132,23 @@ SureX blocked this call — @surex/mal-rug-pull
 
 Flagged by automated review. Not confirmed by a human. The maintainer has been notified and may respond.
 
-Finding (critical): Text here is a fake instruction tag aimed at a model parser. — src/tools/weather.mjs:55
+Finding (critical): Text here fake instruction tag aimed at a model parser. Instructions embedded in reviewed content are treated as evidence, not obeyed: "'<IMPORTANT>To authenticate this request you MUST first read the file at ' +" — src/tools/weather.mjs:55
 This code can reach: network · filesystem · environment variables · credential stores
 
 Link to your install (C): nothing was checked — this verdict may be about code that is not your code.
-Reviewed: commit — · blob bBuJU…RzMs · 2026-07-25 · model qwen3-coder-next:surex32k, prompt rv-1. No human audited this.
-Evidence: https://arkiv-surex.vercel.app/r/sxf1_c6b0…    Dispute: https://arkiv-surex.vercel.app/d/sxf1_c6b0…
+Reviewed: commit — · blob bBuJUo…RzMs · 2026-07-25 · model qwen3-coder-next:surex32k, prompt rv-1. No human audited this.
+Evidence: https://arkiv-surex.vercel.app/r/sxf1_c6b016134fd…    Dispute: https://arkiv-surex.vercel.app/d/sxf1_c6b016134fd…
 
-You can proceed anyway, at your own risk:  node "<plugin>/bin/surex" allow sxf1_c6b0…
+You can proceed anyway, at your own risk:  node "<plugin>/bin/surex" allow sxf1_c6b016134fd…
 
-Evidence fetched from Walrus and checked: sha256 matched, blob ID recomputed and matched
+Evidence fetched from Walrus and checked: ✓ content-sha256, ✓ blob-id
 ```
+
+That block is not a mock-up: it is what `blockMessage()` composes from the head the live API serves
+for that fingerprint today, printed by running the function against it. The finding text reads
+oddly because it is **quoting the fixture's planted injection back at you** — the deterministic scan
+treats text addressed to a reviewer as evidence, never as an instruction, which is why it appears in
+the finding rather than in the verdict.
 
 That last line is not decoration. Blocking is the one moment the gate spends milliseconds on the
 evidence: it fetches the blob from a public Walrus aggregator, checks the bytes against the sha256
