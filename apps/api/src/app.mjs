@@ -757,10 +757,20 @@ export function createApp(options = {}) {
     try {
       body = await c.req.json();
     } catch {
-      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, release, proof }'), 400);
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, commit, proof }'), 400);
     }
-    if (!body?.repo || !body?.release) {
-      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repo and a release'), 400);
+    // A repo and a COMMIT. `release` used to be required here and is now the
+    // optional half: a tag is a human-readable label for a commit, and it is the
+    // commit that names bytes. Requiring the label rejected perfectly good
+    // submissions of a default-branch head, and did it BEFORE the proof was
+    // checked — so a submitter with a valid proof was told their body was
+    // malformed for omitting something that identifies nothing.
+    // Only the shape needed to run the gate. The commit is checked AFTER the
+    // proof, by validateSubmission — identity first, then the submission's
+    // content. Checking the commit here would refuse an anonymous request for
+    // the wrong reason and reveal that we had read the body before the gate.
+    if (!body?.repo) {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repository'), 400);
     }
 
     const check = await verifiers.verifyHumanProof({
