@@ -190,8 +190,6 @@ export function RegistryFilters({
         ))}
       </FilterGroup>
 
-      <HiddenNotice query={query} rows={rows} />
-
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
         {/* The tier chips are gone with the tier column — filtering a list by a
             value every row shares is a control that can only ever return the

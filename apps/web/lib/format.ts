@@ -129,7 +129,21 @@ export function statusRank(status: RowStatus): number {
  * purpose: it is a view, and a view that shares a name with a state would make
  * `?state=clean` and the default indistinguishable in a URL somebody pasted.
  */
-export const DEFAULT_STATE = 'decided';
+/**
+ * `all` — the default list shows everything.
+ *
+ * It was `decided`, which filtered `unreviewable` out and printed a notice
+ * saying how many it was holding back, because hiding rows without saying so is
+ * exactly the move this product exists to refuse. That was the right trade at
+ * 34 entries, 25 of them unreviewable.
+ *
+ * The registry is now 11 entries with 2 unreviewable. Filtering two rows out of
+ * eleven buys nothing and costs a paragraph of disclosure explaining itself —
+ * so the honest simplification is not to hide the notice, it is to stop hiding
+ * the rows. `decided` still exists as a value anyone can select; it is simply
+ * no longer what you get by default.
+ */
+export const DEFAULT_STATE = 'all';
 
 /**
  * Is this a state where a review reached a verdict about the code?
@@ -150,10 +164,21 @@ export function isDecided(status: RowStatus): boolean {
   return statusRank(status) <= statusRank('clean');
 }
 
-/** Does a row belong in the view `state` names? The one place that decides. */
+/** The view that shows only the entries a review reached a verdict on. */
+export const DECIDED_STATE = 'decided';
+
+/**
+ * Does a row belong in the view `state` names? The one place that decides.
+ *
+ * `decided` is matched by NAME, not by comparing against `DEFAULT_STATE`. It
+ * used to be the default, and routing it through that constant meant changing
+ * the default silently broke it as an explicit choice — `?state=decided` fell
+ * through to an exact status comparison and matched nothing at all. A value and
+ * the fact that it happens to be the default are two different things.
+ */
 export function matchesState(status: RowStatus, state: string): boolean {
   if (state === 'all') return true;
-  if (state === DEFAULT_STATE) return isDecided(status);
+  if (state === DECIDED_STATE) return isDecided(status);
   return status === state;
 }
 

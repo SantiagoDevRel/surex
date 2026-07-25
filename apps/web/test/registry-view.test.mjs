@@ -96,38 +96,52 @@ test('the default view is not the name of any state it could be confused with', 
 
 /* ------------------------------------------------------ the filter itself --*/
 
-test('matchesState: all shows everything, the default shows the decided, a state is exact', () => {
+test('matchesState: the default hides nothing, `decided` still filters, a state is exact', () => {
   for (const status of ALL_STATES) {
     assert.equal(matchesState(status, 'all'), true, `all should include ${status}`);
-    assert.equal(matchesState(status, DEFAULT_STATE), isDecided(status));
+    // THE DEFAULT SHOWS EVERYTHING. It used to be `decided`, which held
+    // `unreviewable` back and printed a notice saying how many — the right trade
+    // at 34 entries, 25 of them unreviewable. At 11 entries with 2, filtering two
+    // rows buys nothing and costs a paragraph explaining itself, so the honest
+    // simplification was to stop hiding the rows rather than to hide the notice.
+    assert.equal(matchesState(status, DEFAULT_STATE), true, `the default should include ${status}`);
     assert.equal(matchesState(status, status), true, `${status} should match itself`);
     assert.equal(matchesState(status, 'clean'), status === 'clean');
   }
 });
 
-test('`unreviewable` is reachable — it is filtered out of the default, not removed', () => {
-  // The whole justification for the default view is that these entries stay
-  // one click away. If this ever fails, the filter has become a delete.
+test('`decided` still exists as an explicit choice, and still means what it meant', () => {
+  // The value did not go away; it stopped being the default. Anyone who wants
+  // only the entries a review reached a verdict on can still ask for them, and a
+  // bookmarked ?state=decided keeps working.
+  assert.equal(matchesState('unreviewable', 'decided'), false);
+  assert.equal(matchesState('unknown', 'decided'), false);
+  for (const s of ['clean', 'flagged', 'disputed', 'stale']) {
+    assert.equal(matchesState(s, 'decided'), true, `decided should include ${s}`);
+  }
+});
+
+test('`unreviewable` is in the default list, not one click away from it', () => {
   assert.equal(matchesState('unreviewable', 'unreviewable'), true);
   assert.equal(matchesState('unreviewable', 'all'), true);
-  assert.equal(matchesState('unreviewable', DEFAULT_STATE), false);
+  assert.equal(matchesState('unreviewable', DEFAULT_STATE), true);
 });
 
 /* -------------------------------------------- what the screen has to print --*/
 
-test('the live registry: 8 entries carry a verdict, 25 are held back and counted', () => {
+test('the default list holds nothing back, so there is nothing to disclose', () => {
   const live = rows(LIVE);
-  assert.equal(live.length, 33);
-  assert.equal(live.filter((r) => matchesState(r.status, DEFAULT_STATE)).length, 8);
-  assert.equal(hiddenCount(live), 25);
-  assert.deepEqual(hiddenFromDefault(live), [{ status: 'unreviewable', count: 25 }]);
+  assert.equal(live.filter((r) => matchesState(r.status, DEFAULT_STATE)).length, live.length);
 });
 
 test('shown plus held back is everything — no row can go missing without a count', () => {
+  // `hiddenCount` and `hiddenFromDefault` still describe the `decided` view, and
+  // they still have to add up: the moment anything filters again, the screen has
+  // to be able to say by how much. That is why they are kept rather than deleted
+  // along with the notice that used to render them.
   const mixed = rows({ flagged: 2, clean: 3, stale: 1, unreviewable: 9, unknown: 4, running: 1 });
-  const shown = mixed.filter((r) => matchesState(r.status, DEFAULT_STATE)).length;
-  assert.equal(shown + hiddenCount(mixed), mixed.length);
-  // and the breakdown accounts for the same total, state by state
+  const decided = mixed.filter((r) => matchesState(r.status, 'decided')).length;
+  assert.equal(decided + hiddenCount(mixed), mixed.length);
   assert.equal(
     hiddenFromDefault(mixed).reduce((n, g) => n + g.count, 0),
     hiddenCount(mixed),

@@ -209,9 +209,11 @@ export function StageRail({
 
   return (
     <section aria-label={COPY.pipeline.rail.label} className="grid gap-2.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+      {/* The label alone, centred over the rail it names. The sentence that used
+          to sit beside it described what the reader is about to watch happen —
+          which the rail then does, one tile at a time. */}
+      <div className="flex justify-center">
         <SectionLabel className="text-faint">{COPY.pipeline.rail.label}</SectionLabel>
-        <span className="max-w-[80ch] text-mini text-faint">{COPY.pipeline.rail.legend}</span>
       </div>
 
       <Well className="px-3 py-3">
