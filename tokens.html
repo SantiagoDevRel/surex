@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<style id="surex-responsive">
+@media (max-width: 880px){
+  .r-grid{grid-template-columns:1fr !important}
+  .r-wide{min-width:0 !important}
+  .r-arrow{display:none !important}
+  .r-pad{padding-left:16px !important;padding-right:16px !important}
+  body{overflow-x:hidden}
+  h1{font-size:29px !important;line-height:1.14 !important}
+  h2{font-size:21px !important}
+  table{font-size:12.5px !important}
+}
+@media (max-width: 560px){
+  h1{font-size:25px !important}
+  .r-pad{padding-left:13px !important;padding-right:13px !important}
+}
+@media (max-width: 880px){
+  html,body{overflow-x:hidden !important;max-width:100% !important}
+  .r-wide{overflow:hidden !important}
+}
+</style>
 </head>
 <body>
 <x-dc>
@@ -36,7 +56,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 <!-- ===== COLOR ===== -->
 <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
   <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">01 · COLOR — BY ROLE · tailwind key → dark / light</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 36px;font-size:10.5px">
+  <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 36px;font-size:10.5px">
     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#141310;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#f5f2ea;flex:none"></span><b style="width:96px">bg</b><span style="color:var(--ink3)">#141310 / #f5f2ea — page</span></div>
     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#1c1a16;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#fdfbf6;border:1px solid #d5cfc0;flex:none"></span><b style="width:96px">panel</b><span style="color:var(--ink3)">#1c1a16 / #fdfbf6 — cards</span></div>
     <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#181713;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#efece2;flex:none"></span><b style="width:96px">panel-2</b><span style="color:var(--ink3)">#181713 / #efece2 — wells, code</span></div>
@@ -54,7 +74,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 </div>
 
 <!-- ===== TYPE + SPACE ===== -->
-<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:26px">
+<div class="r-grid" style="display:grid;grid-template-columns:1.4fr 1fr;gap:26px">
 <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
   <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">02 · TYPE — IBM PLEX MONO (STRUCTURE) + SOURCE SERIF 4 (EVIDENCE PROSE)</div>
   <div style="display:grid;gap:9px">
@@ -102,7 +122,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 </div>
 
 <!-- ===== ROW + CHIPS ===== -->
-<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:26px">
+<div class="r-grid" style="display:grid;grid-template-columns:1.5fr 1fr;gap:26px">
 <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
   <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">06 · CUSTODY ROW — TABLES, LISTS, TERMINALS</div>
   <div style="font-size:10.5px;color:var(--ink3);margin-bottom:14px">state (hue, 600) · tier (letter 600 + 3-cell meter) · standing (plain) · meta right-aligned. 32px row, line-2 separators.</div>
@@ -142,7 +162,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 </div>
 
 <!-- ===== CONTROLS + BANNERS ===== -->
-<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:26px">
+<div class="r-grid" style="display:grid;grid-template-columns:1fr 1.5fr;gap:26px">
 <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
   <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">08 · CONTROLS</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -170,7 +190,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 <!-- ===== TERMINAL ===== -->
 <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
   <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">10 · TERMINAL TYPOGRAPHY — NO CSS, HIERARCHY ANYWAY</div>
-  <div style="display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start">
+  <div class="r-grid" style="display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start">
     <pre style="margin:0;background:#0c0b09;border:1px solid var(--line);border-radius:6px;padding:16px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.65;color:#d8d4c8">SUREX  tool call blocked                     sx:9f2e4c81
 ────────────────────────────────────────────────────────
   VERDICT   FLAGGED · high

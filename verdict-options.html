@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<style id="surex-responsive">
+@media (max-width: 880px){
+  .r-grid{grid-template-columns:1fr !important}
+  .r-wide{min-width:0 !important}
+  .r-arrow{display:none !important}
+  .r-pad{padding-left:16px !important;padding-right:16px !important}
+  body{overflow-x:hidden}
+  h1{font-size:29px !important;line-height:1.14 !important}
+  h2{font-size:21px !important}
+  table{font-size:12.5px !important}
+}
+@media (max-width: 560px){
+  h1{font-size:25px !important}
+  .r-pad{padding-left:13px !important;padding-right:13px !important}
+}
+@media (max-width: 880px){
+  html,body{overflow-x:hidden !important;max-width:100% !important}
+  .r-wide{overflow:hidden !important}
+}
+</style>
 </head>
 <body>
 <x-dc>
@@ -205,7 +225,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
 
 <div style="max-width:960px;margin:0 0 30px;padding:18px 22px;background:#1c1a16;border:1px solid rgba(255,255,255,.09);border-radius:6px">
   <div style="font-size:10px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">DECISIONS CARRIED INTO ALL FOUR — LOCKED FROM YOUR ANSWERS</div>
-  <div style="display:grid;grid-template-columns:150px 1fr;gap:7px 18px;font-size:11.5px;line-height:1.5">
+  <div class="r-grid" style="display:grid;grid-template-columns:150px 1fr;gap:7px 18px;font-size:11.5px;line-height:1.5">
     <span style="color:#8b8578">hue ownership</span><span><b style="color:#e8e4da">State owns hue.</b> Tier + confirmation own form: border style, fill, weight, density. Color is never the sole carrier — the word is always printed.</span>
     <span style="color:#8b8578">state hues</span><span><b style="color:#6aa87c">clean</b> · <b style="color:#c95b4d">flagged</b> · <b style="color:#9c86c9">disputed</b> · <b style="color:#c9a15a">stale</b> · <b style="color:#8b8578">unreviewable</b> · <b style="color:#8b8578">unknown</b> (grays)</span>
     <span style="color:#8b8578">accent</span><span><b style="color:#7aa3cc">archival blue #7aa3cc</b> — links, focus, actions only. Never appears in a verdict, so accent and semantics can't be confused.</span>
@@ -373,7 +393,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
   <div style="display:flex;gap:44px;flex-wrap:wrap;margin-bottom:20px">
     <div style="display:flex;gap:10px;align-items:flex-start">
       <div>
-        <div style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
+        <div class="r-grid" style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
           <span style="border:1px solid #2f2c25"></span><span style="background:#6aa87c;box-shadow:0 0 0 1px #6aa87c"></span><span style="border:1px solid #2f2c25"></span>
           <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
           <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
@@ -385,7 +405,7 @@ a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:under
     </div>
     <div style="display:flex;gap:10px;align-items:flex-start">
       <div>
-        <div style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
+        <div class="r-grid" style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
           <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
           <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
           <span style="background:rgba(106,168,124,.55);border:1px dashed #6aa87c;box-sizing:border-box"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
