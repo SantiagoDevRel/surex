@@ -200,9 +200,20 @@ export function warnMessage(head, ctx = {}) {
       // `listed` is set by the caller from the API's own answer, BEFORE any local
       // display name is merged in — the gate always fills `name` from the local
       // config, so `name` cannot tell these two apart.
-      return head?.listed
-        ? `⚠ SureX: ${name} is listed but has not been reviewed. Proceeding unreviewed.`
-        : `⚠ SureX: ${name} is not in the registry — nobody has submitted this install configuration. Proceeding unreviewed.`;
+      //
+      // Only the never-submitted branch gets the submit link, and that is the
+      // point of keeping the two branches apart. "Submit it" is actionable advice
+      // when nobody has ever sent this configuration in; pointed at a server that
+      // is already listed and merely waiting for a review, it would send someone
+      // to fill in a form that changes nothing.
+      if (head?.listed) {
+        return `⚠ SureX: ${name} is listed but has not been reviewed. Proceeding unreviewed.`;
+      }
+      return (
+        `⚠ SureX: ${name} is not in the registry — nobody has submitted this install configuration. ` +
+        `Proceeding unreviewed.` +
+        (ctx.submitUrl ? ` Submit it for review: ${ctx.submitUrl}` : '')
+      );
   }
 }
 

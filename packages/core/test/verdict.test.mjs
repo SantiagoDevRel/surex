@@ -128,6 +128,33 @@ test('"unknown" distinguishes listed-but-unreviewed from never-submitted', () =>
   assert.match(never, /nobody has submitted this install configuration/);
 });
 
+test('only the never-submitted branch offers the submit link', () => {
+  // Telling someone to submit a server that is ALREADY listed sends them to fill
+  // in a form that changes nothing — the entry exists and is waiting for a
+  // review, not for a second submission. The distinction is the whole reason the
+  // two branches are separate strings, so the link has to respect it.
+  const submitUrl = 'https://surex-app.vercel.app/submit';
+
+  const never = warnMessage({ state: 'unknown' }, { name: 'nobody-sent-this', submitUrl });
+  assert.match(never, /Submit it for review: https:\/\/surex-app\.vercel\.app\/submit/);
+
+  const listed = warnMessage({ state: 'unknown', listed: true }, { name: '@playwright/mcp', submitUrl });
+  assert.ok(!listed.includes(submitUrl), 'a listed server must not be told to submit itself again');
+
+  // Nothing else in the range grows a submit link either: a flagged or
+  // unreviewable server has already been through the pipeline.
+  for (const state of ['flagged', 'unreviewable', 'stale', 'disputed']) {
+    const msg = warnMessage({ state, severity: 2 }, { name: 'x', submitUrl });
+    assert.ok(!msg.includes(submitUrl), `${state} must not offer a submit link`);
+  }
+
+  // And with no URL supplied the sentence still reads correctly rather than
+  // trailing an empty fragment.
+  const bare = warnMessage({ state: 'unknown' }, { name: 'nobody-sent-this' });
+  assert.ok(!/Submit it for review/.test(bare));
+  assert.match(bare, /Proceeding unreviewed\.$/);
+});
+
 test('copy law holds across every string the product can emit', () => {
   const surfaces = [
     blockMessage(head(), { evidenceUrl: 'https://x', disputeUrl: 'https://y' }),

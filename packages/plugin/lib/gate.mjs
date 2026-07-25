@@ -205,7 +205,10 @@ export async function runGate(input) {
           `Treating the review as stale. Proceeding unreviewed.`,
       );
     }
-    warn(warnMessage(resolved, { name: displayName }));
+    // The submit URL is only ever rendered for a server nobody has submitted —
+    // `warnMessage` decides that, not this call site. Passing it unconditionally
+    // keeps the branch where the copy law lives (verdict.mjs, one place, one test).
+    warn(warnMessage(resolved, { name: displayName, submitUrl: `${WEB_BASE()}/submit` }));
   }
 
   // 5. Blocking. This is the one moment the evidence is fetched: a human is
