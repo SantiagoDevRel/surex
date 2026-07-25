@@ -349,6 +349,18 @@ test('cache round-trip: a cached result is served with its ORIGINAL timestamp an
     const serialised = JSON.stringify(onDisk);
     assert.ok(!serialised.includes('reviewer.test'), 'the fixture must not carry the endpoint address');
 
+    // Age the fixture before serving it.
+    //
+    // This assertion used to be `notEqual(servedAt, cachedFrom)` against two
+    // stamps taken milliseconds apart, which is a race: on a fast machine both
+    // land in the same millisecond and the test fails for no reason (~2 runs in
+    // 3 here). The property under test is "the cached answer reports when it was
+    // RECORDED, not when it was served" — so pin the recorded time to a known
+    // past instead of hoping the wall clock ticks.
+    const RECORDED_AT = '2020-01-01T00:00:00.000Z';
+    const aged = { ...onDisk, recordedAt: RECORDED_AT };
+    writeFileSync(join(dir, files[0]), JSON.stringify(aged));
+
     // 2. the endpoint is now unreachable. Same input.
     const served = await reviewServer(
       { statedIntent: INTENT, files: INERT_FILES },
@@ -361,9 +373,12 @@ test('cache round-trip: a cached result is served with its ORIGINAL timestamp an
     );
 
     assert.equal(served.run.cached, true, 'must be marked as cached');
-    assert.equal(served.run.cachedFrom, onDisk.recordedAt, 'must carry the ORIGINAL run timestamp');
+    assert.equal(served.run.cachedFrom, RECORDED_AT, 'must carry the ORIGINAL run timestamp');
     assert.ok(served.run.servedAt, 'and say when it was served');
     assert.notEqual(served.run.servedAt, served.run.cachedFrom);
+    // servedAt is stamped at serve time, not copied forward from the record.
+    const servedAge = Date.now() - Date.parse(served.run.servedAt);
+    assert.ok(servedAge >= 0 && servedAge < 60_000, `servedAt must be fresh, was ${served.run.servedAt}`);
     // The verdict itself is returned verbatim — a record, not a redraft.
     assert.equal(served.verdict, fresh.verdict);
     assert.equal(served.severity, fresh.severity);

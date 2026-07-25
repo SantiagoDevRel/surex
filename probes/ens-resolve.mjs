@@ -27,6 +27,7 @@
 //   node ens-resolve.mjs contract
 //   node ens-resolve.mjs mock                       # stand-in /v1/registry on :4310
 //   node ens-resolve.mjs gateway [--gateway http://127.0.0.1:4311]
+//   node ens-resolve.mjs live --name <full ens name> [--chain mainnet] [--rpc <url>]
 //   node ens-resolve.mjs sepolia --name <full ens name> [--rpc <url>]
 
 import { readFileSync } from 'node:fs';
@@ -548,6 +549,190 @@ async function endToEnd({ rpcUrl, chain, name }) {
   if (failed) process.exitCode = 1;
 }
 
+/**
+ * E6 · the DEPLOYED contract, hop by hop.
+ *
+ * `getEnsText` is a black box: when the path breaks it returns `null`, which is
+ * indistinguishable from an empty record, and you learn nothing about which hop
+ * failed. That is not hypothetical — it is exactly how the first mainnet
+ * deployment hid a real bug. `resolve()` forwarded only `data` (the inner
+ * `text(bytes32,string)` call) and dropped `name`, so the gateway received a
+ * namehash it could not reverse and 400'd every request. 17 Foundry tests and
+ * six in-process EVM cases all passed, because each half was checked against its
+ * own idea of the request rather than against the other half. `gateway` mode
+ * BUILDS the request the way the gateway parses it; nothing took what the
+ * contract actually emits and fed it to the gateway.
+ *
+ * So this mode never constructs a request. It reads the real revert off chain,
+ * asserts the invariant that was violated, then walks the rest of the path and
+ * names the hop that breaks.
+ */
+async function live() {
+  const viem = await import('viem');
+  const { packetToBytes } = await import('viem/ens');
+  const chains = await import('viem/chains');
+
+  const name = flag('name', `${LABEL}.surex.eth`);
+  const key = flag('key', 'surex:state');
+  const chainName = flag('chain', 'mainnet');
+  const chain = chains[chainName] ?? chains.mainnet;
+  const rpcUrl = flag('rpc', chainName === 'mainnet' ? 'https://ethereum-rpc.publicnode.com' : undefined);
+  const client = viem.createPublicClient({ chain, transport: viem.http(rpcUrl) });
+
+  const RESOLVE_ABI = viem.parseAbi(['function resolve(bytes name, bytes data) view returns (bytes)']);
+  const TEXT_ABI = viem.parseAbi(['function text(bytes32 node, string key) view returns (string)']);
+  const PROOF_ABI = viem.parseAbi(['function resolveWithProof(bytes response, bytes extraData) view returns (bytes)']);
+  const LOOKUP_ABI = viem.parseAbi([
+    'error OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData)',
+  ]);
+
+  hr(`E6 · the deployed resolver, hop by hop — ${name}`);
+  console.log(`  chain ${chain.name} (${chain.id})`);
+  console.log(`  key   ${key}\n`);
+
+  let failures = 0;
+  const step = (good, label, detail = '') => {
+    if (!good) failures++;
+    console.log((good ? ok(label) : no(label)) + (detail ? `\n      ${detail}` : ''));
+    return good;
+  };
+
+  // 1 — which resolver is the name actually pointed at?
+  let resolver;
+  try {
+    resolver = await client.getEnsResolver({ name });
+    step(Boolean(resolver), `resolver for the name        ${resolver}`);
+  } catch (err) {
+    step(false, 'resolver for the name', String(err.shortMessage ?? err.message).split('\n')[0]);
+    console.log(no('\n  no resolver — setResolver has not been called on the parent'));
+    process.exitCode = 1;
+    return;
+  }
+
+  // 2 — the real revert, with CCIP-Read switched OFF so viem does not follow it.
+  const inner = viem.encodeFunctionData({ abi: TEXT_ABI, functionName: 'text', args: [viem.namehash(name), key] });
+  const outer = viem.encodeFunctionData({
+    abi: RESOLVE_ABI,
+    functionName: 'resolve',
+    args: [viem.bytesToHex(packetToBytes(name)), inner],
+  });
+
+  let raw;
+  try {
+    const { data } = await client.call({ to: resolver, data: outer, ccipRead: false });
+    // Not a failure. `ccipRead: false` is best-effort — when the whole path is
+    // healthy viem can still follow the lookup and hand back the answer, and a
+    // returned value means every hop below already worked. Reporting that as
+    // "it did not revert" was this probe's own false negative: it called a
+    // fully working deployment broken.
+    const value = viem.decodeFunctionResult({
+      abi: TEXT_ABI,
+      functionName: 'text',
+      data: viem.decodeFunctionResult({ abi: RESOLVE_ABI, functionName: 'resolve', data }),
+    });
+    console.log(ok(`the full path resolved in one call        ${key} = ${value}`));
+    hr('result');
+    console.log(ok('the deployed contract, the gateway and the signature all agree'));
+    return;
+  } catch (err) {
+    raw = JSON.stringify(err).match(/0x556f1830[0-9a-fA-F]+/)?.[0];
+    step(Boolean(raw), 'resolve() reverts with OffchainLookup');
+  }
+  if (!raw) {
+    console.log(no('\n  cannot continue without the revert payload'));
+    process.exitCode = 1;
+    return;
+  }
+
+  const { args } = viem.decodeErrorResult({ abi: LOOKUP_ABI, data: raw });
+  const [sender, urls, callData, , extraData] = args;
+
+  // 3 — THE INVARIANT THAT WAS VIOLATED. The gateway needs the name, and a
+  //     namehash cannot be reversed, so callData must be the whole resolve()
+  //     call. Asserting the selector alone is not enough: the failure mode is a
+  //     dropped name, so decode it and check the name survives.
+  const selector = callData.slice(0, 10).toLowerCase();
+  const expected = viem.toFunctionSelector('resolve(bytes,bytes)').toLowerCase();
+  if (
+    step(
+      selector === expected,
+      `callData is a resolve(bytes,bytes) call  ${selector}`,
+      selector === expected
+        ? ''
+        : `expected ${expected}. The contract is forwarding the INNER call and dropping the name;\n` +
+          '      the gateway gets a namehash it cannot reverse and will 400 every request.',
+    )
+  ) {
+    try {
+      const [gotName] = viem.decodeAbiParameters(
+        [{ type: 'bytes' }, { type: 'bytes' }],
+        `0x${callData.slice(10)}`,
+      );
+      const label = leftmostLabelOf(gotName);
+      step(
+        label === name.split('.')[0],
+        `the NAME reaches the gateway             ${label ?? '(none)'}`,
+        label === name.split('.')[0] ? '' : 'the label is the only route to the fingerprint',
+      );
+    } catch {
+      step(false, 'the NAME reaches the gateway', 'callData did not decode as (bytes,bytes)');
+    }
+  }
+
+  step(extraData.toLowerCase() === callData.toLowerCase(), 'extraData === callData (digest is rebuilt over it)');
+  step(sender.toLowerCase() === resolver.toLowerCase(), `sender is the resolver itself            ${sender}`);
+
+  // 4 — the gateway, using the contract's own bytes. Never ours.
+  const url = urls[0].replaceAll('{sender}', sender).replaceAll('{data}', callData);
+  console.log(`\n  gateway ${urls[0]}`);
+  let body;
+  try {
+    const res = await fetch(url);
+    body = await res.json().catch(() => null);
+    step(res.ok, `gateway answered                         HTTP ${res.status}`,
+      res.ok ? '' : JSON.stringify(body).slice(0, 220));
+  } catch (err) {
+    step(false, 'gateway answered', String(err.message).slice(0, 200));
+  }
+  if (!body?.data) {
+    console.log(no('\n  no signed payload to verify'));
+    process.exitCode = 1;
+    return;
+  }
+
+  // 5 — hand it back to the chain. This is the signature check, for real.
+  try {
+    const { data } = await client.call({
+      to: resolver,
+      data: viem.encodeFunctionData({ abi: PROOF_ABI, functionName: 'resolveWithProof', args: [body.data, extraData] }),
+    });
+    const returned = viem.decodeFunctionResult({ abi: PROOF_ABI, functionName: 'resolveWithProof', data });
+    const value = viem.decodeFunctionResult({ abi: TEXT_ABI, functionName: 'text', data: returned });
+    step(true, `resolveWithProof accepted it             ${key} = ${value}`);
+  } catch (err) {
+    step(false, 'resolveWithProof accepted it', String(err.shortMessage ?? err.message).split('\n')[0]);
+  }
+
+  hr('result');
+  if (failures) {
+    console.log(no(`${failures} failed — the hop named above is the one to fix`));
+    process.exitCode = 1;
+  } else {
+    console.log(ok('the deployed contract, the gateway and the signature all agree'));
+  }
+}
+
+/** DNS wire name → leftmost label. Mirrors `apps/web/lib/ens.ts`. */
+function leftmostLabelOf(dnsEncoded) {
+  const hex = dnsEncoded.startsWith('0x') ? dnsEncoded.slice(2) : dnsEncoded;
+  if (hex.length < 2) return null;
+  const length = Number.parseInt(hex.slice(0, 2), 16);
+  if (!Number.isFinite(length) || length === 0 || length > 63) return null;
+  const body = hex.slice(2, 2 + length * 2);
+  if (body.length !== length * 2) return null;
+  return Buffer.from(body, 'hex').toString('utf8');
+}
+
 /* ─────────────────────────────────────────────────────────────────── main ──*/
 
 switch (mode) {
@@ -565,6 +750,9 @@ switch (mode) {
   case 'gateway':
     await gateway();
     break;
+  case 'live':
+    await live();
+    break;
   case 'sepolia': {
     const { sepolia } = await import('viem/chains');
     const name = flag('name');
@@ -580,6 +768,6 @@ switch (mode) {
     break;
   }
   default:
-    console.log(`unknown mode "${mode}". one of: labels | contract | mock | gateway | sepolia`);
+    console.log(`unknown mode "${mode}". one of: labels | contract | mock | gateway | live | sepolia`);
     process.exit(1);
 }

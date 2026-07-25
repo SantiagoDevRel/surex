@@ -126,9 +126,31 @@ contract SureXOffchainResolver is IExtendedResolver, IERC165 {
      * hashes exactly the bytes the gateway hashed. Anything cleverer here is a
      * digest mismatch waiting to happen.
      */
+    /**
+     * ENSIP-10 entry point. Always reverts with `OffchainLookup`.
+     *
+     * ⚠️ `msg.data` — the WHOLE `resolve(name, data)` call — is what goes to the
+     * gateway, not `data` alone. This was wrong in the first deployment and every
+     * test missed it, because each half was checked against its own idea of the
+     * request instead of against the other half.
+     *
+     * `data` alone is the inner `text(bytes32 node, string key)` call, and a node
+     * is a namehash. Namehash is one-way, so a gateway holding only `data` cannot
+     * recover the label, and the label is the only route to the fingerprint. The
+     * name is not decoration: it is the entire lookup key, and dropping it makes
+     * the request unanswerable rather than merely awkward.
+     *
+     * This matches the ENS reference resolver, which encodes
+     * `IResolverService.resolve(name, data)` for the same reason.
+     *
+     * `extraData` is the same bytes, because `resolveWithProof` rebuilds the
+     * digest over the callData the gateway signed. The two must be identical or
+     * every verification fails with no clue why.
+     */
     function resolve(bytes calldata name, bytes calldata data) external view override returns (bytes memory) {
-        name; // ENSIP-10 passes the name to the gateway, not to this function.
-        revert OffchainLookup(address(this), _urls, data, this.resolveWithProof.selector, data);
+        name; // read by the gateway out of msg.data below, not used here
+        data; // ditto — both are forwarded whole
+        revert OffchainLookup(address(this), _urls, msg.data, this.resolveWithProof.selector, msg.data);
     }
 
     /**

@@ -11,6 +11,60 @@ Set it once as the resolver on one parent name and every entry resolves — the 
 and every one written after. That is ENSIP-10 wildcard resolution, and it is the whole reason this
 is one contract rather than 51 records.
 
+## Try it — no repo, no API key
+
+Any mainnet RPC. `surex.eth` is live and every entry resolves as a subname.
+
+```bash
+mkdir /tmp/surex && cd /tmp/surex && npm i viem
+```
+
+```js
+import { createPublicClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+
+const c = createPublicClient({ chain: mainnet, transport: http() });
+await c.getEnsText({
+  name: 'sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth',
+  key: 'surex:state',
+});
+// → 'flagged'
+```
+
+ethers is identical, and verified:
+
+```js
+const r = await provider.getResolver('sxf1-09dcb…surex.eth');
+await r.getText('surex:state');   // → 'flagged'
+```
+
+Keys: `surex:state` · `surex:severity` · `surex:tier` · `surex:reviewed` · `surex:fingerprint` · `url`.
+That subname was never registered and never will be — ENSIP-10 wildcard resolution answers for every
+entry in the registry, and the answer is a CCIP-Read response signed against the key this contract
+pins.
+
+From this repo, hop by hop:
+
+```bash
+cd probes && pnpm install --ignore-workspace
+node ens-resolve.mjs live --name sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth
+```
+
+### Two places this does NOT work, and why
+
+⚠️ **The ENS app shows nothing.** `app.ens.domains/sxf1-….surex.eth` confirms the name resolves and
+shows `parent: surex.eth`, but its Records tab is empty. An offchain wildcard resolver cannot
+enumerate its records, so a client has to *ask* for specific keys, and `surex:*` is not in the app's
+list. Anyone sent there concludes it is broken. Same reason wallets and the Safe UI will not render
+these records either. (FRICTION-LOG E9)
+
+⚠️ **`cast` cannot do it.** Foundry has no CCIP-Read support, so `cast call` stops at the
+`OffchainLookup` revert and cannot follow it.
+
+The working set is: anything holding a viem, ethers, wagmi or ensjs client — which is the population
+this was built for, and the reason the pitch says "already holding an Ethereum client" rather than
+"anyone".
+
 ## What the signature proves
 
 That the response came from the holder of the key the resolver pins. Nothing else.
@@ -75,20 +129,28 @@ three places — here, in `apps/web/lib/ens.ts`, and asserted across both in
 | | |
 |---|---|
 | name | [`surex.eth`](https://app.ens.domains/surex.eth), expires 2027-07-25, not wrapped |
-| resolver | [`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559) |
+| resolver | [`0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`](https://etherscan.io/address/0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B) |
 | pinned signer | `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` |
 | name owner (`setResolver`) | `0xFE388539e3fffeA23ba4C5aa4c750cb90f369b2E` |
 | resolver owner (`setSigner`, `setUrls`) | `0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4` |
-| deploy cost | 0.0000805 ETH — 1,067,648 gas at 0.075 gwei |
+| deploy cost | 0.000072 ETH — 1,067,648 gas at 0.067 gwei |
 
-**Verified on mainnet:** `getEnsResolver` on `sxf1-<40 hex>.surex.eth` — a subname that was never
-registered — returns the resolver above through the standard Universal Resolver, and `resolve()`
-reverts with a genuine `OffchainLookup` carrying the gateway URL. Wildcard resolution works.
+**Verified live, end to end.** A stock viem client reads a verdict off a subname that was never
+registered:
 
-**Not yet live:** the gateway. `arkiv-surex.vercel.app/api/ens/` returns 404 until this branch is
-deployed, so `getEnsText` yields `null`. ⚠️ A dead gateway is indistinguishable from an empty record
-— viem swallows the failed fetch rather than throwing. No further transactions are required; the
-route answering is sufficient.
+```bash
+cd ../probes && node ens-resolve.mjs live --name sxf1-<40 hex>.surex.eth
+# ✓ the full path resolved in one call        surex:state = flagged
+```
+
+That walks wildcard resolution → `OffchainLookup` → gateway fetch → `resolveWithProof` → `ecrecover`,
+driving the DEPLOYED contract rather than a constructed request. Use this mode, not `getEnsText`, to
+check a deployment: `getEnsText` returns `null` on a failed CCIP fetch rather than throwing, so a
+broken seam is indistinguishable from an empty record.
+
+⚠️ **`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` was the first deployment and is superseded.** It forwarded
+`data` instead of `msg.data`, dropping the name the gateway needs — see `FRICTION-LOG.md` E8. Nothing
+should point at it.
 
 **Why mainnet and not a testnet:** `.eth` registration on Sepolia has been broken network-wide since
 early June 2026 — see `FRICTION-LOG.md` E5 and E6. It was not a preference.
@@ -154,7 +216,7 @@ On the web deployment (Vercel project `apps/web`):
 | `SUREX_ENS_TTL_SECONDS` | optional, default 300 |
 | `SUREX_ENS_CHAIN` | optional — only picks the explorer host for the UI link. Set `mainnet` for this deployment |
 
-For the live deployment those are `SUREX_ENS_RESOLVER_ADDRESS=0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`,
+For the live deployment those are `SUREX_ENS_RESOLVER_ADDRESS=0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`,
 `NEXT_PUBLIC_SUREX_ENS_PARENT=surex.eth`, `SUREX_ENS_CHAIN=mainnet`, and `SUREX_ENS_SIGNING_KEY` is the
 key for `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` — kept in `~/.secrets/surex-ens.env` and never
 in this repo.
@@ -179,7 +241,7 @@ reaches the contract, and there is nothing on the other end to answer. A status 
 ## Rotating the signer
 
 ```bash
-cast send 0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559 "setSigner(address)" <new signer> \
+cast send 0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B "setSigner(address)" <new signer> \
   --rpc-url https://ethereum-rpc.publicnode.com \
   --from 0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4 --interactive
 ```
