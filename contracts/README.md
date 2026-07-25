@@ -11,6 +11,60 @@ Set it once as the resolver on one parent name and every entry resolves — the 
 and every one written after. That is ENSIP-10 wildcard resolution, and it is the whole reason this
 is one contract rather than 51 records.
 
+## Try it — no repo, no API key
+
+Any mainnet RPC. `surex.eth` is live and every entry resolves as a subname.
+
+```bash
+mkdir /tmp/surex && cd /tmp/surex && npm i viem
+```
+
+```js
+import { createPublicClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+
+const c = createPublicClient({ chain: mainnet, transport: http() });
+await c.getEnsText({
+  name: 'sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth',
+  key: 'surex:state',
+});
+// → 'flagged'
+```
+
+ethers is identical, and verified:
+
+```js
+const r = await provider.getResolver('sxf1-09dcb…surex.eth');
+await r.getText('surex:state');   // → 'flagged'
+```
+
+Keys: `surex:state` · `surex:severity` · `surex:tier` · `surex:reviewed` · `surex:fingerprint` · `url`.
+That subname was never registered and never will be — ENSIP-10 wildcard resolution answers for every
+entry in the registry, and the answer is a CCIP-Read response signed against the key this contract
+pins.
+
+From this repo, hop by hop:
+
+```bash
+cd probes && pnpm install --ignore-workspace
+node ens-resolve.mjs live --name sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth
+```
+
+### Two places this does NOT work, and why
+
+⚠️ **The ENS app shows nothing.** `app.ens.domains/sxf1-….surex.eth` confirms the name resolves and
+shows `parent: surex.eth`, but its Records tab is empty. An offchain wildcard resolver cannot
+enumerate its records, so a client has to *ask* for specific keys, and `surex:*` is not in the app's
+list. Anyone sent there concludes it is broken. Same reason wallets and the Safe UI will not render
+these records either. (FRICTION-LOG E9)
+
+⚠️ **`cast` cannot do it.** Foundry has no CCIP-Read support, so `cast call` stops at the
+`OffchainLookup` revert and cannot follow it.
+
+The working set is: anything holding a viem, ethers, wagmi or ensjs client — which is the population
+this was built for, and the reason the pitch says "already holding an Ethereum client" rather than
+"anyone".
+
 ## What the signature proves
 
 That the response came from the holder of the key the resolver pins. Nothing else.

@@ -259,7 +259,7 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
 
 **ENS** — measured while building `contracts/` and `apps/web/app/api/ens/`, on
 `@adraffy/ens-normalize@1.11.1`, `viem@2.55.8`, `ethers@6.13.5`, `solc@0.8.28`. Probe:
-`node probes/ens-resolve.mjs <labels|contract|mock|gateway|live|sepolia>`. Write-ups in `FRICTION-LOG.md` E1–E8.
+`node probes/ens-resolve.mjs <labels|contract|mock|gateway|live|sepolia>`. Write-ups in `FRICTION-LOG.md` E1–E9.
 
 - ❌ **`sxf1_<64 hex>` is not a legal ENS label.** ENSIP-15 rejects a mid-label underscore —
   `underscore allowed only at start`. Our own published identifier cannot be used as a subname as
@@ -315,6 +315,11 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
   registration date and an expiry that are not real, and makes `getEnsAddress` return the address. This
   cost an hour of chasing a migration that never happened. Trust `registry.owner()` and the account's
   transaction list, not the app. (E7)
+- ⚠️ **The ENS app cannot show these records, and says nothing about it.** An offchain resolver cannot
+  enumerate its keys, so the app queries a fixed profile set and renders an empty Records tab for a
+  name that is serving six records perfectly well. `cast` cannot follow an `OffchainLookup` either.
+  **Never send anyone to either to verify this** — they conclude it is broken. Send them to
+  `getEnsText` (viem or ethers, both confirmed) or to `probes/ens-resolve.mjs live`. (E9)
 - ❌ **`resolve()` must forward `msg.data`, not `data`.** `data` alone is the inner
   `text(bytes32,string)` call and a node is a namehash — one-way, so a gateway holding only that
   cannot recover the label, and the label is the only route to the fingerprint. The first mainnet

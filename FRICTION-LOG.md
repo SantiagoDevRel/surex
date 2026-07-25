@@ -804,6 +804,35 @@ way it hid is the interesting part, and it will happen to someone else.
 
 ---
 
+### E9 · A name with offchain records renders as a name with NO records, and nothing says otherwise — **[VERIFIED]**
+**Severity: medium — it is the difference between a working integration and one everybody believes is
+broken.** Feedback for ENS rather than a bug in our code.
+
+- **Expected:** `app.ens.domains/<subname>` is the obvious place to send someone to check that a name
+  carries records.
+- **Happened:** for `sxf1-09dcb…surex.eth` — resolved by a live ERC-3668 wildcard resolver on mainnet
+  serving six text records — the app loads the name, shows `parent: surex.eth`, and presents an
+  **empty Records tab**. Meanwhile `getEnsText` on the same name returns `flagged` in one line, from
+  both viem and ethers.
+- **Why it happens, and why it is not a fix we can make:** an offchain resolver cannot enumerate its
+  records. There is no `listTextKeys()`, so a client can only display keys it already thought to ask
+  for, and the app asks for a fixed profile set — `avatar`, `description`, `url`, `com.twitter` and
+  friends. A custom namespace is invisible by construction.
+- **The actual problem is the silence.** The app knows the resolver is not a standard profile resolver
+  — it warns about exactly that when you set it. Having warned, it then renders "no records", which
+  reads as a fact about the name rather than a limit of the query. Anyone sent to that URL concludes
+  the integration does not work.
+- **Repro:** deploy any `IExtendedResolver` serving a custom text key, `setResolver` a name to it,
+  open the name in the app, compare against `getEnsText(name, '<your key>')`.
+- **Fix we'd suggest:** when a name's resolver reports `supportsInterface(0x9061b923)` and no profile
+  keys resolve, say so — *"this name uses an offchain resolver; records outside the standard set
+  cannot be listed here"* — with a field to query an arbitrary key. The second half is small and would
+  make custom-namespace resolvers demonstrable to non-developers, which right now they are not.
+- **Related:** `cast` cannot follow an `OffchainLookup` at all (Foundry has no CCIP-Read support), so
+  the two most obvious "just check it quickly" tools both come up empty for offchain names.
+
+---
+
 ## Claude Code (not a sponsor, but the enforcement surface — worth sending upstream)
 
 > Probes: `probes/hook/` — a minimal zero-dependency stdio MCP server plus a hook script, driven by

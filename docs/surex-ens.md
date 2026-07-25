@@ -248,6 +248,20 @@ The runbook is `contracts/README.md`. The order matters: deploying the resolver 
 `setResolver` is called on the parent, and that one transaction is what turns wildcard resolution on
 for every entry at once.
 
+## 6b. Where it does not work, and why
+
+Verified, not assumed:
+
+- **The ENS app shows nothing.** It confirms the name resolves and shows `parent: surex.eth`, but its
+  Records tab is empty. An offchain wildcard resolver cannot enumerate records, so a client must *ask*
+  for specific keys and `surex:*` is not in the app's list. Never send anyone there to check — they
+  will conclude it is broken. (`FRICTION-LOG.md` E9)
+- **Wallets and the Safe UI**, same reason: a fixed key set they query, which `surex:*` is not in.
+- **`cast`** has no CCIP-Read support and stops at the `OffchainLookup` revert.
+
+What does work: viem, ethers, wagmi, ensjs — anything already holding an Ethereum client. That is the
+population §2 names, and this is why it names that population rather than "anyone".
+
 ## 7. Out of scope
 
 - **The Gate does not cross-check ENS.** The hot path stays untouched. `AGENTS.md` §7 records that a
@@ -267,4 +281,5 @@ for every entry at once.
 | Digest agreement across languages | `pnpm --filter @surex/web test` — the golden vector, asserted against the Solidity source as text |
 | Copy law over every record | same suite — the whole state × tier × severity × reason space |
 | Gateway ↔ resolver, end to end | `node probes/ens-resolve.mjs mock` then `node ens-resolve.mjs gateway`, with `next dev` between them |
-| A real client, against mainnet | `node probes/ens-resolve.mjs sepolia --name sxf1-<40 hex>.surex.eth --rpc https://ethereum-rpc.publicnode.com` — resolution reaches the contract; the fetch fails until the gateway ships |
+| The deployed contract, hop by hop | `node probes/ens-resolve.mjs live --name sxf1-<40 hex>.surex.eth` — drives the DEPLOYED resolver rather than a constructed request, and names the failing hop |
+| A stranger, with no repo | `npm i viem`, then `getEnsText({name, key: 'surex:state'})` against any mainnet RPC → `flagged`. ethers `getResolver().getText()` works identically |
