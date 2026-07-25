@@ -33,6 +33,15 @@ export const COPY = {
   nav: {
     registry: 'registry',
     submit: 'submit a server',
+    /**
+     * The one thing a visitor can do that changes anything on their machine, so
+     * it is the one thing in the chrome styled as an action rather than a
+     * destination. "Get the plugin" over "download": nothing is downloaded — the
+     * install is two slash commands pasted into Claude Code, and a button
+     * promising a file would be describing a different product.
+     */
+    install: 'get the plugin',
+    installTitle: 'Install the SureX gate into Claude Code — two slash commands, no npm install',
     skipToContent: 'Skip to content',
     themeToDark: 'switch to dark',
     themeToLight: 'switch to light',
@@ -415,7 +424,11 @@ export const COPY = {
     resultUnreachableBody:
       'Nothing was submitted. Whatever you typed stayed in this browser — the request never left it.',
     resultMissingLabel: 'INCOMPLETE',
-    resultMissingBody: 'A repository and a release tag are both needed before anything is fetched.',
+    // Says what to DO, and no longer names a release tag as required — a repo with
+    // no releases resolves to its default-branch commit, which is a complete
+    // submission and a stronger identifier than a tag.
+    resultMissingBody:
+      'Paste a repository. SureX resolves its versions and its latest commit for you; you never type one in.',
     whatHappensLabel: 'WHAT HAPPENS TO YOUR CODE',
     whatHappens1:
       'The release is fetched at the commit you name and normalised — sorted paths, zeroed timestamps — so two people submitting the same release produce the same bytes.',
