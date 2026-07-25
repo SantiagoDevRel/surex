@@ -27,6 +27,18 @@ export const ROUTES = Object.freeze({
   disputes: () => `/${API_VERSION}/disputes`,
   /** Public feed, for org-level gateways that want to mirror the flags (FR-14). */
   flagged: () => `/${API_VERSION}/flagged`,
+  /**
+   * The whole registry, every state — what a browse page needs. `flagged` is the
+   * wrong shape for browsing: seeded entries are written `unknown`, so a
+   * flagged-only feed shows an empty registry as soon as seeding populates it.
+   */
+  registry: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.state) q.set('state', params.state);
+    const qs = q.toString();
+    return `/${API_VERSION}/registry${qs ? `?${qs}` : ''}`;
+  },
   /** Registry hit rate and friends. Failure-modes §3.1 calls this the first number. */
   stats: () => `/${API_VERSION}/stats`,
 });

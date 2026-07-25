@@ -108,6 +108,23 @@ export function createMockStore(options = {}) {
     return mark({ heads: heads.slice(0, limit).map(mark), total: heads.length });
   }
 
+  /** The whole fixture registry, every state — mirrors the live shape. */
+  async function listRegistry({ limit = 200, state = null } = {}) {
+    const RANK = { flagged: 0, disputed: 1, stale: 2, unreviewable: 3, clean: 4, unknown: 5 };
+    const heads = present
+      .map((f) => f.head)
+      .filter((h) => !state || h.state === state)
+      .sort(
+        (a, b) =>
+          (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
+          Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
+          String(a.name ?? a.fingerprint).localeCompare(String(b.name ?? b.fingerprint)),
+      );
+    const byState = {};
+    for (const h of heads) byState[h.state] = (byState[h.state] ?? 0) + 1;
+    return mark({ heads: heads.slice(0, limit).map(mark), total: heads.length, byState });
+  }
+
   async function stats() {
     const byState = {};
     for (const f of present) byState[f.head.state] = (byState[f.head.state] ?? 0) + 1;
@@ -134,6 +151,7 @@ export function createMockStore(options = {}) {
     getSource,
     getReview,
     listFlagged,
+    listRegistry,
     stats,
     health,
   };

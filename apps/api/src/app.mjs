@@ -15,6 +15,7 @@ import {
   CACHE,
   GATE_BUDGET,
   ERROR_CODES,
+  STATES,
   apiError,
   isFingerprint,
   unknownHead,
@@ -178,11 +179,11 @@ export function createApp(options = {}) {
   app.onError((err, c) => {
     telemetry.upstreamErrors += 1;
     logger.error?.(`[surex-api] ${c.req.method} ${c.req.path} failed:`, err);
-    // NOTE: the frozen ERROR_CODES has no generic internal-error code, so an
-    // unexpected fault is reported as upstream_unavailable with an honest message
-    // rather than inventing a code the gate has never seen. Flagged for /v2.
+    // ERROR_CODES.INTERNAL was added to the contract after this lane reported the
+    // gap: reporting our own fault as `upstream_unavailable` blames the wrong
+    // party, and a client deciding whether to retry needs to know which it is.
     return c.json(
-      apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, 'the API failed to serve this request', {
+      apiError(ERROR_CODES.INTERNAL, 'the API failed to serve this request', {
         detail: String(err?.message ?? err).slice(0, 300),
       }),
       500,
@@ -205,6 +206,7 @@ export function createApp(options = {}) {
         'GET  /v1/review/:key',
         'POST /v1/disputes',
         'GET  /v1/flagged',
+        'GET  /v1/registry?state=&limit=',
         'GET  /v1/stats',
       ],
       ...(store.illustrative
@@ -397,6 +399,37 @@ export function createApp(options = {}) {
 
   recordRoute('source', (key) => store.getSource(key));
   recordRoute('review', (key) => store.getReview(key));
+
+  // ── the whole registry, for a browse page ─────────────────────────────────
+  // Added because `/v1/flagged` is the wrong shape for browsing: seeded entries
+  // are written `unknown` and never `clean`, so a flagged-only feed renders an
+  // EMPTY registry as soon as seeding is what populates it — which reads as
+  // "nothing here" rather than "nothing flagged".
+  app.get(`/${API_VERSION}/registry`, async (c) => {
+    const raw = Number(c.req.query('limit') ?? 200);
+    const limit = Number.isFinite(raw) ? Math.min(Math.max(1, Math.trunc(raw)), MAX_FLAGGED) : 200;
+    const state = c.req.query('state') ?? null;
+    if (state && !STATES.includes(state)) {
+      return c.json(
+        apiError(ERROR_CODES.INVALID_BODY, `unknown state "${state}". Known states: ${STATES.join(', ')}`),
+        400,
+      );
+    }
+    let listing;
+    try {
+      listing = await store.listRegistry({ limit, state });
+    } catch (err) {
+      return upstream(c, String(err?.message ?? err).slice(0, 200));
+    }
+    c.header('Cache-Control', 'public, max-age=60');
+    return c.json({
+      ...listing,
+      note:
+        'Every state, ordered by what stops a call first. `unknown` means nobody has submitted that exact ' +
+        'install configuration for review — it is not a statement about the code. Seeded entries start ' +
+        'unknown and are never written clean.',
+    });
+  });
 
   // ── the public feed ───────────────────────────────────────────────────────
   app.get(`/${API_VERSION}/flagged`, async (c) => {

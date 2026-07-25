@@ -324,6 +324,45 @@ export function createArkivStore(options = {}) {
   }
 
   /**
+   * The whole registry, every state.
+   *
+   * Added after the web lane found the gap: `/v1/flagged` is the right shape for
+   * an org gateway mirroring the flags, but it is the wrong shape for a browse
+   * page. Seeded entries are written `unknown` and never `clean`, so a
+   * flagged-only feed shows an EMPTY registry the moment seeding is the only
+   * thing populating it — which reads as "nothing here" rather than "nothing
+   * flagged".
+   *
+   * Sorted so the states that matter are at the top and `unknown` — which is
+   * most of a freshly seeded registry — is last.
+   */
+  async function listRegistry({ limit = 200, state = null } = {}) {
+    const predicates = [eq('entityType', 'verdictHead')];
+    if (state) predicates.push(eq('state', state));
+    const { entities, truncated } = await fetchAllPages(scoped(predicates));
+
+    const RANK = { flagged: 0, disputed: 1, stale: 2, unreviewable: 3, clean: 4, unknown: 5 };
+    const heads = entities
+      .map(entityToHead)
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
+          Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
+          String(a.name ?? a.fingerprint).localeCompare(String(b.name ?? b.fingerprint)),
+      );
+
+    const byState = {};
+    for (const h of heads) byState[h.state] = (byState[h.state] ?? 0) + 1;
+    return {
+      heads: heads.slice(0, limit),
+      total: heads.length,
+      byState,
+      truncated: truncated || undefined,
+    };
+  }
+
+  /**
    * Registry hit rate first (failure-modes §3.1). Counts come from the chain via
    * the query builder's own count(); the hit rate is passed in by the caller
    * because it is observed traffic, not chain state.
@@ -376,6 +415,7 @@ export function createArkivStore(options = {}) {
     getSource,
     getReview,
     listFlagged,
+    listRegistry,
     stats,
     health,
   };
