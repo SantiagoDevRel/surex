@@ -125,6 +125,60 @@
 - The SDK does read package/object IDs at runtime, so nothing has to be pinned by hand: `TESTNET_WALRUS_PACKAGE_CONFIG` gives the system object and the SUI→WAL `exchangeIds`, and the exchange *package* ID falls out of the on-chain type of the exchange object (`0x82593828…ef9f::wal_exchange::Exchange`).
 - Read-after-certify did **not** need a retry: the public aggregator served the blob on the first attempt.
 
+### S9 · A quilt tells you the patch ids and, separately, the identifiers — and no call gives you both — **[VERIFIED, 49 of 50 records mis-mapped]**
+Measured with `@mysten/walrus@1.2.9` while seeding 50 registry records into one quilt.
+- **Expected:** `writeFilesFlow()` mirrors `writeBlobFlow()`, so stepping `encode -> register -> upload ->
+  certify` and then calling `flow.listFiles()` returns the per-patch addresses **for the files you passed
+  in, in that order** — the way every other batch API in the ecosystem behaves.
+- **Happened:** `listFiles()` returns `{ id, blobId, blobObject }` — **no `identifier` field at all** — and
+  **not in input order**. Mapping positionally was correct for **1 of 50** patches. "Sorted by identifier"
+  was correct for **5 of 50**, so it is not that either. The result is 50 Arkiv records each pointing at a
+  different record's bytes: every `contentSha256` check fails later, and a failing content check is exactly
+  what tampering looks like.
+- **How we found out:** not from the SDK. We fetched one patch back and its `getIdentifier()` returned a
+  different record's key than the one we had filed it under, with a byte length of 884 against a recorded
+  1055.
+- **Repro:**
+  ```js
+  const flow = client.walrus.writeFilesFlow({ files });       // files[i] identifier = fp_i
+  await flow.encode(); /* register, upload, certify ... */
+  const listed = await flow.listFiles();
+  const back = await client.walrus.getFiles({ ids: listed.map((f) => f.id) });
+  console.log(await back[0].getIdentifier() === await files[0].getIdentifier()); // -> false
+  ```
+- **The trap underneath it:** `client.walrus.writeQuilt()` **does** return the mapping you need —
+  `index.patches[]` carries both `patchId` and `identifier` — but, exactly like `executeCertify()` (S4), it
+  **discards the register and certify transaction digests**. So one call gives you provenance without
+  addressing, the other gives addressing without provenance, and no call gives both. Anything that has to
+  cite a record on chain has to write with the flow and then read the mapping back out of the certified
+  quilt, which is what we ended up doing.
+- **And you cannot re-derive the ids later.** `WalrusFile` exposes `getIdentifier()` but not its own patch
+  id, and there is no exported encoder from (blobId, index range) to a patch id — `blobIdFromInt` /
+  `blobIdToInt` are blob-level only. Lose the `listFiles()` output and the patches are unaddressable even
+  though the quilt is certified and readable.
+- **Fix we'd suggest:** put `identifier` on the `listFiles()` result. It is one field, it is already in the
+  quilt index the SDK just parsed, and its absence turns the natural way to write a quilt into silent data
+  corruption. Failing that, have `writeQuilt()` return the two digests, so that at least one call is
+  complete.
+
+### S10 · Quilt is not an optimisation on testnet — without it the seed does not fit in the wallet — **[VERIFIED, measured both ways]**
+- **Measured, one quilt:** 50 record bodies, 49,968 bytes total, 53 epochs → **2 Sui transactions**,
+  **8,157,120 MIST** of gas and **11,312,154 FROST** of storage.
+- **That FROST figure is the same 11,312,154 we paid for a single 129-byte blob** (S8). Confirmed against
+  `storageCost()`, which quotes an identical `storage=10901835 write=410319 total=11312154` for 4 KB, 64 KB
+  and 256 KB — the storage unit, not the byte count, is what gets billed.
+- **So the comparison is stark:** the same 50 records as standalone blobs would have been **100
+  transactions** and **565,607,700 FROST**, against a funded balance of **488,687,846 FROST**. It would not
+  merely have been slower or dearer — **it would not have fitted**, and it would have died around record 43
+  with a half-populated registry and a faucet that takes 53 blind attempts to answer (S1).
+- **Why it matters for an event:** the docs frame Quilt as a cost optimisation for small blobs, which reads
+  as advice you can defer to later. On testnet, for anything that writes tens of records, it is the
+  difference between finishing and not finishing. Worth saying in those terms in the Quilt docs.
+- **The honest trade, for the record:** a quilted record has **no certified Sui object of its own**, so it
+  has no per-record explorer link — it is addressed as (quilt blob, patch id). We keep standalone blobs for
+  source trees, reviews and dispute evidence, where citing one record individually is the entire point, and
+  every quilted pointer we write carries `addressing: 'quilt-patch'` so a reader can tell the two apart.
+
 ---
 
 ## Arkiv
@@ -234,6 +288,60 @@ against 0.6.x, and there is nothing in the package telling you what changed.
   `changeOwnership`; do not use `ownedBy` as a trust boundary. Use `createdBy`, which is immutable."* — and
   the same note in the query docs next to `$owner` / `$creator`. Right now the safe choice is discoverable
   only by noticing that `changeOwnership` exists.
+
+### A6 · Three separate traps in one pagination loop, and each fails in a different direction — **[VERIFIED]**
+Reading back a 50-entity seed with `@arkiv-network/sdk@0.7.0`.
+- **Expected:** the shape every JS pagination API has used for a decade —
+  `while (result.hasNextPage) { result = await result.next(); }`.
+- **Happened:** three things, and only the third throws anywhere near the mistake.
+  1. **`hasNextPage` is a METHOD, not a property.** `result.hasNextPage` evaluates to a function object,
+     which is **always truthy**, so the guard never stops the loop. Nothing warns; the code just paginates
+     until something else breaks.
+  2. **`next()` mutates the result in place and returns `undefined`.** So the idiomatic
+     `result = await result.next()` sets `result` to `undefined`, and the following line throws on
+     `.entities` — a `TypeError` several frames from the cause.
+  3. **`.limit()` is mandatory for pagination.** With no limit, `_limit` is `undefined` and `next()` throws
+     `NoCursorOrLimitError: Cursor and limit must be defined to fetch next`. A builder with no `.limit()`
+     looks paginable and is not.
+- **Repro:**
+  ```js
+  const r = await pub.buildQuery().where([eq('project', P)]).createdBy(W).fetch();
+  console.log(typeof r.hasNextPage);   // -> 'function'  (so `if (r.hasNextPage)` is always true)
+  console.log(!!r.hasNextPage);        // -> true, even on a single complete page
+  console.log(await r.next());         // -> undefined   (and `r` itself has already moved on)
+  ```
+- **What the correct loop is:**
+  ```js
+  const r = await builder.limit(100).fetch();
+  const all = [...r.entities];
+  while (r.hasNextPage()) { await r.next(); all.push(...r.entities); }
+  ```
+- **Why it matters:** the failure is not "pagination is awkward", it is that the natural spelling **silently
+  reads one page and reports success**. For a registry read that is a truncated answer presented as a
+  complete one.
+- **Fix we'd suggest:** rename to `hasMore()` or expose it as a getter so the property form cannot be
+  misread; return `this` from `next()` so the assignment form works; and throw a named error at `fetch()`
+  time when a query cannot be paginated, rather than one page later.
+
+### A7 · `mutateEntities` is ~50x cheaper in wall-clock than 50 `createEntity` calls, and nothing says so — **[VERIFIED, measured]**
+- **Measured:** `createEntity()` takes ~4.6 s because it awaits the receipt (A4).
+  `mutateEntities({creates})` with **50 creates** returned in **4,629 ms** — one transaction, one receipt,
+  the same 4.6 s. Four creates took 4,597 ms. The per-entity marginal cost inside a batch is roughly
+  **zero**, so a 100-entity seed is two receipts instead of a hundred: **~9 s against ~7.5 minutes.**
+- **Also confirmed, because we had to rely on it:** `createdEntities[]` comes back in **the same order as
+  `creates[]`**. Verified rather than assumed — we wrote four entities with distinguishing attributes, then
+  read each returned key back and compared the stored attribute against the input. 4/4 matched, and again
+  across 50. This is load-bearing for anyone recording keys against specific records, and it is not stated
+  anywhere.
+- **And:** a numeric attribute holding epoch **milliseconds** (`1784950249894`) round-trips exactly, so
+  timestamps do not have to be scaled down to seconds to stay integers.
+- **Why it matters:** the docs present `createEntity` as the normal path and `mutateEntities` as a
+  convenience. At 4.6 s per call that framing costs a seeding job an order of magnitude, and it is the same
+  discoverability trap as batch writes elsewhere — the singular call never mentions the plural one.
+- **Fix we'd suggest:** one line on `createEntity`'s JSDoc — *"awaits the receipt (~4.6 s); to write more
+  than one entity use `mutateEntities`, which batches into a single transaction"* — plus an explicit
+  guarantee that `createdEntities` preserves input order, since callers cannot use the result safely without
+  it.
 
 ---
 

@@ -1,0 +1,29 @@
+{
+  "name": "@surex/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The write path. Walrus blob writer + Arkiv entity writer + the licence gate. This package writes; it never serves reads.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./walrus": "./src/walrus.mjs",
+    "./arkiv": "./src/arkiv.mjs",
+    "./entities": "./src/entities.mjs",
+    "./licence": "./src/licence.mjs",
+    "./registry": "./src/registry.mjs",
+    "./progress": "./src/progress.mjs"
+  },
+  "files": ["index.mjs", "src"],
+  "scripts": {
+    "balances": "node bin/balances.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "0.7.0",
+    "@mysten/sui": "2.22.1",
+    "@mysten/walrus": "1.2.9",
+    "@surex/core": "workspace:*",
+    "viem": "^2.55.8"
+  }
+}

@@ -1,0 +1,4 @@
+# The seed checkpoint is a record of one machine's run — real blob IDs, real tx
+# digests, real timings. Useful locally, meaningless in the repo, and it changes
+# on every run.
+state/

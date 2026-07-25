@@ -31,17 +31,39 @@ export function sha256Hex(bytes) {
 }
 
 /**
+ * Is this evidence pointer a patch inside a Quilt rather than a blob of its own?
+ *
+ * Quilt batches many small records into one storage unit, which is what made
+ * seeding affordable at all — 50 standalone blobs would have cost 100 Sui
+ * transactions and more WAL than the wallet held. The trade-off, which the spec
+ * called and which shows up here, is that a quilted record is addressed as
+ * (quilt blob, patch id) and does NOT get its own certified Sui object.
+ */
+export function isQuiltPatch(evidence) {
+  return Boolean(evidence?.patchId || evidence?.addressing === 'quilt-patch');
+}
+
+/**
  * Fetch a blob by ID, trying each aggregator until one answers.
  * Returns the raw bytes plus which aggregator served them — the second half
  * matters, because "which node told you this" is part of the provenance.
+ *
+ * A quilt patch is a different route: `/v1/blobs/by-quilt-patch-id/<patchId>`.
+ * Asking for a patch id on the plain blob route is a 400, and asking for the
+ * QUILT when the record is a patch returns ~9x the bytes — whose digest then
+ * fails the content check and reports "evidence did not match the record" about
+ * a record that is perfectly fine. A false alarm here costs as much as a miss.
  */
 export async function fetchBlob(blobId, opts = {}) {
   const aggregators = opts.aggregators ?? DEFAULT_AGGREGATORS;
   const timeoutMs = opts.timeoutMs ?? 4000;
+  const patchId = opts.patchId ?? null;
   const errors = [];
 
   for (const base of aggregators) {
-    const url = `${base.replace(/\/+$/, '')}/v1/blobs/${encodeURIComponent(blobId)}`;
+    const url = patchId
+      ? `${base.replace(/\/+$/, '')}/v1/blobs/by-quilt-patch-id/${encodeURIComponent(patchId)}`
+      : `${base.replace(/\/+$/, '')}/v1/blobs/${encodeURIComponent(blobId)}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -117,6 +139,38 @@ export async function verifyEvidenceBytes({ bytes, evidence, computeBlobId } = {
     });
   }
 
+  // A quilted record cannot recompute to its own blob ID — the certified Sui
+  // object commits to the whole quilt, and the patch is addressed within it. Say
+  // exactly that, and run the one structural check that IS available: the patch
+  // id must be addressed within the quilt blob id the record names.
+  if (isQuiltPatch(evidence)) {
+    const quiltId = evidence.quiltBlobId ?? evidence.blobId;
+    const inQuilt = Boolean(quiltId && String(evidence.patchId ?? '').startsWith(String(quiltId)));
+    checks.push({
+      name: 'patch-in-quilt',
+      status: inQuilt ? 'passed' : 'failed',
+      detail: inQuilt
+        ? `patch is addressed inside certified quilt ${String(quiltId).slice(0, 12)}…`
+        : `patch id ${String(evidence.patchId).slice(0, 16)}… is not addressed inside ${String(quiltId).slice(0, 12)}…`,
+    });
+    checks.push({
+      name: 'blob-id',
+      status: 'asserted',
+      detail:
+        'this record is a quilt patch, so it has no certified blob of its own — the Sui object ' +
+        'certifies the whole quilt. Batching is what made seeding affordable; per-record certification ' +
+        'is what it cost.',
+    });
+    const failedEarly = checks.filter((c) => c.status === 'failed');
+    return {
+      ok: failedEarly.length === 0,
+      strong: checks.some((c) => c.status === 'passed') && failedEarly.length === 0,
+      sha256: actualSha,
+      quilted: true,
+      checks,
+    };
+  }
+
   if (evidence?.blobId) {
     if (typeof recompute === 'function') {
       try {
@@ -159,7 +213,12 @@ export async function verifyEvidenceBytes({ bytes, evidence, computeBlobId } = {
  */
 export async function loadEvidence(evidence, opts = {}) {
   try {
-    const { bytes, servedBy, url } = await fetchBlob(evidence.blobId, opts);
+    const { bytes, servedBy, url } = await fetchBlob(evidence.blobId, {
+      ...opts,
+      // Route to the patch when the record is quilted, or we fetch the whole
+      // quilt and fail our own content check on a good record.
+      patchId: isQuiltPatch(evidence) ? evidence.patchId : opts.patchId,
+    });
     const verification = await verifyEvidenceBytes({ bytes, evidence, computeBlobId: opts.computeBlobId });
     let body = null;
     try {

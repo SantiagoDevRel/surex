@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeBlobId, computeBlobMetadata, encoderAvailable, WALRUS_TESTNET_SHARDS } from '../src/blobid.mjs';
-import { verifyEvidenceBytes, sha256Hex } from '../src/blob.mjs';
+import { verifyEvidenceBytes, sha256Hex, isQuiltPatch } from '../src/blob.mjs';
 
 /**
  * A REAL blob, written and certified by probes/walrus-write.mjs on Walrus
@@ -91,6 +91,73 @@ test('truncated bytes FAIL, which is the aggregator-lied case', async () => {
   });
   assert.equal(result.ok, false);
   assert.equal(result.checks.filter((c) => c.status === 'failed').length, 2, 'both checks must catch it');
+});
+
+/**
+ * The seed run put 50 registry entries into ONE Walrus Quilt, because 50
+ * standalone blobs would have cost 100 Sui transactions and more WAL than the
+ * wallet held — 565,607,700 FROST against a balance of 488,687,846. Batching was
+ * not an optimisation, it was the run.
+ *
+ * These are the real recorded pointers for `@certscore/mcp` from that quilt.
+ */
+const QUILT = {
+  blobId: 't58ndYpTeZMcmD_eOUbRfRqcEBkx0Wmw61h7Xdpj3pQ',
+  quiltBlobId: 't58ndYpTeZMcmD_eOUbRfRqcEBkx0Wmw61h7Xdpj3pQ',
+  patchId: 't58ndYpTeZMcmD_eOUbRfRqcEBkx0Wmw61h7Xdpj3pQBJgAoAA',
+  addressing: 'quilt-patch',
+  contentSha256: 'd52d99d63e9b004f72fe3ea26b165f197793eccb6e5ebe088f802ece270cf1eb',
+  nShards: 1000,
+};
+
+test('a quilted record is recognised as one', () => {
+  assert.equal(isQuiltPatch(QUILT), true);
+  assert.equal(isQuiltPatch({ blobId: REAL_BLOB_ID }), false);
+  assert.equal(isQuiltPatch(null), false);
+});
+
+test('a quilt patch verifies against the PATCH digest, not the quilt', async () => {
+  // The bug this pins: `evidence.blobId` names the quilt and `contentSha256` is
+  // the patch's. Fetching the blobId returns ~9x the bytes, whose digest then
+  // fails the content check — reporting "evidence did NOT match the record" about
+  // a record that is perfectly fine. A false alarm costs as much as a miss.
+  const patchBytes = Buffer.from('pretend this is the 1169-byte patch body', 'utf8');
+  const result = await verifyEvidenceBytes({
+    bytes: patchBytes,
+    evidence: { ...QUILT, contentSha256: sha256Hex(patchBytes) },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.quilted, true);
+
+  const byName = Object.fromEntries(result.checks.map((c) => [c.name, c]));
+  assert.equal(byName['content-sha256'].status, 'passed', 'the digest check must really run');
+  assert.equal(byName['patch-in-quilt'].status, 'passed');
+  // And the honest part: a quilted record has no certified blob of its own.
+  assert.equal(byName['blob-id'].status, 'asserted');
+  assert.match(byName['blob-id'].detail, /no certified blob of its own/);
+});
+
+test('a patch that is not addressed inside the quilt it names FAILS', async () => {
+  const bytes = Buffer.from('x', 'utf8');
+  const result = await verifyEvidenceBytes({
+    bytes,
+    evidence: { ...QUILT, contentSha256: sha256Hex(bytes), patchId: 'someOtherQuiltIdEntirelyABC' },
+  });
+  assert.equal(result.ok, false);
+  const check = result.checks.find((c) => c.name === 'patch-in-quilt');
+  assert.equal(check.status, 'failed');
+});
+
+test('a quilted record never claims the blob-id check passed', async () => {
+  const bytes = Buffer.from('y', 'utf8');
+  const result = await verifyEvidenceBytes({
+    bytes,
+    evidence: { ...QUILT, contentSha256: sha256Hex(bytes) },
+    // Even handed a working encoder, a patch must not claim a blob-id match:
+    // the bytes are a patch and the id is the quilt's.
+    computeBlobId: () => QUILT.blobId,
+  });
+  assert.notEqual(result.checks.find((c) => c.name === 'blob-id').status, 'passed');
 });
 
 test('with no encoder the check reports asserted, never passed', async () => {
