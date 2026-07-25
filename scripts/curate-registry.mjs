@@ -47,16 +47,43 @@ const log = (...a) => console.log(...a);
 
 /**
  * The three servers the demo drives the gate against, one per branch of
- * `decide()`. Verified over 10 consecutive reviewer runs at prompt rv-5:
+ * `decide()`. Verified over 10 consecutive reviewer runs, and republished under
+ * prompt rv-6:
  *
  *   honest-weather        clean,   severity 0  → allow
- *   ambiguous-telemetry   flagged, severity 2  → warn   ("are you sureX…?")
- *   mal-tool-shadow       flagged, severity 3  → block
+ *   ambiguous-telemetry   flagged, severity 2  → warn  ("are you sureX…?")
+ *   mal-tool-shadow       flagged, severity 3  → ask   (stop; the human answers)
  */
 export const DEMO_SET = Object.freeze([
   '@surex/honest-weather',
   '@surex/ambiguous-telemetry',
   '@surex/mal-tool-shadow',
+]);
+
+/**
+ * The whole registry, named. Owner's list, 2026-07-25.
+ *
+ * Everything not on it goes. That is a deliberate choice to make the registry
+ * READABLE one entry at a time rather than comprehensive: nine entries carrying a
+ * verdict a person can check, plus exactly one `unreviewable` so the state is
+ * still demonstrable instead of merely described.
+ */
+export const KEEP = Object.freeze([
+  ...DEMO_SET,
+  // Third-party servers that carry a real reviewed verdict.
+  '@playwright/mcp',
+  '@modelcontextprotocol/server-redis',
+  '@modelcontextprotocol/server-memory',
+  '@modelcontextprotocol/server-google-maps',
+  '@modelcontextprotocol/server-gitlab',
+  '@modelcontextprotocol/server-brave-search',
+  /**
+   * The kept specimen. A registry that shows only what it could read teaches that
+   * everything is readable, and the honest answer for most published MCP servers
+   * is that the licence does not permit us to read them. One stays so the state
+   * has an example rather than a paragraph.
+   */
+  '@certscore/mcp',
 ]);
 
 /** Ours to retire: anything under the fixture scope that is not in the demo set. */
@@ -71,22 +98,23 @@ const FIXTURE_SCOPE = '@surex/';
 export function planFor(head) {
   const name = String(head?.name ?? '');
   const state = String(head?.state ?? '');
-  const ours = name.startsWith(FIXTURE_SCOPE);
 
-  if (DEMO_SET.includes(name)) {
-    return { action: 'keep', why: 'the demo set' };
+  if (name && KEEP.includes(name)) {
+    return { action: 'keep', why: DEMO_SET.includes(name) ? 'the demo set' : 'on the keep list' };
+  }
+  if (!name) {
+    // A head with no name cannot be matched against anything, and guessing is how
+    // the wrong entity gets deleted. Keeping it costs one row.
+    return { action: 'keep', why: 'unnamed — never removed on an assumption' };
   }
   if (state === 'unknown') {
-    // Ours or not: an `unknown` head is a placeholder, never a verdict, so this
-    // is the one removal that applies to third-party names too. Nothing that was
-    // ever concluded about them is being erased, because nothing was concluded.
     return { action: 'remove', why: 'a seeding placeholder — `unknown` is the absence of an entry' };
   }
-  if (ours) {
+  if (name.startsWith(FIXTURE_SCOPE)) {
     return { action: 'remove', why: 'a verdict about our own fixture, which we are the subject of' };
   }
   if (state === 'unreviewable') {
-    return { action: 'keep', why: 'a real answer about a third party — filtered from the view, never deleted' };
+    return { action: 'remove', why: 'no verdict was reached about it — see the note on assertRemovable' };
   }
   return { action: 'keep', why: `a reviewed third-party verdict (${state})` };
 }
@@ -95,14 +123,34 @@ export function planFor(head) {
  * The guard, kept separate from the plan so it cannot be reasoned around: whatever
  * `planFor` decided, a third party's REACHED verdict is never removable.
  *
- * Tested by mutation — a plan that tries to remove one of these has to fail loudly
- * here rather than at the chain.
+ * ── on removing a third party's `unreviewable` ────────────────────────────────
+ *
+ * The owner asked for a registry of ten named entries, which means removing 24
+ * `unreviewable` heads about real packages. That deserves saying out loud rather
+ * than doing quietly, because AGENTS.md §4 says a verdict is superseded, never
+ * deleted, and these are about servers we do not own.
+ *
+ * What makes it defensible is what `unreviewable` MEANS. It is the state for
+ * "we could not read this" — a licence that does not permit review, source that
+ * does not correspond to the declared tools, an OCI image with no tarball to
+ * read. No conclusion was ever reached about the code, so there is no finding to
+ * bury and nobody is protected by the row's continued existence. The rule exists
+ * so an ACCUSATION cannot be made to disappear; an `unreviewable` is the opposite
+ * of an accusation, and removing one takes nothing away from the package's author.
+ *
+ * `@certscore/mcp` stays for exactly this reason: the state has to remain
+ * demonstrable rather than merely described, so one real example is kept on chain.
+ *
+ * A third party's REACHED verdict — clean, flagged, disputed, stale — is still
+ * never removable, and this throws if a plan ever asks.
  */
 export function assertRemovable(head) {
   const name = String(head?.name ?? '');
   const state = String(head?.state ?? '');
   const ours = name.startsWith(FIXTURE_SCOPE);
-  if (!ours && state !== 'unknown') {
+  const reached = !['unknown', 'unreviewable'].includes(state);
+  if (!name) throw new Error('refusing to remove an unnamed head');
+  if (!ours && reached) {
     throw new Error(
       `refusing to remove ${name}: a ${state} verdict about a third party is superseded, never deleted (AGENTS.md §4)`,
     );

@@ -14,7 +14,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { planFor, assertRemovable, DEMO_SET } from '../curate-registry.mjs';
+import { planFor, assertRemovable, DEMO_SET, KEEP } from '../curate-registry.mjs';
 
 const head = (over = {}) => ({ name: '@acme/some-mcp', state: 'clean', severity: 0, ...over });
 
@@ -32,8 +32,10 @@ test('the demo set is kept even though it is ours', () => {
   }
 });
 
-test('a third party`s reached verdict is never removable, whatever its state', () => {
-  for (const state of ['clean', 'flagged', 'disputed', 'unreviewable', 'stale']) {
+test('a third party`s REACHED verdict is never removable, whatever its state', () => {
+  // clean / flagged / disputed / stale are conclusions somebody reached about
+  // somebody else's code. Those are the ones §4 protects.
+  for (const state of ['clean', 'flagged', 'disputed', 'stale']) {
     const h = head({ state, severity: state === 'flagged' ? 4 : 0 });
     assert.equal(planFor(h).action, 'keep', `${state} must be kept`);
     assert.throws(
@@ -44,19 +46,47 @@ test('a third party`s reached verdict is never removable, whatever its state', (
   }
 });
 
-test('unreviewable is kept explicitly, and the reason says it is a real answer', () => {
-  // The owner asked for a registry with no unreviewable entries in it. That is a
-  // VIEW decision: "we could not read this, and here is why" is a finding about
-  // somebody else's package, and deleting it would be deleting a verdict.
-  const p = planFor(head({ state: 'unreviewable' }));
-  assert.equal(p.action, 'keep');
-  assert.match(p.why, /never deleted/);
+test('a third party`s unreviewable IS removable, because no verdict was reached', () => {
+  // The narrow exception, and the reason it is narrow. `unreviewable` is the
+  // state for "we could not read this" — a licence that does not permit review,
+  // source that does not match the declared tools. No conclusion was reached, so
+  // there is no finding to bury and the package's author loses nothing.
+  const h = head({ name: '@acme/unreadable', state: 'unreviewable' });
+  assert.equal(planFor(h).action, 'remove');
+  assert.ok(assertRemovable(h));
+});
+
+test('one unreviewable is kept, so the state stays demonstrable', () => {
+  // A registry showing only what it could read teaches that everything is
+  // readable. One real example stays on chain rather than a paragraph saying so.
+  assert.ok(KEEP.includes('@certscore/mcp'));
+  assert.equal(planFor(head({ name: '@certscore/mcp', state: 'unreviewable' })).action, 'keep');
+});
+
+test('the keep list is the whole registry, and the demo set is inside it', () => {
+  assert.equal(KEEP.length, 10, 'the owner named ten entries');
+  assert.equal(new Set(KEEP).size, KEEP.length, 'no duplicates');
+  for (const name of DEMO_SET) assert.ok(KEEP.includes(name), `${name} must survive`);
+  // Anything not named goes, however good its verdict looks.
+  assert.equal(planFor(head({ name: '@acme/not-on-the-list', state: 'unreviewable' })).action, 'remove');
+});
+
+test('the keep list wins over every removal rule', () => {
+  // A named entry survives whatever state it is in. Checked because the rules
+  // below would otherwise remove two of these, and the list is the owner's
+  // decision rather than a hint.
+  for (const name of KEEP) {
+    for (const state of ['unknown', 'unreviewable', 'clean', 'flagged']) {
+      assert.equal(planFor({ name, state }).action, 'keep', `${name} @ ${state}`);
+    }
+  }
 });
 
 test('an unknown head is removable for anyone, because it is not a verdict', () => {
   // The one removal that reaches third-party names. Nothing was ever concluded
-  // about them, so nothing is being erased.
-  for (const name of ['@acme/some-mcp', '@surex/honest-notes', '@modelcontextprotocol/server-redis']) {
+  // about them, so nothing is being erased. None of these is on the keep list —
+  // that list wins, and the test above is what proves it.
+  for (const name of ['@acme/some-mcp', '@surex/honest-notes', '@modelcontextprotocol/server-everything']) {
     const h = head({ name, state: 'unknown' });
     assert.equal(planFor(h).action, 'remove');
     assert.match(planFor(h).why, /placeholder|absence of an entry/);
@@ -77,8 +107,11 @@ test('our own retired fixtures are removable; the scope check is a prefix, not a
 });
 
 test('a missing or malformed head is never silently removable', () => {
+  // An unnamed head cannot be matched against the keep list, and guessing is how
+  // the wrong entity gets deleted. Keeping it costs one row; the alternative is
+  // unbounded.
   for (const h of [undefined, null, {}, { name: '' }, { state: 'clean' }]) {
     assert.equal(planFor(h).action, 'keep', 'unknown shape defaults to keeping');
-    assert.throws(() => assertRemovable(h), /superseded, never deleted/);
+    assert.throws(() => assertRemovable(h), /refusing to remove an unnamed head/);
   }
 });
