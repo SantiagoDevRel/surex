@@ -25,20 +25,30 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 
 ## 2. Status — read this before assuming anything exists
 
-**Design phase. No service is running. No code has been written yet.**
+**Building. The chain runs end to end. The registry is not yet populated from real reviews.**
 
 | Area | State |
 |---|---|
-| Product specs (PRD, tech spec, track fit, failure modes) | written — `docs/` |
+| Product specs (PRD, tech spec, track fit, failure modes) | written — `docs/`, corrected against measurement as we go |
 | Design system + screens | first round done — `design/` |
-| Architecture diagram | done — `design/architecture-plate.html` |
 | Public explainer | done — deployed |
-| Gate, API, worker, reviewer, web app | **not started** |
-| Any on-chain write, any real review | **none yet** |
+| `packages/core` | **done** — SXF-1, the frozen `/v1` contract, verdict decision, copy law, blob verification |
+| `packages/plugin` | **done** — the gate + `surex` CLI, zero dependencies, installable from this repo |
+| `packages/fixture-mcp` | **done** — the deliberately malicious fixture, safe to run |
+| **The chain, end to end** | **verified — `node demo/chain.mjs`, 13/13** |
+| One Walrus blob written + certified | **done**, both Sui digests captured — §7 |
+| One Arkiv entity written + read filtered by `.createdBy` | **done**, including the adversarial case — §7 |
+| Reviewer, API, web app, worker + seeding | in progress |
+| Any **real** review of a real server | **none yet** — nothing in the registry describes a real review |
 
-Everything numeric currently visible in `design/prototype.html` is **placeholder content**. It is served
-behind a banner saying so. Never remove that banner while the data is fake, and never quote those numbers
-anywhere as if they were real.
+**What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch
+and the blob-ID recomputation are real and tested. The *verdict content* in the demo is a hand-written head
+pointing at a real certified blob — the mechanism is genuine, the finding is about our own fixture, and no
+third-party server has been reviewed by anything. Say it that way.
+
+Everything numeric in `design/prototype.html` is **placeholder content** served behind a banner. Never
+remove that banner while the data is fake, and never quote those numbers as if they were real. Anything the
+API serves in mock mode carries `illustrative: true`, and no surface may strip it.
 
 ## 3. What to read, in order
 

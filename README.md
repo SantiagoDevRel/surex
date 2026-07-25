@@ -11,24 +11,41 @@ proceed anyway.
 
 Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 
-## Status: design phase
+## Status
 
-**Nothing is running yet.** No reviews have been performed, no records have been written on-chain, and no
-MCP server has been evaluated. This repository currently holds the product specification, the design
-system, and a static explainer.
+**The chain runs end to end.** One command proves it:
 
-Everything numeric in the prototype is **illustrative placeholder content**, labelled as such on the page.
-None of it describes a real registry.
+```bash
+node demo/chain.mjs      # 13/13 — see demo/README.md
+```
 
-| | |
+That drives a real headless Claude Code session with the gate installed as a plugin, has the model call a
+tool on a deliberately malicious MCP server we wrote, and checks every link: the hook fires, the call is
+denied, the evidence is fetched from Walrus, and **the blob ID is recomputed locally from the bytes that
+came back** — not asserted. Then `surex allow` releases it.
+
+**What is not real yet, stated plainly.** No model has reviewed a real third-party MCP server. Nothing in
+this repository is a claim about anyone else's code. The verdict content in the demo is hand-written and
+describes our own fixture; the *mechanism* is what is real. Arkiv is stood in for locally in that run.
+[`demo/README.md`](./demo/README.md) draws the line explicitly, and
+[`AGENTS.md` §2](./AGENTS.md) keeps the current state of every component.
+
+| Built | |
+|---|---|
+| [`packages/core`](./packages/core) | `SXF-1` fingerprint, the frozen `/v1` contract, the verdict decision, the copy law as executable rules, blob verification |
+| [`packages/plugin`](./packages/plugin) | the gate + the `surex` command. Zero dependencies, installable straight from this repo |
+| [`packages/fixture-mcp`](./packages/fixture-mcp) | the malicious fixture — the only thing SureX ever flags. [Why it is safe to run](./packages/fixture-mcp/SAFETY.md) |
+| [`probes/`](./probes) | the throwaway scripts that measured the enforcement surface, Walrus and Arkiv before any feature code was written |
+| [`demo/`](./demo) | the end-to-end run |
+
+| Reference | |
 |---|---|
 | [Explainer](./public/index.html) | how the whole system works, written for non-developers |
-| [Prototype](./public/prototype.html) | the six product screens — placeholder data |
+| [Prototype](./public/prototype.html) | the product screens — placeholder data, labelled on the page |
 | [Architecture](./public/architecture.html) | the two loops, the state matrix, the tier matrix |
-| [Verdict system](./public/verdict-options.html) | eight explorations of how a verdict renders |
 | [Tokens](./public/tokens.html) | the design token and component set |
 | [`docs/`](./docs) | PRD, technical specification, track fit, failure modes |
-| [`FRICTION-LOG.md`](./FRICTION-LOG.md) | verified problems found in sponsor SDKs while building |
+| [`FRICTION-LOG.md`](./FRICTION-LOG.md) | verified problems found in sponsor SDKs while building — with repro commands |
 
 ## How it is meant to work
 
@@ -64,6 +81,50 @@ Claude Code `PreToolUse` hooks for enforcement · [Arkiv](https://arkiv.network)
 [Walrus](https://docs.wal.app/) on [Sui](https://sui.io) for content-addressed records ·
 [World ID and AgentKit](https://docs.world.org) for human and agent identity · an open-source model on an
 NVIDIA DGX for the review.
+
+## What we measured, and what it cost us to believe otherwise
+
+Everything here was found by running something, not by reading a doc. Full write-ups with repro commands in
+[`FRICTION-LOG.md`](./FRICTION-LOG.md).
+
+- **A hook returning `permissionDecision: "allow"` GRANTS the call.** Our own spec had the *unknown* path
+  emitting `allow`, which would have auto-approved exactly the servers SureX knows nothing about — strictly
+  worse than not installing it. The warn path now emits a notice and no decision, leaving Claude Code's
+  permission flow in charge.
+- **A `PreToolUse` hook that exceeds its timeout fails open**, silently. The tool runs and nothing tells the
+  user a check was skipped. That is the posture we want, but it also means a slow gate is a disabled gate.
+- **The documented 10,000-character cap on hook output did not apply** — 12,054 characters arrived intact.
+  The real limit is comprehension: at that size the model stopped reading it as a block and called it a tool
+  error. Block messages are kept short by test.
+- **Not one of the 15 MCP servers on a real developer's machine is version-pinned.** The convention is
+  `npx -y pkg@latest`. So every one of them is Tier C, and Tier A — which is implemented, and is the answer
+  to this project's deepest weakness — is close to unreachable in the ecosystem as it exists today. We grade
+  it C and say so on the verdict rather than let it read as a pass.
+- **An MCP server config is not portable across platforms.** Windows writes `cmd /c npx <pkg>`; macOS writes
+  `npx <pkg>`. Read literally, a Windows user and a macOS user running the same server never match, and the
+  Windows form loses the package name entirely.
+- **A Walrus blob ID is not `sha256(bytes)`.** Recomputing it needs the Walrus encoder, so we vendor it —
+  otherwise the gate could only *assert* that a content-addressed store returned what it asked for, which is
+  trusting the aggregator, and is not a check.
+- **The testnet SUI faucet took 53 attempts**, with a `retry-after` that is fiction and no per-IP escape.
+
+## What we cut
+
+Named because a hackathon submission that lists only what it built is not telling you anything.
+
+- **ENS, Move contracts, Seal, x402 payment flows** — deliberately deferred, not attempted. The sponsor SDK
+  budget was 3 and we used 2.
+- **Response signing for `/v1/verdict`.** The gate trusts an unsigned HTTP response to make a security
+  decision. This is the largest knowingly-open gap in the design.
+- **Walrus storage renewal.** Arkiv expiry and Walrus epochs are independent clocks and will drift apart. An
+  Arkiv record can outlive the bytes it points at; the UI must distinguish *evidence expired* from *no
+  evidence*, and the renewal job is unbuilt.
+- **Tier A for `uvx`, `docker` and git installs.** npm `dist.integrity` is implemented; the others stay
+  Tier B and are labelled as such rather than implied.
+- **Dependency review.** A verdict covers a server's own source, not its dependency tree — which is the
+  actual npm attack pattern. Stated in the product, not just in the docs.
+- **A review queue for unmatched custom licences.** Unmatched is treated as ineligible, because guessing
+  wrong writes someone's code to storage with no delete.
 
 ## Provenance
 
