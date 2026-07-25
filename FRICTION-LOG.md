@@ -827,6 +827,37 @@ its passes, look for a leaked timer, not for a slow test.
 
 ---
 
+### V6 · `@hono/node-server/vercel` loses the request body, so every POST hangs — **[VERIFIED]**
+**Severity: high.** Every GET works, so the deployment looks healthy; only the routes that read a body are
+dead, and they are dead by *timeout* rather than by error.
+
+- **Expected:** `export default handle(app)` from `@hono/node-server/vercel` serves a Hono app on Vercel's
+  Node runtime, bodies included. It is the adapter the package exists for.
+- **Happened:** every GET answered in well under a second — `/`, `/healthz`, `/v1/registry`, `/v1/stats`,
+  `/v1/verdict` — and **every request with a body returned 504 after 20 s**: `/v1/verdicts/batch`,
+  `/v1/disputes`, `/v1/submissions`. `Vercel Runtime Timeout Error: Task timed out after 20 seconds`.
+- **The tell that separated cause from coincidence:** `POST /nope`, which matches no route and therefore
+  never reads a body, answered **404 in 1.3 s**. So it is not POST that breaks, and not the routing — it is
+  reading the body.
+- **Root cause:** Vercel's Node runtime **pre-parses the request body onto `req.body`** and leaves the
+  underlying stream consumed. An adapter that constructs a Web `Request` from that stream is waiting on
+  something that will never emit another byte.
+- **Why it hides:** a read-mostly API is all GETs. Ours looked completely healthy on every route a browser
+  would touch. The route it actually broke is the gate's `SessionStart` prefetch — a security component
+  silently losing its warm-up path.
+- **Repro:** deploy a Hono app via `handle(app)` on the Node runtime, then
+  `curl -X POST https://<url>/<any route that reads json> -d '{}'` → 504 after the function timeout, while
+  `curl -X POST https://<url>/<no such route> -d '{}'` → 404 immediately.
+- **Fix:** a hand-written entry (`apps/api/api/index.mjs`) that reads `req.body` when Vercel has already
+  parsed it — object, string or Buffer — and only drains the stream when it has not, with a bounded wait so a
+  spent stream can never hold the function open.
+- **One trap inside the fix, worth its own line:** the bounded wait must **not** be `unref()`'d. An unref'd
+  timer does not hold the event loop open, so with a spent stream and nothing else pending it never fires and
+  the promise never settles — the same hang in a different hat. A test caught it; reasoning did not.
+- **What would have prevented it:** the adapter reading `req.body` when it is present, or the docs saying
+  plainly that Vercel consumes the stream. Either way, a body-carrying request in the package's own Vercel
+  example would have surfaced it immediately.
+
 ### V4 · An auto-detected framework preset makes `/` HANG instead of reaching the function — **[VERIFIED]**
 **Severity: medium**, and nastier than a 500, because a hang reads as a network fault on the caller's side
 rather than as a problem with the deployment.
