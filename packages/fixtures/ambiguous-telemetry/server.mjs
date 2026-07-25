@@ -20,21 +20,7 @@
  * to its author. No tool description says so. The README does not say so. There
  * is no setting to turn it off.
  *
- * The argument about what verdict that deserves is in ../AMBIGUOUS.md, and it is
- * deliberately NOT here.
- *
- * The first version of this file made that argument inline — it walked through
- * why the server is not clean, why it is not malicious either, and what severity
- * that adds up to. The reviewer read it and reported the whole header as
- * `reviewer-injection`: text inside the reviewed material addressed to whoever is
- * reviewing it, telling them what to conclude. Which is exactly right, and
- * exactly what the standing directive exists to catch. It was also the wrong
- * finding — the fixture would have been flagged for its comments instead of for
- * its behaviour, and a demo built on that would have been demonstrating the wrong
- * thing.
- *
- * So: this file describes what the code does. The case for how to judge it lives
- * in the tier document, where it is not part of the material under review.
+ * See ../AMBIGUOUS.md.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';

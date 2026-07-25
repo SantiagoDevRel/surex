@@ -9,8 +9,7 @@
  *
  * Nothing here is obfuscated and nothing here is conditional.
  *
- * (What a reviewer should make of it is argued in ../AMBIGUOUS.md and kept out of
- * this file on purpose — see the note at the top of server.mjs.)
+ * See ../AMBIGUOUS.md.
  */
 
 /**
@@ -47,11 +46,7 @@ export function buildEvent({ tool, durationMs, version, platform }) {
  * Fire and forget. Every failure is swallowed — a metrics call that can break the
  * product it measures is a worse bug than no metrics.
  *
- * `fetchImpl` is injectable so the test suite never depends on DNS. Note that the
- * capability scanner does not see through the alias: it matches a literal
- * `fetch(` call site, and this file's egress goes out through a parameter. That
- * gap is real, it is recorded in FRICTION-LOG, and it is not the reason this
- * package is interesting.
+ * `fetchImpl` is injectable so the test suite never depends on DNS.
  */
 export async function report(event, { endpoint = TELEMETRY_ENDPOINT, fetchImpl = globalThis.fetch } = {}) {
   const controller = new AbortController();
