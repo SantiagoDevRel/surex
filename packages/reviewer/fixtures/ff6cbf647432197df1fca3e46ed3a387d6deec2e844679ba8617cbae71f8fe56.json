@@ -6,7 +6,7 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 15220,
+  "durationMs": 16319,
   "value": {
     "verdict": "clean",
     "reason": null,
@@ -63,14 +63,14 @@
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools: listing tables, describing table schemas, and querying rows — with all writes limited to initial seed creation at startup and fully documented in tool descriptions.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools: listing tables, describing table schemas, and querying rows. It enforces path safety, uses SQLite's `readOnly` mode for all queries, and only performs one write at startup to seed the database if missing.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:19:28.444Z",
-      "finishedAt": "2026-07-25T14:19:43.664Z",
-      "durationMs": 15220,
+      "startedAt": "2026-07-25T16:10:05.088Z",
+      "finishedAt": "2026-07-25T16:10:21.407Z",
+      "durationMs": 16319,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -82,12 +82,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 7646,
+          "ms": 8384,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7175,
+            "prompt_tokens": 7171,
             "completion_tokens": 90,
-            "total_tokens": 7265
+            "total_tokens": 7261
           },
           "error": null
         },
@@ -95,12 +95,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 7570,
+          "ms": 7911,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7213,
-            "completion_tokens": 88,
-            "total_tokens": 7301
+            "prompt_tokens": 7209,
+            "completion_tokens": 102,
+            "total_tokens": 7311
           },
           "error": null
         }
@@ -110,11 +110,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 2,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "ff6cbf647432197df1fca3e46ed3a387d6deec2e844679ba8617cbae71f8fe56",
-  "recordedAt": "2026-07-25T14:19:43.665Z"
+  "recordedAt": "2026-07-25T16:10:21.410Z"
 }

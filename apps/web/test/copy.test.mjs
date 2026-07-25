@@ -22,7 +22,9 @@ import { assertCopy, copyViolations, isFingerprint } from '@surex/core';
 import { COPY } from '../lib/copy.ts';
 import { FIXTURE_FINGERPRINTS, FIXTURE_PROSE, FIXTURE_ROWS } from '../lib/fixtures.ts';
 import {
+  DEFAULT_WORLD_CREDENTIAL,
   WORLD_ACTIONS,
+  WORLD_CREDENTIALS,
   disputeSignal,
   evidenceHashOf,
   normaliseRepo,
@@ -251,6 +253,74 @@ test('the agent panel never promises a browser button that cannot work', () => {
   assert.match(COPY.dispute.agentRefusedNote, /403 agent_not_human_backed/);
   assert.match(COPY.dispute.agentRefusedNote, /503/);
   assert.match(COPY.dispute.agentRefusedNote, /never told/i);
+});
+
+test('each credential copy states its OWN bar, and Face Check is never sold as uniqueness', () => {
+  // The three credentials this app can request do not prove the same thing, and
+  // the default is now the weakest-but-one. World's own docs are the authority:
+  //   Orb / proofOfHuman   → "strong sybil resistance or one-human-one-action"
+  //   selfieCheckLegacy    → "lower-friction liveness or bot deterrence",
+  //                          sybil resistance rated "some", "not as strong as Orb"
+  //   deviceLegacy         → an account; no biometric at all
+  // → https://docs.world.org/world-id/idkit/credentials
+  const { face, orb, device } = COPY.world.credential;
+
+  // Face Check says liveness, says where the camera actually opens, and says what
+  // it does NOT establish. Losing that last sentence is how this becomes a lie.
+  assert.match(face.body, /live face|liveness/i);
+  assert.match(face.body, /camera/i);
+  assert.match(face.body, /does not establish/i);
+  assert.match(face.label, /LIVENESS/);
+  assert.ok(!/\bunique\b/i.test(`${face.label} ${face.body}`), 'Face Check must not be described as uniqueness');
+
+  // The Orb is the only one allowed to make the strong claim.
+  assert.match(orb.body, /Orb/);
+  assert.match(orb.body, /cannot come back as somebody else/i);
+
+  // Device level says the quiet part: nothing biometric was checked.
+  assert.match(device.body, /nothing biometric is checked/i);
+
+  assert.equal(new Set([face.body, orb.body, device.body]).size, 3, 'the three credentials must not share wording');
+});
+
+test('no static string claims a uniqueness the default credential does not establish', () => {
+  // Every string outside `world.credential` renders WITHOUT knowing which
+  // credential the deployment requested, so each one must be true of the weakest
+  // it can request. "Unique human" and "one human, one voice" were both true only
+  // while this app asked for an Orb; it asks for Face Check now.
+  //
+  // `world.credential.orb` is exempt because it renders ONLY when the Orb is what
+  // was actually requested — that is the entire point of keying it on the server's
+  // answer instead of hardcoding one sentence.
+  for (const [path, value] of COPY_LEAVES) {
+    if (path.startsWith('world.credential.orb')) continue;
+    assert.ok(!/\bunique (human|person|personhood)\b/i.test(value), `${path} claims uniqueness: ${value}`);
+    assert.ok(!/\bone human, one\b/i.test(value), `${path} claims one-human-one-x: ${value}`);
+  }
+});
+
+test('the credential is chosen server-side: face by default, and a typo is refused not defaulted', () => {
+  const base = { NEXT_PUBLIC_WORLD_APP_ID: 'app_x', NEXT_PUBLIC_WORLD_RP_ID: 'rp_x', RP_SIGNING_KEY: 'k' };
+
+  // Unset → Face Check. A deployment that sets nothing cannot end up claiming
+  // more than it checked, because the default is the weakest camera-backed bar.
+  assert.equal(worldConfig(base).config.credential, 'face');
+  assert.equal(DEFAULT_WORLD_CREDENTIAL, 'face');
+
+  for (const credential of WORLD_CREDENTIALS) {
+    assert.equal(worldConfig({ ...base, WORLD_CREDENTIAL: credential }).config.credential, credential);
+    // …and each one has copy of its own, so a new credential cannot be added
+    // without saying what it proves.
+    assert.ok(COPY.world.credential[credential]?.body, `no copy for credential "${credential}"`);
+  }
+  assert.equal(worldConfig({ ...base, WORLD_CREDENTIAL: 'ORB' }).config.credential, 'orb', 'case must not matter');
+
+  // A typo is a configuration error. Silently handing back a face check to an
+  // operator who typed "orbb" would make the screen honest and the operator wrong.
+  const typo = worldConfig({ ...base, WORLD_CREDENTIAL: 'orbb' });
+  assert.equal(typo.ok, false);
+  assert.deepEqual(typo.missing, ['WORLD_CREDENTIAL']);
+  assert.match(typo.detail, /orbb/);
 });
 
 test('the submit screen no longer claims World ID is unwired, and does not claim a review was queued', () => {

@@ -37,8 +37,28 @@ import {
 
 export const REVIEW_KIND = 'review';
 
-/** How accusatory a verdict is, for picking between two that disagree. */
-const CAUTION_ORDER = { clean: 0, unreviewable: 1, flagged: 2 };
+/**
+ * How a split is broken: **one more reading of each variant**, not one more
+ * reading overall.
+ *
+ * The obvious tie-break — a single third call — is biased, and the bias is not
+ * subtle. With readings {a₁, b₁, a₂} the third draw comes from variant `a`'s own
+ * distribution, so it agrees with a₁ more often than with b₁ for reasons that
+ * have nothing to do with the code. The split would resolve toward whichever
+ * prompt happened to be re-run.
+ *
+ * A balanced panel of {a₁, b₁, a₂, b₂} has no such tilt, and it earns something
+ * else: when the two prompts persistently disagree — a₁,a₂ flagged against
+ * b₁,b₂ clean — there is no 3-of-4 majority, and `mergeRuns` returns
+ * `unreviewable / no-agreement`. That is the correct answer for a server two
+ * competent readings will not agree about, and a single tie-break would have
+ * papered over it with a verdict.
+ *
+ * Cost is two extra calls, only on a split (1 fixture in 16), on hardware we own.
+ * (There is no CAUTION_ORDER any more: the cautious side of a split is no longer
+ * how a disagreement resolves. See `mergeRuns`.)
+ */
+const TIEBREAK_VARIANTS = VARIANTS;
 
 // ---------------------------------------------------------------------------
 // wording
@@ -100,28 +120,41 @@ export function statedIntentPaths(statedIntent = {}) {
 /**
  * Merge the model runs.
  *
- * Rules, all of them from tech-spec §6.3 — "Agreement → verdict stands.
- * Disagreement → severity capped and agreementRuns recorded; do not flag on a
- * single dissenting run":
+ * Rules from tech-spec §6.3 — "Agreement → verdict stands. Disagreement →
+ * severity capped and agreementRuns recorded; do not flag on a single dissenting
+ * run" — with one change made on evidence, described below.
  *
- *   both valid, same verdict   → verdict stands, agreementRuns 2. Where the two
- *                                severities differ, the LOWER one wins: the
- *                                higher number was asserted by one run only.
- *   both valid, different      → agreementRuns 1, the more cautious verdict is
- *                                kept so its evidence still reaches the user,
- *                                and severity is capped at 2. A capped severity
- *                                warns instead of blocking (core `decide()`
- *                                blocks at 3), which is what "do not flag on a
- *                                single dissenting run" means in practice.
+ *   all valid runs agree       → verdict stands, agreementRuns = the count. Where
+ *                                severities differ, the LOWEST wins: a higher
+ *                                number was asserted by fewer runs.
+ *   a strict majority agrees   → that verdict, agreementRuns = the majority size,
+ *                                severity = the lowest inside the majority.
+ *   no majority                → `unreviewable`, reason `no-agreement`.
  *   one valid                  → agreementRuns 1, severity capped at 2. A single
  *                                run saying `clean` becomes `unreviewable`: the
  *                                spec says every review runs twice, so one run
  *                                cannot deliver the silent verdict.
  *   none valid                 → `unreviewable`, agreementRuns 0.
  *
+ * **Why "no majority" is no longer the more cautious verdict.** It used to keep
+ * the cautious side of a two-way split, capped at severity 2. Calibration showed
+ * what that means in practice: `honest-sqlite` — a fixture we wrote, whose whole
+ * point is that it is well behaved — came back **flagged, clean, clean** across
+ * three identical inputs. The runs were splitting on sampling noise, and the
+ * cautious rule converted that coin flip into a published accusation. Note what
+ * it did NOT do: at severity 2 core `decide()` answers `warn`, exactly as it does
+ * for `unreviewable`. So the user-facing action is identical either way, and the
+ * only thing that changes is whether the registry calls a server flagged or
+ * admits its readings would not converge. The second is true; the first is a
+ * claim about somebody's code that we cannot support.
+ *
+ * The caller resolves ties by asking for a third reading before it gets here —
+ * see `TIEBREAK_VARIANT` in reviewServer. This function is what happens when even
+ * that does not converge.
+ *
  * A finding only one run reported is kept — dropping evidence is worse than
- * showing it — but its severity is capped for the same reason, and `runs` on the
- * finding says how many runs saw it.
+ * showing it — but its severity is capped, and `runs` on the finding says how
+ * many runs saw it.
  */
 export function mergeRuns(runs) {
   const valid = runs.filter((r) => r.parsed);
@@ -160,38 +193,76 @@ export function mergeRuns(runs) {
     };
   }
 
-  const [a, b] = parsed;
-  const summary = a.statedIntentSummary || b.statedIntentSummary;
-  const agreed = a.verdict === b.verdict;
+  const summary = parsed.find((p) => p.statedIntentSummary)?.statedIntentSummary ?? '';
 
-  // A finding seen by only one of two runs is a single dissenting run.
+  // A finding seen by only one run is a single dissenting run, whether the panel
+  // was two readings or three.
   const findings = [...counted.values()].map((f) => (
     f.runs >= 2 ? f : { ...f, severity: Math.min(f.severity, DISAGREEMENT_SEVERITY_CAP) }
   ));
 
-  if (agreed) {
+  // Tally the verdicts rather than compare a pair: the panel is two readings
+  // normally and three when the first two split.
+  const tally = new Map();
+  for (const p of parsed) tally.set(p.verdict, (tally.get(p.verdict) ?? 0) + 1);
+  const [topVerdict, topCount] = [...tally.entries()].sort((x, y) => y[1] - x[1])[0];
+  const majority = parsed.filter((p) => p.verdict === topVerdict);
+
+  if (topCount === parsed.length) {
+    const severities = majority.map((p) => p.severity);
+    const reasons = new Set(majority.map((p) => p.reason));
     return {
-      verdict: a.verdict,
-      reason: a.reason === b.reason ? a.reason : null,
-      severity: Math.min(a.severity, b.severity),
+      verdict: topVerdict,
+      reason: reasons.size === 1 ? [...reasons][0] : null,
+      severity: Math.min(...severities),
       findings,
       statedIntentSummary: summary,
-      agreementRuns: 2,
+      agreementRuns: parsed.length,
       agreed: true,
-      ...(a.severity === b.severity ? {} : { note: `runs agreed on the verdict but not the severity (${a.severity} vs ${b.severity}); the lower one stands` }),
+      ...(new Set(severities).size === 1 ? {} : {
+        note: `runs agreed on the verdict but not the severity (${severities.join(' vs ')}); the lower one stands`,
+      }),
     };
   }
 
-  const cautious = CAUTION_ORDER[a.verdict] >= CAUTION_ORDER[b.verdict] ? a : b;
+  if (topCount * 2 > parsed.length) {
+    const severities = majority.map((p) => p.severity);
+    // A `clean` verdict carrying findings is contradictory — the schema rejects
+    // it, and rightly: a finding is a claim, and the panel has just decided not
+    // to make it. So when the majority is clean the minority's findings do not
+    // travel in `findings`. They are NOT lost: every run's raw output is kept in
+    // `rawModelOutput` and goes into the evidence blob, and the note below
+    // records that a reading dissented and how much it claimed. What is refused
+    // is publishing a `clean` verdict that quietly ships an accusation inside it.
+    const setAside = topVerdict === 'clean' ? findings.length : 0;
+    return {
+      verdict: topVerdict,
+      reason: null,
+      severity: Math.min(...severities),
+      findings: setAside ? [] : findings,
+      statedIntentSummary: summary,
+      agreementRuns: topCount,
+      agreed: false,
+      note:
+        `${topCount} of ${parsed.length} readings returned ${topVerdict}; the dissenting reading does not decide` +
+        (setAside
+          ? `, and its ${setAside} finding(s) are set aside rather than shipped inside a clean verdict — the raw output of every reading is kept in the evidence`
+          : ''),
+    };
+  }
+
+  // No majority. See the note on this function: the cautious side of a split is
+  // an accusation produced by sampling noise, and `unreviewable` warns exactly
+  // as a capped `flagged` did.
   return {
-    verdict: cautious.verdict,
-    reason: null,
-    severity: Math.min(cautious.severity, DISAGREEMENT_SEVERITY_CAP),
+    verdict: 'unreviewable',
+    reason: 'no-agreement',
+    severity: 0,
     findings,
     statedIntentSummary: summary,
     agreementRuns: 1,
     agreed: false,
-    note: `runs disagreed on the verdict (${a.verdict} vs ${b.verdict}); severity capped at ${DISAGREEMENT_SEVERITY_CAP} and not flagged on one run`,
+    note: `the readings did not converge (${parsed.map((p) => p.verdict).join(', ')}); no majority formed, so no verdict is claimed`,
   };
 }
 
@@ -226,6 +297,10 @@ export async function reviewServer(input, options = {}) {
     allowCache = true,
     writeCache = true,
     now = () => new Date(),
+    // Sized for this repo's fixtures by default. A caller reviewing a real npm
+    // package must supply a budget that fits its model's context — see the note
+    // on renderSource in prompt.mjs, and read `run.sourceCoverage` afterwards.
+    limits = undefined,
   } = options;
 
   const startedAt = now();
@@ -248,10 +323,29 @@ export async function reviewServer(input, options = {}) {
   // --- layer 3: the model, twice --------------------------------------------
   const fenceId = newFenceId();
   const runResults = [];
-  for (const variant of VARIANTS) {
-    const { messages } = buildPrompt({ variant, statedIntent, files, fenceId });
-    const call = await callModel({ messages, config, fetchImpl });
+  let omittedFromPrompt = [];
+  const runOnce = async (variant, fence) => {
+    const built = buildPrompt({ variant, statedIntent, files, fenceId: fence, ...(limits ? { limits } : {}) });
+    omittedFromPrompt = built.omitted ?? [];
+    const call = await callModel({ messages: built.messages, config, fetchImpl });
     runResults.push(interpretRun(variant, call));
+  };
+
+  for (const variant of VARIANTS) await runOnce(variant, fenceId);
+
+  // The tie-break. Calibration showed that on a borderline server the split
+  // itself is sampling noise — `honest-sqlite` returned flagged, clean, clean on
+  // three identical inputs — and the old rule turned that coin flip into a
+  // published accusation. So a split buys another reading of EACH variant and
+  // the merge takes the majority of four; see TIEBREAK_VARIANTS for why both and
+  // not one.
+  //
+  // Each extra reading gets a fresh fence nonce, which is what makes it a new
+  // sample rather than a replay: sampling is greedy, so a re-run under the same
+  // nonce returns the same answer and decides nothing.
+  const firstTwo = runResults.filter((r) => r.parsed).map((r) => r.parsed.verdict);
+  if (firstTwo.length === 2 && firstTwo[0] !== firstTwo[1]) {
+    for (const variant of TIEBREAK_VARIANTS) await runOnce(variant, newFenceId());
   }
 
   const usable = runResults.filter((r) => r.parsed).length;
@@ -315,8 +409,23 @@ export async function reviewServer(input, options = {}) {
       error: r.error ?? null,
     })),
     capabilityScan: scan.meta,
+    // What the MODEL was actually shown. The capability scan reads every file it
+    // is given; the prompt is budgeted, so on anything larger than a fixture the
+    // two differ — and a verdict that does not say which files it could not see
+    // is claiming more than it knows.
+    sourceCoverage: {
+      filesSupplied: files.length,
+      filesOmittedOrTruncated: omittedFromPrompt.length,
+      omitted: omittedFromPrompt,
+    },
     notes,
   };
+  if (omittedFromPrompt.length) {
+    notes.push(
+      `${omittedFromPrompt.length} of ${files.length} supplied file(s) were omitted from or truncated in the ` +
+      'prompt to fit the model context; the deterministic capability scan still read all of them',
+    );
+  }
   if (collapsed.collapsed) {
     notes.push(`${collapsed.collapsed} model-reported injection finding(s) collapsed into the deterministic scan's exact line for the same file`);
   }

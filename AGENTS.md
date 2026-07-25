@@ -47,9 +47,10 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
 | Deployed | **yes** — web `arkiv-surex.vercel.app`, API `arkiv-surex-api.vercel.app`, both on `santiago-prod`, both reading live Braga. Git-connected to this repo, so every push to `main` redeploys. |
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
-| The registry, live | **51 entries** · 1 flagged (our fixture) · 10 unreviewable(licence) · 40 unknown · 0 clean |
+| **Reviewer calibration** | **built and measured** — `scripts/calibrate.mjs` scores every fixture against the ground truth its own specification recorded *before* any review ran, and exits non-zero on a regression. It is the precondition for reviewing anyone else's code: §7 carries the numbers. |
+| The registry, live | **85 entries** · 10 clean · 7 flagged · 10 unreviewable(licence) · 58 unknown. Every clean and every flag is one of our own fixtures; the 58 unknowns are real servers nobody has reviewed yet — `scripts/review-known.mjs` is the pass that changes that. |
 
-**Total: 284 tests green** (`pnpm test`), plus 21 in the web app including the copy-law walk.
+**Total: 448 tests green** (`pnpm test`), plus 22 in the web app including the copy-law walk.
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
 the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
@@ -106,7 +107,7 @@ be unqualified unless the team can prove when the work was done. Small, real, da
 | **Claude Code `PreToolUse` hook** | enforcement point | without a native interception point there is no product |
 | **Arkiv** (Braga testnet) | queryable index; the `VerdictHead` the gate reads | the gate must resolve a decision in one query before every tool call |
 | **Walrus on Sui** (testnet) | content-addressed record store for source, verdicts, disputes | a verdict points at the exact bytes it judged; nobody, including us, can quietly swap them |
-| **World ID** | proves a unique human for maintainer submission and human disputes | anti-sybil on submissions and appeals |
+| **World ID** | proves a person is behind a maintainer submission or a human dispute. **How strongly is a deployment setting**, `WORLD_CREDENTIAL`: `face` (default, Selfie Check → *liveness*, sybil resistance World itself rates "some") · `orb` (Proof of Human → *uniqueness*) · `device` (an account, no biometric). Only `orb` establishes one-human-one-action | anti-sybil on submissions and appeals — at the strength the configured credential actually provides, never as claimed |
 | **World AgentKit / AgentBook** | proves a human stands behind an autonomous agent that contests a verdict | gives an agent *standing to dispute*, which is the novel use |
 
 Sponsor SDK budget is **3** and we use **2** (Sui/Walrus, World). Arkiv is not an event sponsor so it does
@@ -152,6 +153,43 @@ unresolved — test it, do not guess.
 - ❌ **"Executables in `bin/` join the PATH while the plugin is enabled" is FALSE**, at least on 2.1.220 / Windows. Installed from a marketplace the binary lands at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/bin/surex`, and `surex` is `command not found` in the shell the agent runs commands in. This matters more than a convenience: the override command is printed in **every** block message and is the reason blocking is defensible at all. The gate therefore resolves its own location and prints an invocation that exists (`lib/selfpath.mjs`), and the plugin also ships a `/surex` slash command. (FRICTION-LOG C7)
 - Installable from a plain git repo: `/plugin marketplace add <owner>/<repo>` then `/plugin install <name>@<owner>`. Minimum manifest is `.claude-plugin/marketplace.json` with a name and a repository.
 - On install, Claude Code shows the user a "Will install" list naming the hooks and MCP servers, behind a trust gate. Plugin hooks run **unsandboxed** — say so in the README.
+
+**The reviewer, calibrated** — `scripts/calibrate.mjs`, measured 2026-07-25 against
+`qwen3-coder-next:surex32k`, prompt `rv-1`/`rv-2` (the two are byte-identical for any server whose tools
+enumerate, which every fixture does — see the version log at the top of `prompt.mjs`). Re-run it before
+trusting the reviewer with anything new; it exits non-zero on a regression and writes a report to `Downloads/`.
+
+The ground truth is not invented by the harness. It is what the fixtures' own specifications
+(`packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md`) recorded **before any review ran**, which is the only
+thing that makes it ground truth. `honest-*` must come back clean; `mal-*` must come back flagged **and
+blocking** (`decide()` blocks at severity 3, so a flag at severity 2 is a warning a developer clicks past);
+`ambiguous-*` is scored against AMBIGUOUS.md's predicted and also-defensible verdicts and never asserted. The
+harness also checks the finding points at the real mechanism, because a flag for the wrong reason is a flag by
+luck, and luck does not transfer to code we did not write.
+
+**48 readings — 16 fixtures, 3 runs each:**
+
+| | |
+|---|---|
+| honest | **15/15 clean · 0 accused** |
+| malicious | **18/18 flagged · 18/18 actually BLOCK · 18/18 mechanism identified** |
+| ambiguous | **15/15 landed on the predicted verdict** |
+| | recall **100%** · precision **100%** |
+
+**What calibration changed, and it is not cosmetic.** Before the tie-break, `honest-sqlite` — a fixture written
+to be well behaved — returned **flagged, clean, clean** across three identical inputs while the other fifteen
+were stable, and the merge rule resolved a split by keeping the more accusatory side. Twelve further readings
+of that one fixture, with the tie-break in place: **10 agreed clean outright, 1 split and the tie-break
+resolved it to clean (panel of 4), 1 split 2-2 and abstained as `unreviewable / no-agreement`.** Under the old
+rule both splits would have published `flagged` on a well-behaved server. Zero false accusations where the old
+rule produced two.
+
+Two things follow, and both belong in any honest description of this system:
+- **An abstention is not a false accusation, and the harness scores them separately.** On an honest server
+  `unreviewable` is a worse answer than `clean` and is counted as such; it is not a reason to distrust the
+  reviewer. On a malicious server it *is* a failure — `unreviewable` answers `warn`, the call proceeds.
+- **The reviewer is not deterministic even at `temperature: 0`**, because the prompt carries a fresh nonce.
+  On the one borderline fixture the readings split roughly 2 times in 12. Every other fixture was stable.
 
 **World**
 - **AgentBook registration requires an Orb-verified World ID.** The contract checks `groupId = 1` and only Orb credentials exist on-chain; device-level and Selfie Check proofs cannot register an agent. This is a hard dependency on a physical human.

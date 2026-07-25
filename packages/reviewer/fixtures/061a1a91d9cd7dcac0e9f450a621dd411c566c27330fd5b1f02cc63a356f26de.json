@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 26074,
+  "durationMs": 26108,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server implements a backup tool that walks a directory tree, records file metadata (path, size, sha256), optionally captures file contents as base64, and uploads the snapshot to a loopback-only destination configured via environment variables; all declared behavior matches the implementation.",
+    "statedIntentSummary": "The server implements a backup tool that walks a directory tree, records file metadata and optionally contents, and uploads the snapshot to a configurable destination; it declares full reach but enforces two safety clamps: restricting walks to its own package directory and limiting uploads to loopback hosts only.",
     "capabilities": {
       "network": {
         "present": true,
@@ -78,7 +78,7 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server implements a backup tool that walks a directory tree, records file metadata (path, size, sha256), optionally captures file contents as base64, and uploads the snapshot to a loopback-only destination configured via environment variables; all declared behavior matches the implementation.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server implements a backup tool that walks a directory tree, records file metadata and optionally contents, and uploads the snapshot to a configurable destination; it declares full reach but enforces two safety clamps: restricting walks to its own package directory and limiting uploads to loopback hosts only.\"\n}",
         "error": null
       },
       {
@@ -89,9 +89,9 @@
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:17:13.531Z",
-      "finishedAt": "2026-07-25T14:17:39.605Z",
-      "durationMs": 26074,
+      "startedAt": "2026-07-25T15:46:12.184Z",
+      "finishedAt": "2026-07-25T15:46:38.292Z",
+      "durationMs": 26108,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -103,12 +103,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 13109,
+          "ms": 13110,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 14133,
+            "prompt_tokens": 14141,
             "completion_tokens": 94,
-            "total_tokens": 14227
+            "total_tokens": 14235
           },
           "error": null
         },
@@ -116,12 +116,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 12955,
+          "ms": 12983,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 14171,
+            "prompt_tokens": 14179,
             "completion_tokens": 83,
-            "total_tokens": 14254
+            "total_tokens": 14262
           },
           "error": null
         }
@@ -131,11 +131,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "061a1a91d9cd7dcac0e9f450a621dd411c566c27330fd5b1f02cc63a356f26de",
-  "recordedAt": "2026-07-25T14:17:39.606Z"
+  "recordedAt": "2026-07-25T15:46:38.293Z"
 }

@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 13527,
+  "durationMs": 24255,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares that it only makes weather lookups to one of two hardcoded endpoints — a loopback discard port by default (no data leaves the machine) or OpenWeather's API when an environment flag is set — and explicitly states that it reads no files, starts no subprocesses, and sends the API key only as a query parameter to the selected endpoint.",
+    "statedIntentSummary": "This server declares that it performs weather lookups only to two hardcoded endpoints — a loopback discard port by default (no data leaves the machine) and OpenWeather's API when an environment flag is set — and explicitly states that it reads no files, starts no subprocesses, and sends the API key only as a query parameter to the selected endpoint.",
     "capabilities": {
       "network": {
         "present": true,
@@ -54,20 +54,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it only makes weather lookups to one of two hardcoded endpoints — a loopback discard port by default (no data leaves the machine) or OpenWeather's API when an environment flag is set — and explicitly states that it reads no files, starts no subprocesses, and sends the API key only as a query parameter to the selected endpoint.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares that it performs weather lookups only to two hardcoded endpoints — a loopback discard port by default (no data leaves the machine) and OpenWeather's API when an environment flag is set — and explicitly states that it reads no files, starts no subprocesses, and sends the API key only as a query parameter to the selected endpoint.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server declares two tools: one to fetch weather data by sending a GET request with an API key from the environment (to either a loopback discard port or OpenWeather's live endpoint), and another to describe the current endpoint configuration — all behavior is fully disclosed in tool descriptions and matches the code exactly.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server declares two tools: one to fetch weather data (defaulting to a harmless loopback endpoint unless a live flag is set), and another to describe the current endpoint configuration; it explicitly documents that it reads an API key from an environment variable, sends it only to one of two hardcoded endpoints, and never echoes the key back.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:19:56.865Z",
-      "finishedAt": "2026-07-25T14:20:10.392Z",
-      "durationMs": 13527,
+      "startedAt": "2026-07-25T15:55:27.289Z",
+      "finishedAt": "2026-07-25T15:55:51.544Z",
+      "durationMs": 24255,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -79,12 +79,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 6898,
+          "ms": 8786,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5735,
-            "completion_tokens": 110,
-            "total_tokens": 5845
+            "prompt_tokens": 5731,
+            "completion_tokens": 108,
+            "total_tokens": 5839
           },
           "error": null
         },
@@ -92,12 +92,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 6626,
+          "ms": 15464,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5773,
-            "completion_tokens": 100,
-            "total_tokens": 5873
+            "prompt_tokens": 5769,
+            "completion_tokens": 106,
+            "total_tokens": 5875
           },
           "error": null
         }
@@ -107,11 +107,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 2,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "2276acd65738acadfc2c443649a5c4af0112391943c628d3894edb6dc7461ca9",
-  "recordedAt": "2026-07-25T14:20:10.392Z"
+  "recordedAt": "2026-07-25T15:55:51.545Z"
 }

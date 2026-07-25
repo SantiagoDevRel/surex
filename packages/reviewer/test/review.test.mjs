@@ -157,16 +157,66 @@ test('the reviewer really does call the endpoint twice, with two different promp
   }
 });
 
-test('two disagreeing runs cap severity and record agreementRuns', async () => {
-  const record = await run([flagged(4), CLEAN]);
-  assert.equal(record.agreementRuns, 1, 'disagreement must be recorded as 1');
-  assert.ok(record.severity <= DISAGREEMENT_SEVERITY_CAP, `severity ${record.severity} must be capped at ${DISAGREEMENT_SEVERITY_CAP}`);
-  // The whole point of the cap: it warns, it does not block.
-  assert.equal(decide({ state: record.verdict, severity: record.severity }), 'warn');
-  assert.ok(record.run.notes.some((n) => n.includes('disagreed')), JSON.stringify(record.run.notes));
-  // The evidence still reaches the user even though it is not blocking.
-  assert.equal(record.findings.length, 1);
-  assert.equal(record.findings[0].runs, 1);
+// ---------------------------------------------------------------------------
+// disagreement: a split buys a third reading, it does not pick a side
+//
+// This block replaced an earlier rule where the cautious side of a two-way split
+// won with its severity capped. Calibration killed that rule: `honest-sqlite`, a
+// fixture written to be well behaved, returned flagged / clean / clean on three
+// identical inputs, so "cautious wins" was publishing an accusation produced by
+// sampling noise. See mergeRuns.
+// ---------------------------------------------------------------------------
+
+test('a split buys another reading of each variant and the majority decides', async () => {
+  const record = await run([flagged(4), CLEAN, CLEAN, CLEAN]);
+  assert.equal(record.verdict, 'clean', 'three of four readings said clean');
+  assert.equal(record.agreementRuns, 3, 'the majority size, not the panel size');
+  assert.equal(decide({ state: record.verdict, severity: record.severity }), 'allow');
+  // A clean verdict may not carry findings — that combination is contradictory
+  // and the schema rejects it. The dissent is recorded as a note and its raw
+  // output is kept, but it does not ride along inside a clean verdict.
+  assert.equal(record.findings.length, 0);
+  assert.ok(record.run.notes.some((n) => /set aside/.test(n)), JSON.stringify(record.run.notes));
+  assert.ok(record.rawModelOutput, 'every reading is still in the evidence');
+});
+
+test('a tie-break that confirms the flag produces a blocking verdict', async () => {
+  const record = await run([flagged(4), CLEAN, flagged(4), flagged(4)]);
+  assert.equal(record.verdict, 'flagged');
+  assert.equal(record.agreementRuns, 3);
+  assert.equal(decide({ state: record.verdict, severity: record.severity }), 'block',
+    'a majority that flags is not weakened by the dissent');
+});
+
+test('the tie-break is BALANCED — one more reading of each variant, not one more of one', async () => {
+  // The whole point: {a,b,a} would break toward variant a for reasons that have
+  // nothing to do with the code being reviewed.
+  const split = scriptedFetch([flagged(4), CLEAN, CLEAN, CLEAN]);
+  await reviewServer({ statedIntent: INTENT, files: INERT_FILES },
+    { config: CONFIG, fetchImpl: split, writeCache: false, allowCache: false });
+  assert.equal(split.calls.length, 4, 'a split reads twice more');
+  const variantsUsed = split.calls.map((c) => c.body.messages[0].content);
+  const distinct = new Set(variantsUsed).size;
+  assert.equal(distinct, 2, 'two distinct system prompts');
+  const perVariant = variantsUsed.reduce((m, v) => m.set(v, (m.get(v) ?? 0) + 1), new Map());
+  assert.deepEqual([...perVariant.values()].sort(), [2, 2], 'each variant read exactly twice');
+
+  const agreed = scriptedFetch([CLEAN, CLEAN]);
+  await reviewServer({ statedIntent: INTENT, files: INERT_FILES },
+    { config: CONFIG, fetchImpl: agreed, writeCache: false, allowCache: false });
+  assert.equal(agreed.calls.length, 2, 'agreement costs nothing extra');
+});
+
+test('two prompts that persistently disagree claim no verdict at all', async () => {
+  // a flagged, b clean, a flagged, b clean — 2-2, no majority. This is the case a
+  // single tie-break would have papered over with a verdict: the honest answer is
+  // that two competent readings do not agree about this server.
+  const record = await run([flagged(4), CLEAN, flagged(4), CLEAN]);
+  assert.equal(record.verdict, 'unreviewable');
+  assert.equal(record.reason, 'no-agreement');
+  assert.notEqual(record.verdict, 'flagged', 'a standing disagreement is not an accusation');
+  assert.equal(decide({ state: record.verdict, severity: record.severity }), 'warn',
+    'the user-facing action is the same warn the capped flag produced — only the claim changed');
 });
 
 test('two runs that agree on flagged keep a blocking severity', async () => {
@@ -203,13 +253,22 @@ test('a finding only one run saw is kept but capped', async () => {
 });
 
 test('mergeRuns is pure and testable on its own', () => {
-  const merged = mergeRuns([
+  const majority = mergeRuns([
+    { variant: 'a', parsed: flagged(4), call: { ok: true } },
+    { variant: 'b', parsed: CLEAN, call: { ok: true } },
+    { variant: 'a', parsed: CLEAN, call: { ok: true } },
+  ]);
+  assert.equal(majority.verdict, 'clean');
+  assert.equal(majority.agreementRuns, 2);
+
+  // Two readings with no third available — the endpoint dropped before the
+  // tie-break, say. Still no coin flip: no majority, no verdict claimed.
+  const stuck = mergeRuns([
     { variant: 'a', parsed: flagged(4), call: { ok: true } },
     { variant: 'b', parsed: CLEAN, call: { ok: true } },
   ]);
-  assert.equal(merged.agreementRuns, 1);
-  assert.equal(merged.verdict, 'flagged');
-  assert.equal(merged.severity, DISAGREEMENT_SEVERITY_CAP);
+  assert.equal(stuck.verdict, 'unreviewable');
+  assert.equal(stuck.reason, 'no-agreement');
 });
 
 // ---------------------------------------------------------------------------

@@ -1,13 +1,15 @@
 'use client';
 
 import type { IDKitResult } from '@worldcoin/idkit';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
+import { inspectRepo, parseRepo, type RepoInspection as Inspection } from '@/lib/github.ts';
 import { submitRelease, type SubmitOutcome } from '@/lib/submit-action.ts';
 
 import { Banner, type BannerTone } from './Banner.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
+import { RepoInspection } from './RepoInspection.tsx';
 import { WorldIdProof } from './WorldIdProof.tsx';
 
 const INITIAL: SubmitOutcome = { kind: 'idle' };
@@ -61,7 +63,38 @@ function Outcome({ outcome }: { outcome: SubmitOutcome }) {
 export function SubmitForm() {
   const [outcome, action, pending] = useActionState(submitRelease, INITIAL);
   const [repo, setRepo] = useState('');
+  const [release, setRelease] = useState('');
   const [proof, setProof] = useState<IDKitResult | null>(null);
+  const [inspection, setInspection] = useState<Inspection | 'loading' | null>(null);
+  /**
+   * Only the newest inspection may write state. Typing a repository fires one
+   * request per pause, and without this a slow early request can land after a
+   * fast later one and repaint the form with an answer about a repository the
+   * user has already replaced.
+   */
+  const inspectionId = useRef(0);
+
+  async function inspect(value: string) {
+    const ref = parseRepo(value);
+    if (!ref) {
+      setInspection(null);
+      return;
+    }
+    const id = inspectionId.current + 1;
+    inspectionId.current = id;
+    setInspection('loading');
+    const result = await inspectRepo(value);
+    if (inspectionId.current !== id) return;
+    setInspection(result);
+    // Fill the tag, never overwrite what the maintainer typed themselves.
+    if (result.release?.tag) setRelease((current) => current || result.release!.tag);
+  }
+
+  // The refusal is only ever on a READ answer. `undetermined` — GitHub did not
+  // reply — leaves the button enabled, because refusing on a rate limit would
+  // tell a maintainer their MCP server is not an MCP server.
+  const refusedAsNotMcp = inspection !== null && inspection !== 'loading'
+    && Boolean(inspection.mcp) && !inspection.mcp!.isMcp && !inspection.mcp!.undetermined;
 
   return (
     <Panel className="px-5 py-4">
@@ -78,20 +111,43 @@ export function SubmitForm() {
               // proving would leave a proof bound to a different repo. Drop it.
               setRepo(e.target.value);
               if (proof) setProof(null);
+              setInspection(null);
+            }}
+            onBlur={(e) => void inspect(e.target.value)}
+            onPaste={(e) => {
+              // Paste is the common case and the value is not in the input yet.
+              const pasted = e.clipboardData.getData('text');
+              if (pasted) void inspect(pasted);
             }}
             placeholder={COPY.submit.repoPlaceholder}
             className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
           />
         </label>
 
+        <RepoInspection state={inspection} />
+
         <label className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.releaseLabel}</span>
           <input
             name="release"
+            value={release}
+            onChange={(e) => setRelease(e.target.value)}
             placeholder={COPY.submit.releasePlaceholder}
             className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
           />
         </label>
+
+        {/*
+          The commit the tag resolved to, carried to the server alongside the tag.
+          This is the field that decides how strongly a verdict can be linked to
+          the bytes a user installs: a tag is a label that can be repointed, a
+          commit is not.
+        */}
+        <input
+          type="hidden"
+          name="commit"
+          value={inspection !== null && inspection !== 'loading' ? (inspection.release?.sha ?? '') : ''}
+        />
 
         <div className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.stepHuman}</span>
@@ -108,7 +164,7 @@ export function SubmitForm() {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || refusedAsNotMcp}
           className="justify-self-start rounded-input border border-accent bg-accent-t px-3.5 py-2 text-row font-semibold text-accent disabled:border-line-2 disabled:text-faint"
         >
           {pending ? 'queueing…' : COPY.submit.action}

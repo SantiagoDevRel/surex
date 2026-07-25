@@ -38,6 +38,19 @@ export async function submitRelease(
   const release = String(form.get('release') ?? '').trim();
   if (!repo || !release) return { kind: 'missing' };
 
+  /**
+   * The commit the release tag resolved to, when the browser could resolve it.
+   *
+   * It travels as its own field rather than being folded into `release` because
+   * the two are different kinds of claim: a tag is a label the maintainer can
+   * repoint or delete, a commit is the bytes. Which of the two a submission
+   * carries is what bounds the tier a verdict about it can ever reach — so it is
+   * validated as a SHA here and dropped if it is anything else, rather than
+   * forwarded as an unchecked string that would end up recorded as provenance.
+   */
+  const commitRaw = String(form.get('commit') ?? '').trim();
+  const commit = /^[0-9a-f]{40}$/i.test(commitRaw) ? commitRaw.toLowerCase() : null;
+
   // The IDKit result, forwarded BYTE-FOR-BYTE. Reshaping the payload is the
   // documented cause of spurious invalid_proof, and nothing is invented when it is
   // absent: with no proof the request goes out without one and is refused, which is
@@ -57,7 +70,13 @@ export async function submitRelease(
       method: 'POST',
       cache: 'no-store',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ repo, release, action: WORLD_ACTIONS.submit, ...(proof ? { proof } : {}) }),
+      body: JSON.stringify({
+        repo,
+        release,
+        ...(commit ? { commit } : {}),
+        action: WORLD_ACTIONS.submit,
+        ...(proof ? { proof } : {}),
+      }),
       signal: AbortSignal.timeout(10_000),
     });
 

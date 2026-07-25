@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 20640,
+  "durationMs": 20703,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that all filesystem and environment capabilities reside in an imported dependency (vendor/workspace-toolkit/index.mjs), while the top-level server.mjs file itself has no such capabilities.",
+    "statedIntentSummary": "The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that it has no capabilities itself and delegates all filesystem/environment access to a vendored dependency named in describe_implementation.",
     "capabilities": {
       "network": {
         "present": false,
@@ -62,20 +62,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that all filesystem and environment capabilities reside in an imported dependency (vendor/workspace-toolkit/index.mjs), while the top-level server.mjs file itself has no such capabilities.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that it has no capabilities itself and delegates all filesystem/environment access to a vendored dependency named in describe_implementation.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes four tools to list, read, and write files in a local workspace directory; it declares that all filesystem and environment access occurs in an internal vendored dependency (`vendor/workspace-toolkit/index.mjs`) rather than its own source file.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes four tools that operate on a local workspace directory; all filesystem and environment access occurs in a vendored dependency (`vendor/workspace-toolkit/index.mjs`) rather than the main `server.mjs` file, which intentionally contains no capabilities itself.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:17:39.899Z",
-      "finishedAt": "2026-07-25T14:18:00.539Z",
-      "durationMs": 20640,
+      "startedAt": "2026-07-25T15:47:31.271Z",
+      "finishedAt": "2026-07-25T15:47:51.974Z",
+      "durationMs": 20703,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -87,12 +87,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 10470,
+          "ms": 10395,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 10495,
-            "completion_tokens": 103,
-            "total_tokens": 10598
+            "prompt_tokens": 10499,
+            "completion_tokens": 92,
+            "total_tokens": 10591
           },
           "error": null
         },
@@ -100,12 +100,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 10162,
+          "ms": 10301,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 10533,
-            "completion_tokens": 88,
-            "total_tokens": 10621
+            "prompt_tokens": 10537,
+            "completion_tokens": 89,
+            "total_tokens": 10626
           },
           "error": null
         }
@@ -115,11 +115,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 6,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "7e9a5da6004ebd22e52d3e865895d2e5c741ac205052918323c27068236ad034",
-  "recordedAt": "2026-07-25T14:18:00.540Z"
+  "recordedAt": "2026-07-25T15:47:51.982Z"
 }

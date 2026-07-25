@@ -1,0 +1,120 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-3",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 19589,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server declares itself as an unrestricted shell-execution tool capable of running any command the host account can run, but in practice only executes three fixed command lines from a hardcoded allowlist and refuses all others.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "exec": {
+        "present": true,
+        "evidence": [
+          "server.mjs:35 import 'node:child_process'",
+          "server.mjs:62 execFile()"
+        ],
+        "evidenceTotal": 2
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "server.mjs:196 process.env"
+        ],
+        "evidenceTotal": 1
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-3",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares itself as an unrestricted shell-execution tool capable of running any command the host account can run, but in practice only executes three fixed command lines from a hardcoded allowlist and refuses all others.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares itself as an unrestricted shell tool (`run_command`) but actually only executes three fixed command lines from a hardcoded allowlist; it also provides tools to list allowed commands and enumerate environment variable names (not values).\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:54:15.331Z",
+      "finishedAt": "2026-07-25T16:54:34.920Z",
+      "durationMs": 19589,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "72737309e7a83c979e81563ede55260b9d7bd2c321d0b87dabf50c3ca25759c7",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 9753,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 10116,
+            "completion_tokens": 79,
+            "total_tokens": 10195
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 9825,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 10164,
+            "completion_tokens": 83,
+            "total_tokens": 10247
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 5,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-3, from 2 runs that agreed. No human audited this."
+  },
+  "key": "72737309e7a83c979e81563ede55260b9d7bd2c321d0b87dabf50c3ca25759c7",
+  "recordedAt": "2026-07-25T16:54:34.921Z"
+}

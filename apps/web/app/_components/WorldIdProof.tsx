@@ -19,9 +19,25 @@
  * 3. A STAGING OR SANDBOX PROOF SAYS SO, LOUDLY. Those come from a simulator, not
  *    from a person. A screen that looked identical either way would be the most
  *    misleading thing on the site.
+ *
+ * 4. THE SCREEN NAMES THE CREDENTIAL, AND STATES WHAT THAT CREDENTIAL PROVES.
+ *    Added when this app switched from device level to Face Check. The three
+ *    credentials this app can request do not prove the same thing — the Orb is the
+ *    one-human-one-action bar, Face Check is liveness that World rates as "some"
+ *    sybil resistance, device level is an account with no biometric at all — so a
+ *    single sentence about "personhood" would be a false claim under two of the
+ *    three. The claim is made HERE because this is the only place that knows which
+ *    one the server chose.
  */
 
-import { IDKitRequestWidget, deviceLegacy, type IDKitResult, type RpContext } from '@worldcoin/idkit';
+import {
+  IDKitRequestWidget,
+  deviceLegacy,
+  proofOfHuman,
+  selfieCheckLegacy,
+  type IDKitResult,
+  type RpContext,
+} from '@worldcoin/idkit';
 import { useCallback, useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
@@ -32,11 +48,40 @@ export type WorldIdContext =
   | { action: 'maintainer-submit'; repo: string }
   | { action: 'contest-verdict'; verdictKey: string; evidence: string };
 
+/**
+ * Deliberately duplicated from the server-only World module rather than imported
+ * from it: that module reads the relying-party key, so a client component that
+ * imported it would be one bundler decision away from shipping that key to the
+ * browser. A test asserts this file never imports it — and that same test greps
+ * this file for the key's variable name, so do not name it here even in a
+ * comment. Three string literals are the cheap side of that trade.
+ */
+type Credential = 'face' | 'orb' | 'device';
+
+/**
+ * The credential → preset map, and the reason each one is what it is.
+ *
+ * `selfieCheckLegacy` is the CURRENT name of the Face Check preset in IDKit 4.x —
+ * `@worldcoin/idkit` re-exports it from `@worldcoin/idkit-core`, and it returns a
+ * World ID 3.0 Face proof, which is why `allow_legacy_proofs` below is not
+ * optional. Selfie Check is beta and gated per app (`enable_face_check`); if the
+ * app is not enabled for it the flow simply never starts, so a silent no-op here
+ * means the app, not the code.
+ * → https://docs.world.org/world-id/idkit/credentials#selfie-check
+ */
+const PRESET_FOR = {
+  face: selfieCheckLegacy,
+  orb: proofOfHuman,
+  device: deviceLegacy,
+} as const satisfies Record<Credential, (opts?: { signal?: string }) => unknown>;
+
 interface RpResponse {
   app_id: `app_${string}`;
   environment: 'production' | 'staging' | 'sandbox';
   action: string;
   signal: string;
+  /** Chosen server-side. The browser never picks its own bar. */
+  credential: Credential;
   rp_context: RpContext;
 }
 
@@ -46,7 +91,9 @@ type Phase =
   | { kind: 'unconfigured'; detail: string; missing?: string[] }
   | { kind: 'failed'; detail: string }
   | { kind: 'ready'; rp: RpResponse }
-  | { kind: 'held'; environment: RpResponse['environment'] };
+  // The credential survives into `held`: the statement of what was proven has to
+  // stay on screen next to the proof, not disappear the moment one arrives.
+  | { kind: 'held'; environment: RpResponse['environment']; credential: Credential };
 
 export function WorldIdProof({
   context,
@@ -117,6 +164,12 @@ export function WorldIdProof({
           <Banner tone="neutral" label={COPY.world.heldLabel}>
             {COPY.world.heldBody}
           </Banner>
+          {/* What that proof is a proof OF. Stays visible after success, because
+              "proof in hand" without the credential named is the exact place a
+              reader fills in the strongest bar they can imagine. */}
+          <Banner tone="neutral" label={COPY.world.credential[phase.credential].label}>
+            {COPY.world.credential[phase.credential].body}
+          </Banner>
           {phase.environment !== 'production' ? (
             <Banner tone="stale" label={COPY.world.simulatedLabel}>
               {COPY.world.simulatedBody} (environment: {phase.environment})
@@ -127,6 +180,10 @@ export function WorldIdProof({
 
       {phase.kind === 'ready' ? (
         <>
+          {/* Named before the widget opens, so the bar is known going in. */}
+          <Banner tone="neutral" label={COPY.world.credential[phase.rp.credential].label}>
+            {COPY.world.credential[phase.rp.credential].body}
+          </Banner>
           {phase.rp.environment !== 'production' ? (
             <Banner tone="stale" label={COPY.world.simulatedLabel}>
               {COPY.world.simulatedBody} (environment: {phase.rp.environment})
@@ -139,17 +196,22 @@ export function WorldIdProof({
             action={phase.rp.action}
             rp_context={phase.rp.rp_context}
             environment={phase.rp.environment}
-            // v4 requires this for legacy and fallback presets. `deviceLegacy` is
-            // the 4.x replacement for `verification_level: "device"` and returns
-            // the person's highest legacy credential, so an Orb holder still
-            // verifies with their Orb credential. Device level is the honest bar
-            // for a maintainer — requiring an Orb to defend your own code would
-            // exclude almost every maintainer there is.
+            // v4 requires this for legacy and fallback presets, and the DEFAULT
+            // credential here is one: Selfie Check returns a World ID 3.0 Face
+            // proof, so removing this flag breaks Face Check outright.
             allow_legacy_proofs
-            preset={deviceLegacy({ signal: phase.rp.signal })}
+            // The preset the server chose. `selfieCheckLegacy` (default) opens the
+            // camera in World App — on desktop after a QR scan, never in this
+            // browser. It is LIVENESS: World rates its sybil resistance as "some"
+            // and files it under bot deterrence rather than one-human-one-action.
+            // `proofOfHuman` is the Orb path and the only one of the three under
+            // which one person cannot come back as somebody else. Whichever it is,
+            // the banner above says so — the preset and the claim change together
+            // or the screen lies.
+            preset={PRESET_FOR[phase.rp.credential]({ signal: phase.rp.signal })}
             onSuccess={(result) => {
               onProof(result);
-              setPhase({ kind: 'held', environment: phase.rp.environment });
+              setPhase({ kind: 'held', environment: phase.rp.environment, credential: phase.rp.credential });
             }}
             onError={(code) => {
               onProof(null);

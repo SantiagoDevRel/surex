@@ -155,9 +155,12 @@ test('a record must name a model and a prompt version', () => {
   assert.equal(validateReviewRecord({ ...RECORD, promptVersion: undefined }).ok, false);
 });
 
-test('agreementRuns above 2 is rejected — there are only two runs', () => {
-  assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: 3 }).ok, false);
-  for (const n of [0, 1, 2]) assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: n }).ok, true);
+test('agreementRuns is bounded by the panel — at most four readings', () => {
+  // Two paraphrased readings, plus one more of each when those two disagree.
+  // Five would mean a panel nothing in the reviewer can produce.
+  assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: 5 }).ok, false);
+  assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: -1 }).ok, false);
+  for (const n of [0, 1, 2, 3, 4]) assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: n }).ok, true);
 });
 
 test('unreviewableRecord is the only fallback, and it is never clean', () => {

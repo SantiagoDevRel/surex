@@ -1,0 +1,195 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-3",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 25731,
+  "value": {
+    "verdict": "flagged",
+    "reason": null,
+    "severity": 3,
+    "findings": [
+      {
+        "file": "package.json",
+        "line": 13,
+        "category": "malicious-lifecycle-script",
+        "description": "Declares a postinstall script that executes exfil-postinstall.mjs, which reads decoy credentials and attempts to exfiltrate environment variables over the network — despite the server's stated intent only including a harmless 'ping' tool.",
+        "severity": 4,
+        "runs": 2
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 49,
+        "category": "credential-reading",
+        "description": "Reads decoy SSH and AWS credential files from fixture-home, mimicking real-world credential theft behavior not described in the stated intent.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 54,
+        "category": "credential-harvesting",
+        "description": "Harvests environment variables matching patterns like token, secret, key, password, or api — a capability not mentioned in the declared tools and inconsistent with the stated intent of only echoing messages.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 54,
+        "category": "environment-harvesting",
+        "description": "Scans process.env for tokens/secrets/keys/passwords/api patterns and includes them in exfiltration payload — behavior not described in the stated intent.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 65,
+        "category": "network-exfiltration",
+        "description": "Sends harvested data via HTTP POST to a configurable sink URL, a capability absent from the declared tools and inconsistent with the stated intent.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 65,
+        "category": "network-exfiltration-attempt",
+        "description": "Attempts to send harvested credentials and environment variables over HTTP when SUREX_FIXTURE_ARM=1, even though the sink is loopback-only; this exfiltration behavior is not described in the stated intent.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "scripts/exfil-postinstall.mjs",
+        "line": 73,
+        "category": "filesystem-write",
+        "description": "Writes a marker file to fixture-home, which is outside the scope of the declared 'ping' tool's behavior (stated as reading and writing nothing).",
+        "severity": 2,
+        "runs": 1
+      }
+    ],
+    "statedIntentSummary": "The server claims to expose only a harmless 'ping' tool that echoes messages without reading or writing anything.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "scripts/exfil-postinstall.mjs:65 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "scripts/exfil-postinstall.mjs:26 import 'node:fs'",
+          "scripts/exfil-postinstall.mjs:49 readFileSync()",
+          "scripts/exfil-postinstall.mjs:49 fs.readFileSync()",
+          "scripts/exfil-postinstall.mjs:50 readFileSync()",
+          "scripts/exfil-postinstall.mjs:50 fs.readFileSync()",
+          "scripts/exfil-postinstall.mjs:73 writeFileSync()",
+          "scripts/exfil-postinstall.mjs:73 fs.writeFileSync()",
+          "src/safety.mjs:20 import 'node:fs'",
+          "src/safety.mjs:141 mkdirSync()",
+          "src/safety.mjs:141 fs.mkdirSync()",
+          "src/safety.mjs:142 existsSync()",
+          "src/safety.mjs:142 fs.existsSync()"
+        ],
+        "evidenceTotal": 24
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "scripts/exfil-postinstall.mjs:54 process.env",
+          "src/safety.mjs:49 process.env",
+          "src/safety.mjs:54 process.env"
+        ],
+        "evidenceTotal": 3
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:31 ssh key material"
+        ],
+        "evidenceTotal": 1
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-3",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 4,\n  \"findings\": [\n    {\n      \"file\": \"package.json\",\n      \"line\": 13,\n      \"category\": \"malicious-lifecycle-script\",\n      \"description\": \"Declares a postinstall script that executes exfil-postinstall.mjs, which reads decoy credentials and attempts to exfiltrate environment variables over the network — despite the server's stated intent only including a harmless 'ping' tool.\",\n      \"severity\": 4\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 54,\n      \"category\": \"credential-harvesting\",\n      \"description\": \"Harvests environment variables matching patterns like token, secret, key, password, or api — a capability not mentioned in the declared tools and inconsistent with the stated intent of only echoing messages.\",\n      \"severity\": 4\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 65,\n      \"category\": \"network-exfiltration\",\n      \"description\": \"Sends harvested data via HTTP POST to a configurable sink URL, a capability absent from the declared tools and inconsistent with the stated intent.\",\n      \"severity\": 4\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 73,\n      \"category\": \"filesystem-write\",\n      \"description\": \"Writes a marker file to fixture-home, which is outside the scope of the declared 'ping' tool's behavior (stated as reading and writing nothing).\",\n      \"severity\": 2\n    }\n  ],\n  \"statedIntentSummary\": \"The server claims to expose only a harmless 'ping' tool that echoes messages without reading or writing anything.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 3,\n  \"findings\": [\n    {\n      \"file\": \"package.json\",\n      \"line\": 13,\n      \"category\": \"malicious-lifecycle-script\",\n      \"description\": \"Declares a postinstall script that executes external code (scripts/exfil-postinstall.mjs) at install time, which reads decoy credentials and attempts to exfiltrate environment variables over HTTP — behavior not described in the stated intent.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 65,\n      \"category\": \"network-exfiltration-attempt\",\n      \"description\": \"Attempts to send harvested credentials and environment variables over HTTP when SUREX_FIXTURE_ARM=1, even though the sink is loopback-only; this exfiltration behavior is not described in the stated intent.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 54,\n      \"category\": \"environment-harvesting\",\n      \"description\": \"Scans process.env for tokens/secrets/keys/passwords/api patterns and includes them in exfiltration payload — behavior not described in the stated intent.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"scripts/exfil-postinstall.mjs\",\n      \"line\": 49,\n      \"category\": \"credential-reading\",\n      \"description\": \"Reads decoy SSH and AWS credential files from fixture-home, mimicking real-world credential theft behavior not described in the stated intent.\",\n      \"severity\": 3\n    }\n  ],\n  \"statedIntentSummary\": \"The server declares a single 'ping' tool that echoes messages; it claims to be a clean MCP server where malicious behavior resides solely in an unused postinstall hook.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:57:00.663Z",
+      "finishedAt": "2026-07-25T16:57:26.394Z",
+      "durationMs": 25731,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "849ff96f93708bfdcba3ba1218e78091a68fecbc7f1709c7c736bdd4cf84a9c4",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 12658,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6729,
+            "completion_tokens": 389,
+            "total_tokens": 7118
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 13068,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6777,
+            "completion_tokens": 407,
+            "total_tokens": 7184
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 5,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": [
+        "runs agreed on the verdict but not the severity (4 vs 3); the lower one stands"
+      ]
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-3, from 2 runs that agreed. No human audited this."
+  },
+  "key": "849ff96f93708bfdcba3ba1218e78091a68fecbc7f1709c7c736bdd4cf84a9c4",
+  "recordedAt": "2026-07-25T16:57:26.395Z"
+}

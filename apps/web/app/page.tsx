@@ -8,7 +8,7 @@ import { Footer } from './_components/Footer.tsx';
 import { IllustrativeBanner } from './_components/IllustrativeBanner.tsx';
 import { RegistryFilters, type RegistryQuery } from './_components/RegistryFilters.tsx';
 import { RegistryTable, StatStrip } from './_components/RegistryTable.tsx';
-import { TierLegend } from './_components/TierLegend.tsx';
+import { VerdictAxes } from './_components/VerdictAxes.tsx';
 
 /**
  * The registry list — `browse` in design/prototype.html.
@@ -101,9 +101,11 @@ export default async function BrowsePage({
         ) : null}
 
         <RegistryFilters query={query} rows={rows} />
-        {/* Directly under the TIER filter and directly above the TIER column, so
-            the three letters are explained where they are first used. */}
-        <TierLegend />
+        {/* Directly under the filters and directly above the table, so both
+            columns are explained where they are first used — and explained
+            TOGETHER, because the tier legend on its own reads as a single
+            good-to-bad scale. VerdictAxes renders the tier legend inside it. */}
+        <VerdictAxes />
         <RegistryTable rows={visible} total={rows.length} query={query.q} />
 
         <Footer />

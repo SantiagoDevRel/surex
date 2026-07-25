@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 23141,
+  "durationMs": 23428,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "This server claims to load its tool list dynamically from tools.config.json at startup, exposing only three behaviours (static-text, list-notes, count-lines) implemented in server.mjs; it adds a disclosure tool describe_tool_source and asserts that no dynamic code execution, network calls, or out-of-package file access occur.",
+    "statedIntentSummary": "This server claims to load its tool list dynamically from tools.config.json at startup, exposing only three hardcoded behaviours (static-text, list-notes, count-lines) while the actual tool names and descriptions come entirely from the config file; it explicitly states that no dynamic code execution or path traversal occurs, and all operations are confined to its own package directory.",
     "capabilities": {
       "network": {
         "present": false,
@@ -60,20 +60,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server claims to load its tool list dynamically from tools.config.json at startup, exposing only three behaviours (static-text, list-notes, count-lines) implemented in server.mjs; it adds a disclosure tool describe_tool_source and asserts that no dynamic code execution, network calls, or out-of-package file access occur.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server claims to load its tool list dynamically from tools.config.json at startup, exposing only three hardcoded behaviours (static-text, list-notes, count-lines) while the actual tool names and descriptions come entirely from the config file; it explicitly states that no dynamic code execution or path traversal occurs, and all operations are confined to its own package directory.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server builds its tool list dynamically from tools.config.json at startup, exposing tools whose names and descriptions are not present in the source code; it is a review fixture designed to demonstrate the blind spot of runtime-loaded payloads, with safety guards ensuring only predefined harmless behaviours can be configured.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server builds its MCP tool list at startup from an external JSON config file, so the actual tool names and descriptions are not in the source code; it declares four tools (three data-driven plus a disclosure tool), all confined to reading/writing only within its own package directory using a closed set of three implemented behaviours.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:18:00.847Z",
-      "finishedAt": "2026-07-25T14:18:23.988Z",
-      "durationMs": 23141,
+      "startedAt": "2026-07-25T15:48:40.054Z",
+      "finishedAt": "2026-07-25T15:49:03.482Z",
+      "durationMs": 23428,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -85,12 +85,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 11390,
+          "ms": 11642,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 11775,
-            "completion_tokens": 101,
-            "total_tokens": 11876
+            "prompt_tokens": 11783,
+            "completion_tokens": 107,
+            "total_tokens": 11890
           },
           "error": null
         },
@@ -98,12 +98,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 11744,
+          "ms": 11778,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 11813,
-            "completion_tokens": 94,
-            "total_tokens": 11907
+            "prompt_tokens": 11821,
+            "completion_tokens": 102,
+            "total_tokens": 11923
           },
           "error": null
         }
@@ -113,11 +113,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 6,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "3442f9358780f2fda331d94501a3ce204a33602f6d296b91c5d615e96dedd17b",
-  "recordedAt": "2026-07-25T14:18:23.989Z"
+  "recordedAt": "2026-07-25T15:49:03.483Z"
 }

@@ -1,0 +1,122 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-3",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 14800,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "This server declares two tools: one to fetch weather data by sending an HTTPS GET with city, units='metric', and appid=<OPENWEATHER_API_KEY> to either a loopback endpoint (default) or the live OpenWeather API (when SUREX_FIXTURE_WEATHER_LIVE=1), and another to report which endpoint is in effect without making any request; it explicitly states that no files are read, subprocesses started, or runtime code loaded.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "server.mjs:176 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "server.mjs:76 process.env",
+          "server.mjs:99 process.env"
+        ],
+        "evidenceTotal": 2
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "server.mjs:69 credential-shaped variable"
+        ],
+        "evidenceTotal": 1
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-3",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares two tools: one to fetch weather data by sending an HTTPS GET with city, units='metric', and appid=<OPENWEATHER_API_KEY> to either a loopback endpoint (default) or the live OpenWeather API (when SUREX_FIXTURE_WEATHER_LIVE=1), and another to report which endpoint is in effect without making any request; it explicitly states that no files are read, subprocesses started, or runtime code loaded.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server declares two tools: one to fetch weather data by sending an HTTP request with a city name and an API key from the OPENWEATHER_API_KEY environment variable, and another to describe the current endpoint configuration. It explicitly states it only contacts either a loopback discard port (default) or api.openweathermap.org when enabled via SUREX_FIXTURE_WEATHER_LIVE=1, never writes files, starts subprocesses, or loads runtime code.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:55:52.526Z",
+      "finishedAt": "2026-07-25T16:56:07.326Z",
+      "durationMs": 14800,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "94593af3ef788071836c77931255a3dd09552304914cb07706c030e149ae8872",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 7379,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 5957,
+            "completion_tokens": 132,
+            "total_tokens": 6089
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 7415,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6005,
+            "completion_tokens": 130,
+            "total_tokens": 6135
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 2,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 2,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-3, from 2 runs that agreed. No human audited this."
+  },
+  "key": "94593af3ef788071836c77931255a3dd09552304914cb07706c030e149ae8872",
+  "recordedAt": "2026-07-25T16:56:07.327Z"
+}

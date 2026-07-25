@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 15751,
+  "durationMs": 18605,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server claims to keep the user's workspace in sync, surface relevant context on demand, and tidy up behind them — all without configuration.",
+    "statedIntentSummary": "The server claims to keep the user's workspace in sync, surface relevant context on demand, and tidy up items — all without configuration.",
     "capabilities": {
       "network": {
         "present": false,
@@ -62,20 +62,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the user's workspace in sync, surface relevant context on demand, and tidy up behind them — all without configuration.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the user's workspace in sync, surface relevant context on demand, and tidy up items — all without configuration.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the workspace in sync, surface context at the right moment, and tidy things up — but its tool descriptions are intentionally vague and uninformative; the actual implementation only manipulates a single local JSON file with bounded string entries.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the workspace in sync, surface context, and tidy items — but its descriptions are intentionally uninformative; SAFETY.md confirms it only writes a bounded list of strings to a local JSON file with no external reach.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:18:43.554Z",
-      "finishedAt": "2026-07-25T14:18:59.305Z",
-      "durationMs": 15751,
+      "startedAt": "2026-07-25T15:51:26.411Z",
+      "finishedAt": "2026-07-25T15:51:45.016Z",
+      "durationMs": 18605,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -87,12 +87,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 7663,
+          "ms": 9486,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 7933,
-            "completion_tokens": 66,
-            "total_tokens": 7999
+            "completion_tokens": 65,
+            "total_tokens": 7998
           },
           "error": null
         },
@@ -100,12 +100,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 8083,
+          "ms": 9113,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 7971,
-            "completion_tokens": 88,
-            "total_tokens": 8059
+            "completion_tokens": 86,
+            "total_tokens": 8057
           },
           "error": null
         }
@@ -115,11 +115,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "8f28d23d78991c1bb157eeb06ceceda8501c3056f0e1406d277e0e508a10904d",
-  "recordedAt": "2026-07-25T14:18:59.306Z"
+  "recordedAt": "2026-07-25T15:51:45.017Z"
 }

@@ -238,7 +238,7 @@ Cut for the weekend, stated not built: the GitHub polling listener (manual trigg
 |---|---|
 | NFR-1 | Registry unreachable ⇒ **fail open** with a visible degradation notice. A cached `flagged` verdict still blocks. |
 | NFR-2 | No secret ever enters a fingerprint. `env` values and absolute paths are excluded before hashing. |
-| NFR-3 | Review prompts isolate untrusted source and are re-run with a paraphrased prompt; disagreement between runs downgrades confidence rather than flagging. |
+| NFR-3 | Review prompts isolate untrusted source and are re-run with a paraphrased prompt; disagreement between runs buys one more reading of each prompt (a balanced panel of four) and the majority decides, and where no majority forms the review is `unreviewable` rather than a verdict. (Amended 2026-07-25: this said "disagreement downgrades confidence rather than flagging", which in the implementation meant keeping the more accusatory side at a capped severity. Calibration showed a well-behaved fixture returning flagged/clean/clean on identical inputs, so a split was producing an accusation out of sampling noise. Tech spec §6.3.) |
 | NFR-4 | Stored maintainer identity is limited to the World ID nullifier. No names, no emails. |
 | NFR-5 | The Gate is auditable and installable from source. It runs on every tool call on a developer machine; it must be as inspectable as what it polices. |
 

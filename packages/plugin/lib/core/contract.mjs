@@ -61,7 +61,10 @@ export const ROUTES = Object.freeze({
  * @property {string}  state           clean|flagged|disputed|unreviewable|stale|unknown
  * @property {number}  severity        0-4
  * @property {'A'|'B'|'C'} tier
- * @property {string=} reason          licence|source-unavailable|remote-endpoint
+ * @property {string=} reason          licence|source-unavailable|remote-endpoint|no-agreement
+ *                                     (the first three mean the code could not be read;
+ *                                      `no-agreement` means it was read and the readings
+ *                                      did not converge — a review with no verdict)
  * @property {string=} name            display name, e.g. "@acme/mcp-tools@2.1.0"
  * @property {number=} enforceAfter    epoch ms; selects block WORDING, not whether we block
  * @property {string=} reviewedCommit

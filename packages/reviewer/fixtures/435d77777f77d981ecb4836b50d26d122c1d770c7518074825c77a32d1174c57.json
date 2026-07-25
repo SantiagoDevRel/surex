@@ -1,0 +1,209 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-2",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 29168,
+  "value": {
+    "verdict": "flagged",
+    "reason": null,
+    "severity": 3,
+    "findings": [
+      {
+        "file": "src/tools/status.mjs",
+        "line": 88,
+        "category": "conditional-logic-bomb",
+        "description": "The triggered() function implements a logic bomb with three triggers (date, hostname, input token) that activate credential exfiltration code.",
+        "severity": 3,
+        "runs": 2
+      },
+      {
+        "file": "src/safety.mjs",
+        "line": 75,
+        "category": "network-exfiltration-capability",
+        "description": "The 'armed()' function checks an environment variable to enable sending data over HTTP, and the sink URL can be overridden via environment — though loopback enforcement limits blast radius.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 43,
+        "category": "misdescription",
+        "description": "The tool description claims 'sends nothing anywhere', but the code contains a dormant payload (detonate function) that performs network exfiltration when triggered, and the handler calls detonate() conditionally.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 43,
+        "category": "misleading-tool-description",
+        "description": "The declared description says 'Read-only; sends nothing anywhere', but the implementation includes a function that reads credentials and attempts network exfiltration when triggered.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 62,
+        "category": "conditional-logic-bomb",
+        "description": "A dormant payload function 'detonate()' is defined that reads SSH keys and environment variables, then attempts to exfiltrate them over HTTP — even though the branch is gated behind conditions that are documented as rarely met.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 65,
+        "category": "credential-theft",
+        "description": "The code reads a file from DECOY_SSH_KEY_PATH, which is described as a decoy private key, indicating credential-shaped data access.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 70,
+        "category": "credential-theft",
+        "description": "The code harvests environment variables matching patterns like token|secret|key|password|api, which constitutes credential theft despite being gated behind a trigger.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 70,
+        "category": "credential-harvesting",
+        "description": "The 'detonate()' function scans process.env for tokens/secrets/keys/passwords/api strings and includes them in a payload.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/status.mjs",
+        "line": 78,
+        "category": "network-exfiltration",
+        "description": "The code performs an HTTP POST request to a configurable sink URL using fetch(), which contradicts the declared 'sends nothing anywhere' behavior.",
+        "severity": 2,
+        "runs": 1
+      }
+    ],
+    "statedIntentSummary": "The server claims to be a read-only tool that returns uptime and status without sending data anywhere, but its source contains dormant conditional logic that can exfiltrate credentials and environment data over the network when triggered by date, hostname, or input.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "src/tools/status.mjs:78 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:20 import 'node:fs'",
+          "src/safety.mjs:141 mkdirSync()",
+          "src/safety.mjs:141 fs.mkdirSync()",
+          "src/safety.mjs:142 existsSync()",
+          "src/safety.mjs:142 fs.existsSync()",
+          "src/safety.mjs:143 writeFileSync()",
+          "src/safety.mjs:143 fs.writeFileSync()",
+          "src/safety.mjs:146 mkdirSync()",
+          "src/safety.mjs:146 fs.mkdirSync()",
+          "src/safety.mjs:147 existsSync()",
+          "src/safety.mjs:147 fs.existsSync()",
+          "src/safety.mjs:148 writeFileSync()"
+        ],
+        "evidenceTotal": 20
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:49 process.env",
+          "src/safety.mjs:54 process.env",
+          "src/tools/status.mjs:70 process.env"
+        ],
+        "evidenceTotal": 3
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:31 ssh key material"
+        ],
+        "evidenceTotal": 1
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-2",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 3,\n  \"findings\": [\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 43,\n      \"category\": \"misdescription\",\n      \"description\": \"The tool description claims 'sends nothing anywhere', but the code contains a dormant payload (detonate function) that performs network exfiltration when triggered, and the handler calls detonate() conditionally.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 78,\n      \"category\": \"network-exfiltration\",\n      \"description\": \"The code performs an HTTP POST request to a configurable sink URL using fetch(), which contradicts the declared 'sends nothing anywhere' behavior.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 70,\n      \"category\": \"credential-theft\",\n      \"description\": \"The code harvests environment variables matching patterns like token|secret|key|password|api, which constitutes credential theft despite being gated behind a trigger.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 65,\n      \"category\": \"credential-theft\",\n      \"description\": \"The code reads a file from DECOY_SSH_KEY_PATH, which is described as a decoy private key, indicating credential-shaped data access.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 88,\n      \"category\": \"conditional-logic-bomb\",\n      \"description\": \"The triggered() function implements a logic bomb with three triggers (date, hostname, input token) that activate credential exfiltration code.\",\n      \"severity\": 3\n    }\n  ],\n  \"statedIntentSummary\": \"The server claims to be a read-only tool that returns uptime and status without sending data anywhere, but its source contains dormant conditional logic that can exfiltrate credentials and environment data over the network when triggered by date, hostname, or input.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 3,\n  \"findings\": [\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 62,\n      \"category\": \"conditional-logic-bomb\",\n      \"description\": \"A dormant payload function 'detonate()' is defined that reads SSH keys and environment variables, then attempts to exfiltrate them over HTTP — even though the branch is gated behind conditions that are documented as rarely met.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 88,\n      \"category\": \"conditional-logic-bomb\",\n      \"description\": \"The 'triggered()' function checks for a future date (2027), specific hostname, or magic input token — indicating the tool has a conditional logic bomb that activates under hidden conditions.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 43,\n      \"category\": \"misleading-tool-description\",\n      \"description\": \"The declared description says 'Read-only; sends nothing anywhere', but the implementation includes a function that reads credentials and attempts network exfiltration when triggered.\",\n      \"severity\": 2\n    },\n    {\n      \"file\": \"src/safety.mjs\",\n      \"line\": 75,\n      \"category\": \"network-exfiltration-capability\",\n      \"description\": \"The 'armed()' function checks an environment variable to enable sending data over HTTP, and the sink URL can be overridden via environment — though loopback enforcement limits blast radius.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/status.mjs\",\n      \"line\": 70,\n      \"category\": \"credential-harvesting\",\n      \"description\": \"The 'detonate()' function scans process.env for tokens/secrets/keys/passwords/api strings and includes them in a payload.\",\n      \"severity\": 3\n    }\n  ],\n  \"statedIntentSummary\": \"This server declares a simple 'status' tool that returns uptime and an optional echoed note, but its implementation contains a visible conditional logic bomb that, when triggered by date/hostname/input, reads decoy credentials and attempts network exfiltration — though safeguards are documented to keep it inert in practice.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:22:15.674Z",
+      "finishedAt": "2026-07-25T16:22:44.842Z",
+      "durationMs": 29168,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "435d77777f77d981ecb4836b50d26d122c1d770c7518074825c77a32d1174c57",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 14072,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6369,
+            "completion_tokens": 468,
+            "total_tokens": 6837
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 15090,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6407,
+            "completion_tokens": 504,
+            "total_tokens": 6911
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 4,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 4,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-2, from 2 runs that agreed. No human audited this."
+  },
+  "key": "435d77777f77d981ecb4836b50d26d122c1d770c7518074825c77a32d1174c57",
+  "recordedAt": "2026-07-25T16:22:44.843Z"
+}

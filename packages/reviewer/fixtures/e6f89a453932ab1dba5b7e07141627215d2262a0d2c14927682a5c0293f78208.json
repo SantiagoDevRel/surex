@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 18901,
+  "durationMs": 19889,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares itself as an unrestricted shell-execution tool capable of running any command the host account can execute, but in practice only allows three fixed command lines defined in safety.mjs and refuses all others.",
+    "statedIntentSummary": "The server declares itself as an unrestricted shell-execution tool but actually enforces a fixed allowlist of three command lines; it provides tools to list allowed commands and describe the environment (names only, no values).",
     "capabilities": {
       "network": {
         "present": false,
@@ -52,20 +52,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares itself as an unrestricted shell-execution tool capable of running any command the host account can execute, but in practice only allows three fixed command lines defined in safety.mjs and refuses all others.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares itself as an unrestricted shell-execution tool but actually enforces a fixed allowlist of three command lines; it provides tools to list allowed commands and describe the environment (names only, no values).\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares itself as an unrestricted shell tool but actually only executes three fixed command lines from a hardcoded allowlist; it explicitly documents this mismatch and states the declared capability is intentional for review testing.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares itself as an unrestricted shell tool but actually only executes three fixed command lines from a hardcoded allowlist; it explicitly documents this mismatch and emphasizes safety constraints.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:18:24.344Z",
-      "finishedAt": "2026-07-25T14:18:43.245Z",
-      "durationMs": 18901,
+      "startedAt": "2026-07-25T15:50:25.765Z",
+      "finishedAt": "2026-07-25T15:50:45.654Z",
+      "durationMs": 19889,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -77,12 +77,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 9480,
+          "ms": 9735,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 9898,
-            "completion_tokens": 79,
-            "total_tokens": 9977
+            "prompt_tokens": 9894,
+            "completion_tokens": 81,
+            "total_tokens": 9975
           },
           "error": null
         },
@@ -90,12 +90,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 9417,
+          "ms": 10146,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 9936,
-            "completion_tokens": 77,
-            "total_tokens": 10013
+            "prompt_tokens": 9932,
+            "completion_tokens": 71,
+            "total_tokens": 10003
           },
           "error": null
         }
@@ -105,11 +105,16 @@
         "filesSkipped": [],
         "scanner": "surex-capability-scan/1"
       },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
       "notes": []
     },
     "fingerprint": null,
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "e6f89a453932ab1dba5b7e07141627215d2262a0d2c14927682a5c0293f78208",
-  "recordedAt": "2026-07-25T14:18:43.245Z"
+  "recordedAt": "2026-07-25T15:50:45.655Z"
 }
