@@ -73,6 +73,11 @@ API serves in mock mode carries `illustrative: true`, and no surface may strip i
 4. `docs/surex-track-fit.md` — how it maps to the two prize tracks, and the honest answers to the
    questions judges will ask.
 5. `FRICTION-LOG.md` — verified problems found in sponsor SDKs while building. Also §7 below.
+6. `docs/FEEDBACK.md` — the sponsor-facing consolidation of that log, grouped by whose codebase can act on
+   each finding (Sui/Walrus · World · ENS, then the non-sponsor stacks). Submission material: some tracks
+   grade developer feedback directly. New findings go in `FRICTION-LOG.md` **first**, then get carried here —
+   never the other way round, and never upgraded from inferred to `[VERIFIED]` in the crossing.
+   `docs/WORLD-FEEDBACK.md` is the standalone World note; `docs/world-message.md` is its short form.
 
 ## 4. Hard rules
 

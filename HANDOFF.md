@@ -159,6 +159,6 @@ confident `clean` about files the model never saw. Budget is now a parameter and
 - Arkiv: Braga, `.createdBy` not `ownedBy`, `orderBy` is a no-op (sort client-side), `expiresIn` even seconds,
   `query()` returns one cursor page — must loop.
 - Walrus: blob = register+certify (2 tx), blob ID ≠ sha256 (needs the vendored WASM encoder), Quilt batches
-  many entries into one blob, publisher does NOT dedupe (idempotency is ours).
+  many entries into one blob, the SDK does NOT dedupe (it re-registers and re-charges); the HTTP publisher DOES return `alreadyCertified` for free — S3 is [VERIFIED] on this and an earlier line here had it backwards.
 - Vercel monorepo: Root Directory per app + `framework:null` on the API (auto-detect hung it); API uses a
   custom Node adapter because the Hono adapter dropped Vercel's pre-parsed `req.body` (V6).

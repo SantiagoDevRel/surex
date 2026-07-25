@@ -50,6 +50,7 @@
 - **How we found out:** the CLI printed the raw revert and a "likely causes" list that pointed at "not Orb-verified" — which was wrong; the proof was accepted. Decoding the selector and reading the router's `latestRoot`/`checkValidRoot` against the proof's root is what isolated it.
 - **Why it matters:** this is the exact last mile of the World track's novel use, and the failure surfaces as an undecodable selector with a misleading "maybe not Orb-verified" hint. A team that trusts that hint burns hours re-scanning a perfectly good Orb ID.
 - **What would fix it:** the relay should verify against — or wait for — a root already bridged to World Chain, and its error should decode `NonExistentRoot` and say "the proof root has not propagated to World Chain yet, retry shortly" instead of a generic ABI-decode failure. Documenting the World Chain root-propagation delay next to the AgentBook quickstart would remove the whole class.
+- **Update — it cleared on its own, later the same day (2026-07-25).** World Chain's group-1 `latestRoot()` advanced, the same command was retried, and registration **landed**: tx `0xaa4c255c5edb7c973452a264184076dca73cfc051c019e0a1c7837a54b0fd870`, `status: registered`, and the live dispute flow flipped `403 → 202`. So the remedy was "wait for the bridge" — which nothing told us, which is the whole finding. The paragraphs above are the state *during* the failure and are left as written; the resolution is written up in `docs/world-message.md` and `docs/WORLD-FEEDBACK.md`.
 
 ### W5 · `createAgentBookVerifier` defaults to a shared public RPC
 - No `rpcUrl` means viem's public World Chain endpoint. Under demo load a rate-limit throw surfaces as an exception in the middle of the identity check, which reads exactly like a rejected agent. Docs should recommend passing `rpcUrl` explicitly, next to the first code sample.
@@ -312,6 +313,48 @@ Measured with `@mysten/walrus@1.2.9` while seeding 50 registry records into one 
   has no per-record explorer link — it is addressed as (quilt blob, patch id). We keep standalone blobs for
   source trees, reviews and dispute evidence, where citing one record individually is the entire point, and
   every quilted pointer we write carries `addressing: 'quilt-patch'` so a reader can tell the two apart.
+
+### S11 · The TS SDK's blob write cannot complete from a residential connection; the HTTP publisher can — **[VERIFIED, two machines, same code, minutes apart]**
+**Severity: high.** It decides where a Walrus writer can live, it is invisible until you move the writer,
+and the error names neither the cause nor the way out.
+
+- **Expected:** `@mysten/walrus`'s write path works from anywhere with a working internet connection and a
+  funded wallet. Nothing in the SDK or the docs suggests otherwise.
+- **Happened:** it depends on the uplink. Same code, same wallet, same wallet balance, minutes apart, on
+  2026-07-25:
+  - **laptop, European business connection** (public IP `62.48.x`): `walrus.writeRecord` succeeds in
+    **32 s**; the blob is registered and certified.
+  - **DGX, Colombian residential connection** (public IP `179.13.x`): the identical call fails in
+    ~23–27 s with `NotEnoughBlobConfirmationsError: Too many failures while writing blob <id> to nodes`,
+    **4 attempts out of 4**.
+- **Ruled out, each with its own test** — this is the part that cost the hours:
+  - **balance** — 0.217 WAL, 0.335 SUI on the same wallet that had published 20 verdicts hours earlier;
+  - **Node version** — fails identically on 22.22.3 and 24.18.0;
+  - **IPv6** — `--dns-result-order=ipv4first` fails the same way;
+  - **file descriptors** — 500 000 on the DGX against 3 200 on the laptop that succeeds;
+  - **general connectivity** — the aggregator returns 200 from the DGX throughout.
+- **Cause:** the SDK uploads slivers **directly to all 101 committee members in parallel**. A residential
+  uplink does not complete that. This is a property of the write path, not of the account or the host.
+- **The HTTP publisher works from the same machine, at the same moment:**
+  `PUT https://publisher.walrus-testnet.walrus.space/v1/blobs?epochs=53` returned **HTTP 200 in 14.5 s**,
+  and a second publisher (`walrus-testnet-publisher.nodes.guru`) in **8.4 s** — both registering blob
+  `oSWREJlW6I68Q3dAuiqzfGa5ZYEiIxAEsMyNW07bzDE` on chain.
+- **Repro:** run an SDK write from a residential connection and the same bytes through a publisher from the
+  same shell:
+  ```bash
+  node probes/walrus-write.mjs          # SDK path — NotEnoughBlobConfirmationsError from residential
+  curl -i -X PUT "https://publisher.walrus-testnet.walrus.space/v1/blobs?epochs=53&permanent=true" \
+    --data-binary @blob.txt             # HTTP 200 from the same machine, same minute
+  ```
+- **What would have prevented it:** the SDK error names neither the network shape the write needs nor the
+  publisher as the fallback, and the docs do not say that direct-to-node upload has an effective bandwidth
+  or connection-count floor. A one-line hint in the error — *"N of M nodes unreachable; consider the HTTP
+  publisher"* — turns a dead end into a next step. A sentence in the write docs saying which environments
+  the SDK path assumes would let a team choose the publisher on day one instead of on Saturday night.
+- **The honest trade in taking the publisher, recorded because it changes what a record may claim:** with
+  the publisher it is the **publisher's** wallet that registers the blob, so `suiObjectId` and both digests
+  are theirs and "our wallet registered this" stops being true. The property the gate actually relies on —
+  fetch the bytes back and recompute the blob ID — is unaffected by who paid.
 
 ---
 
