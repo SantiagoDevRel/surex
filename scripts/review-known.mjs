@@ -82,7 +82,7 @@ const log = (...a) => console.log(...a);
  * model never received. 48 000 characters is ~12–16k tokens, which leaves room
  * for the instructions and the answer.
  */
-const REVIEW_LIMITS = Object.freeze({
+export const REVIEW_LIMITS = Object.freeze({
   // Per-file, deliberately close to the total. A published MCP server is usually
   // ONE compiled file — `@modelcontextprotocol/server-memory` is 19 000
   // characters of `dist/index.js` and nothing else — and a 12 000 cap fed the
@@ -232,7 +232,7 @@ const SKIP_DIR = /^(node_modules|\.git|test|tests|__tests__|examples?|docs?|cove
 const SKIP_FILE = /^(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|tsconfig\.tsbuildinfo)$/i;
 
 /** Every reviewable file in the extracted package. Not budgeted — that is later. */
-function readPackage(dir) {
+export function readPackage(dir) {
   const files = [];
   const walk = (d) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
@@ -691,6 +691,41 @@ async function publish(results) {
   }
 
   assertNoThirdPartyFlags(publishable);
+
+  /**
+   * Build every head BEFORE anything is written, with a stand-in evidence
+   * pointer, purely to see whether the worker would refuse it.
+   *
+   * The order below is: write the Walrus quilt (two Sui transactions, paid), then
+   * write the review records, then build the heads. A head the worker rejects —
+   * an `unreviewable` with no reason, a `clean` with no review — would therefore
+   * throw *after* the blob was paid for, leaving a certified quilt nothing points
+   * at and half the registry updated. Ten lines here turns that into an error
+   * before the first transaction.
+   */
+  const PROBE = { blobId: 'probe', suiObjectId: 'probe', contentSha256: 'probe' };
+  for (const r of publishable) {
+    try {
+      buildVerdictHead({
+        fingerprint: r.fingerprint,
+        state: r.publish === 'clean' ? 'clean' : 'unreviewable',
+        reason: r.publish === 'withheld' ? 'withheld' : (r.publish === 'unreviewable' ? r.reason : undefined),
+        tier: r.tier ?? 'C',
+        severity: r.publish === 'clean' ? r.severity ?? 0 : 0,
+        name: r.name,
+        // The real call passes the key created a few lines below; here it only
+        // has to be truthy, because this probe is asking "would this be refused",
+        // not "is this the final entity".
+        latestReviewKey: r.publish === 'clean' ? 'probe' : undefined,
+        modelId: r.modelId, promptVersion: r.promptVersion,
+        evidence: r.publish === 'clean' ? PROBE : undefined,
+        requireReviewForClean: true,
+      });
+    } catch (err) {
+      throw new Error(`refusing to start the publish: ${r.name} would be rejected by the worker — ${err.message}`);
+    }
+  }
+  log(`  preflight: ${publishable.length} head(s) would be accepted`);
 
   const withReview = publishable.filter((r) => r.publish === 'clean');
   log(`\npublishing ${publishable.length} verdicts (${withReview.length} with a review body)…`);
