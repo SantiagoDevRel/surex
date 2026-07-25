@@ -272,6 +272,15 @@ test('entry, source and review return the record plus its Sui/Walrus links', asy
     assert.match(review.links[link], /^https:\/\//, `review must link ${link}`);
   }
 
+  // The HEAD needs them too, and did not have them. This route is the one the
+  // verdict page reads, and the page's whole argument is "here is the blob we
+  // judged and here is the entity recording it" — printed, until now, as inert
+  // text with nowhere to go. The record routes had applied withLinks from the
+  // start; this one never did.
+  assert.ok(body.head.links, 'the head carries links');
+  assert.match(body.head.links.blob, /\/v1\/blobs\//, 'the evidence blob, on a Walrus aggregator');
+  assert.match(body.head.links.arkivEntity, /\/entity\//, 'the entity, on the Arkiv explorer');
+
   const one = await json(app, `/v1/review/${encodeURIComponent(review.key)}`);
   assert.equal(one.res.status, 200);
   assert.equal(one.body.review.key, review.key);

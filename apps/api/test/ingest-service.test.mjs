@@ -60,7 +60,16 @@ function startService(t, stubSource) {
     // assertions had already passed — this was a red suite caused entirely by
     // tearing down faster than the OS could let go. POSIX unlinks an open file
     // happily and never sees it.
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    // Retried AND swallowed. The retries handle the ordinary case; the catch
+    // handles the full-suite run, where the machine is busy enough that half a
+    // second of retries is not always enough. Either way a temp directory the OS
+    // has not finished releasing is not a defect in the thing under test, and
+    // failing a test whose assertions all passed because of it is a false alarm
+    // that trains people to ignore red. `packages/plugin/test/gate.test.mjs`
+    // settled this the same way for the same reason.
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    } catch { /* windows file locks */ }
   });
 
   let log = '';

@@ -63,12 +63,59 @@ export function Provenance({ entry }: { entry: Entry }) {
           label={COPY.verdict.provenanceReviewed}
           value={review?.analyzedAt ?? isoDate(head.reviewedAt ?? head.updatedAt)}
         />
-        <Row label={COPY.verdict.provenanceSourceBlob} value={source?.blob?.blobId ?? head.evidence?.blobId} />
+        {/*
+          Every identifier below that CAN be looked at now links to where it can
+          be looked at. This panel is the page's whole argument — here is the
+          blob we judged, here is the entity that records it — and it was
+          printing all of it as inert text, so a reader had no way to check any
+          of it.
+
+          The URLs are built by `apps/api/src/links.mjs`, the one place allowed
+          to turn an id into a path, and they arrive already built. `href`
+          undefined renders as plain text, which is exactly right for a record
+          that carries no pointer: the module omits what it cannot link, so the
+          absence of a link here means the absence of a target, never a
+          formatting decision.
+
+          The source blob and the verdict blob take their links from their OWN
+          records. They are different blobs on Walrus, and pointing both at one
+          set of links would send a reader to the wrong bytes while looking
+          entirely correct.
+        */}
+        <Row
+          label={COPY.verdict.provenanceSourceBlob}
+          value={source?.blob?.blobId ?? head.evidence?.blobId}
+          href={source?.links?.blob ?? head.links?.blob}
+        />
         <Row label={COPY.verdict.provenanceModel} value={review?.modelId ?? head.modelId} />
         <Row label={COPY.verdict.provenancePrompt} value={promptValue} />
         <Row label={COPY.verdict.provenanceIntegrity} value={head.integrity} />
-        <Row label={COPY.verdict.provenanceIndex} value={head.arkivEntityKey} />
-        <Row label="VERDICT BLOB" value={review?.blob?.blobId} />
+        <Row
+          label={COPY.verdict.provenanceIndex}
+          value={head.arkivEntityKey}
+          href={head.links?.arkivEntity}
+        />
+        <Row label="VERDICT BLOB" value={review?.blob?.blobId} href={review?.links?.blob} />
+        {/*
+          Sui rows appear ONLY when our own wallet registered the blob. In
+          publisher mode the object and both digests belong to the publisher, so
+          the record carries no `suiObjectId` and these rows are absent rather
+          than pointing at somebody else's transaction as though it were ours.
+        */}
+        {source?.links?.suiObject || review?.links?.suiObject ? (
+          <Row
+            label="SUI OBJECT"
+            value={source?.blob?.suiObjectId ?? review?.blob?.suiObjectId}
+            href={source?.links?.suiObject ?? review?.links?.suiObject}
+          />
+        ) : null}
+        {source?.links?.certifyTx || review?.links?.certifyTx ? (
+          <Row
+            label="CERTIFY TX"
+            value={source?.blob?.certifyTx ?? review?.blob?.certifyTx}
+            href={source?.links?.certifyTx ?? review?.links?.certifyTx}
+          />
+        ) : null}
         {ensName ? (
           <Row label={COPY.verdict.provenanceEns} value={ensName} href={ensAppUrl(ensName)} />
         ) : null}

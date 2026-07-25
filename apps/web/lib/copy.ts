@@ -175,7 +175,6 @@ export const COPY = {
     tierC: 'TIER C · NOTHING WAS CHECKED',
     tierMismatch: 'THE PUBLISHED ARTIFACT CHANGED AFTER THIS REVIEW',
     notInRegistry: 'NO ENTRY — NOTHING WAS REVIEWED',
-    counterAutomated: 'AUTOMATED · NO HUMAN AUDIT',
     counterUncontested: 'UNCONTESTED',
     counterContested: 'CONTESTED · REBUTTAL ON FILE',
     counterEvidenceExpired: 'EVIDENCE NO LONGER RETRIEVABLE',
@@ -585,6 +584,158 @@ export const COPY = {
     unitsOf: 'of',
     nothingReported:
       'The run has not reported a stage yet.',
+
+    /**
+     * THE RAIL — which technology is being touched, right now.
+     *
+     * The halftone says HOW FAR the run has got. It does not say WHERE it is, and
+     * "where" is the question a person watching a submission is actually asking:
+     * whose machine is reading my code, what got written, and can I go and look at
+     * it. So the rail names one technology per stage and puts a link next to it the
+     * moment the run reports an identifier — never before, which is why every
+     * string in `fact` is a LABEL and not one of them carries a value.
+     *
+     * The phases are worded to claim as little as possible. The watch polls every
+     * 1.8 s and a short stage can pass between two polls, so a stage the run has
+     * moved beyond is described as *the run is past this* rather than as *done*:
+     * we know the run advanced, and we do not know what happened inside a stage
+     * nobody reported.
+     */
+    rail: {
+      label: 'WHERE THE RUN IS',
+      legend:
+        'One tile per stage the pipeline reports, and the technology each one touches. A link appears when the run reports an identifier for it, and not before.',
+      /** Which stage the panel below is describing, and how it got chosen. */
+      following: 'following the run',
+      picked: 'you picked this stage — choose it again to follow the run',
+      /**
+       * Phases. `phaseDone` deliberately says the run moved on rather than that
+       * the stage succeeded: a licence refusal jumps straight from the licence
+       * gate to the write, so "past" is the only thing a jumped number proves.
+       */
+      phasePending: 'not reached',
+      phaseActive: 'running now',
+      phaseDone: 'the run is past this',
+      phaseStopped: 'the run stopped here',
+      nothingReported:
+        'The run reported no identifiers for this stage. Whatever happened here, it did not say — so this panel does not say either.',
+
+      /**
+       * The tile's NAME — a name, not a second description. `COPY.pipeline.stage`
+       * stays the one description of what each stage does, and the rail reuses it
+       * verbatim as the caption, so there is no second vocabulary for the same
+       * eight steps. `done` is called `published` because that is what the
+       * pipeline says when it emits it.
+       */
+      name: {
+        resolving: 'resolve',
+        licence: 'licence',
+        fetching: 'fetch',
+        starting: 'start',
+        reviewing: 'review',
+        walrus: 'walrus',
+        arkiv: 'arkiv',
+        done: 'published',
+      },
+
+      /** The technology a stage touches. A stage that touches none has no chip. */
+      tech: {
+        source: 'GitHub · npm',
+        dgx: 'NVIDIA DGX',
+        walrus: 'Walrus on Sui',
+        arkiv: 'Arkiv · Braga',
+        ens: 'ENS · mainnet',
+      },
+
+      /**
+       * One lede and one paragraph per stage. The lede is the point of the stage;
+       * the paragraph is the part that is not obvious and that the identifiers
+       * beside it cannot say on their own.
+       */
+      stage: {
+        resolving: {
+          lede: 'A submission names a repository at one commit.',
+          body:
+            'A tag is a label that can be moved or deleted, so the commit is what the entry is about. The pipeline also asks npm whether this package is published, because what a user runs is the published tarball rather than the branch.',
+        },
+        licence: {
+          lede: 'Nothing is stored until a licence permits it.',
+          body:
+            'The licence is read before any source is written down. One that does not permit redistribution ends the run here and the entry publishes as unreviewable with that reason — a published answer about why nobody can review this, not a gap in the record.',
+        },
+        fetching: {
+          lede: 'The bytes that execute, not the bytes on the branch.',
+          body:
+            'When the package is published, what gets read is the npm tarball, because that is what npx -y fetches and runs, and the commit travels beside it as provenance. When it is not published, the repository at that commit is what gets read. The record always says which of the two it was.',
+        },
+        starting: {
+          lede: 'The server was started so it could be asked what tools it declares.',
+          body:
+            'This stage appears only when a run reports it. Starting a server means running somebody else’s code, so it happens with install scripts off, an environment stripped of credentials and a short timeout. The pass that reads the tool list out of the README instead never reports this stage at all.',
+        },
+        reviewing: {
+          lede: 'An open-source model reads the source against what the server says it does.',
+          body:
+            'It runs on an NVIDIA DGX Spark on our own hardware, reached over a Cloudflare tunnel, so the submitted source never goes to a hosted model. Two paraphrased readings of the same source; when the two disagree a second pair runs, and the lower severity is the one that stands.',
+        },
+        walrus: {
+          lede: 'The record goes to Walrus and is certified on Sui.',
+          body:
+            'One write is two Sui transactions — register, then certify. A blob ID is a commitment over the encoded blob rather than the sha256 of the bytes, so the digest that binds the bytes an aggregator serves to this record is recorded separately, as contentSha256.',
+        },
+        arkiv: {
+          lede: 'The entity the gate reads is written to Arkiv.',
+          body:
+            'Braga testnet. The review record and the registry entry land first, then the verdict head — the one entity the gate resolves in a single query before an MCP tool call. Every read of it is scoped to the address that created it.',
+        },
+        done: {
+          lede: 'Published. The entry answers from here on.',
+          body:
+            'The verdict is on the public index and has a page of its own. It is also readable as an ENS name on Ethereum mainnet — a subname nobody registered, resolved by wildcard through a signed CCIP-Read response. The ENS app cannot list offchain records, so read the name with getEnsText rather than looking for a records tab.',
+        },
+      },
+
+      /**
+       * Fact labels. `blob`, `entity`, `sha256` and `tx` are NOT repeated here —
+       * they already exist above as `blobLabel`/`entityLabel`/`sha256Label`/
+       * `txLabel` and the receipts render from those. One word per identifier.
+       */
+      fact: {
+        repo: 'repo',
+        commit: 'commit',
+        release: 'release',
+        package: 'package',
+        tier: 'tier',
+        fingerprint: 'fingerprint',
+        licence: 'licence',
+        artifact: 'artifact',
+        integrity: 'integrity',
+        model: 'model',
+        prompt: 'prompt',
+        files: 'files read',
+        readings: 'readings',
+        custody: 'custody',
+        suiObject: 'sui object',
+        registerTx: 'register tx',
+        certifyTx: 'certify tx',
+        state: 'published as',
+        ensName: 'ens name',
+        ensRead: 'read it with',
+        ensParent: 'parent name',
+      },
+
+      /**
+       * Whose wallet registered the blob. Stated rather than inferred from which
+       * fields are missing: on the publisher path the Sui object and any digest
+       * belong to the publisher, so "our wallet registered this" stops being true
+       * and the screen has to stop saying it.
+       */
+      custodyWallet: 'our own wallet registered the blob',
+      custodyPublisher: 'a public publisher registered the blob — the Sui object is theirs',
+
+      /** Why the name is not a link. An offchain resolver cannot enumerate keys. */
+      ensAppNote: 'the ENS app renders an empty records tab for a name like this one',
+    },
   },
 
   banners: {

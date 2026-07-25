@@ -71,11 +71,24 @@ export function stampView(head: VerdictHead, entry?: Entry | null): StampView {
       ? `${COPY.stamp.counterUncontested} SINCE ${since}`
       : COPY.stamp.counterUncontested;
     counterTone = head.state === 'clean' ? 'clean' : 'neutral';
-  } else if (head.state !== 'unknown') {
-    // Unconfirmed: an automated flag says so on its face.
-    counter = COPY.stamp.counterAutomated;
-    counterTone = 'muted';
   }
+  /**
+   * The unconfirmed case deliberately sets NO counter.
+   *
+   * It used to stamp `AUTOMATED · NO HUMAN AUDIT` across the hero, and the
+   * provenance panel said the same thing again in full a screen below. The
+   * disclosure is required — AGENTS.md §4, every verdict states that it was
+   * automated with no human audit — but it is required ONCE, and saying it twice
+   * on one page turns a fact into nagging, which is how a reader learns to skip
+   * it.
+   *
+   * It stays where `Provenance` puts it, for the reason that component gives:
+   * it is part of the RECORD, not a disclaimer bolted to the top, so it belongs
+   * in the panel carrying the commit, the blob, the model and the prompt version
+   * that produced it. The other two counters survive because they say something
+   * the provenance panel does not — that a window closed uncontested, or that a
+   * rebuttal is on file.
+   */
 
   return {
     state: head.state as RowStatus,

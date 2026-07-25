@@ -352,8 +352,29 @@ export function createApp(options = {}) {
     if (!entry) {
       return c.json(apiError(ERROR_CODES.NOT_FOUND, 'no registry entry for that fingerprint', { fingerprint: fp }), 404);
     }
+    /**
+     * The links, on every record this returns.
+     *
+     * `/v1/source/:key` and `/v1/review/:key` have always applied `withLinks`;
+     * this route did not, and it is the one the verdict PAGE reads. So a page
+     * whose entire argument is "here is the blob we judged and here is where it
+     * is recorded on chain" printed the blob id and the Arkiv entity key as
+     * plain text, and a reader had nowhere to go to check either of them.
+     *
+     * Applied per record rather than once at the top, because each carries its
+     * own pointer: the source blob and the review blob are different blobs, and
+     * collapsing them into one set of links would send someone to the wrong one.
+     * `withLinks` omits anything the record does not carry — a dead link that
+     * looks alive is worse than no link.
+     */
+    const linked = {
+      ...entry,
+      ...(entry.head ? { head: withLinks(entry.head, env) } : {}),
+      ...(Array.isArray(entry.sources) ? { sources: entry.sources.map((s) => withLinks(s, env)) } : {}),
+      ...(Array.isArray(entry.reviews) ? { reviews: entry.reviews.map((r) => withLinks(r, env)) } : {}),
+    };
     c.header('Cache-Control', `public, max-age=${S(CACHE.positiveTtlMs)}`);
-    return c.json(entry);
+    return c.json(linked);
   });
 
   /** source and review differ only in which entity type they will accept. */

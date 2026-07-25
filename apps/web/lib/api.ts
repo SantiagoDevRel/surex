@@ -141,13 +141,38 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
   if (!head) return null;
 
   const pick = <T>(key: string): T | undefined => body[key] as T | undefined;
+
+  /**
+   * `parseVerdictHead` copies only the frozen contract's fields, so `links` —
+   * which the API attaches beside the pointer — is dropped on the way through.
+   * Re-attached here from the raw body rather than widened into the core
+   * contract, because the gate resolves a decision from annotations alone and
+   * has no use for a URL.
+   */
+  const rawHead = (body.head ?? body) as Record<string, unknown>;
+  const headLinks = rawHead.links as Entry['head']['links'] | undefined;
+
+  /**
+   * The API returns `sources` and `reviews` — PLURAL, newest first, because a
+   * fingerprint accumulates them. This read `body.source` and `body.review`,
+   * which the API has never sent, so both were always undefined: the verdict
+   * page fell back to synthesising a review from the head's own fields and the
+   * source panel had nothing at all. Take the newest of each, and keep the
+   * singular fallback for the shape the fixtures use.
+   */
+  const newest = <T>(key: string): T | undefined => {
+    const list = body[key] as T[] | undefined;
+    return Array.isArray(list) && list.length ? list[0] : undefined;
+  };
+
   return {
-    head,
+    head: headLinks ? { ...head, links: headLinks } : head,
     summary: pick<string>('summary'),
     options: pick<string>('options'),
     findings: pick<Entry['findings']>('findings') ?? (head.topFinding ? [head.topFinding] : []),
-    source: pick<Entry['source']>('source'),
+    source: newest<Entry['source']>('sources') ?? pick<Entry['source']>('source'),
     review:
+      newest<Entry['review']>('reviews') ??
       pick<Entry['review']>('review') ??
       (head.modelId
         ? { modelId: head.modelId, promptVersion: head.promptVersion, analyzedAt: head.reviewedAt }

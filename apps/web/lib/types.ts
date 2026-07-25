@@ -82,6 +82,30 @@ export interface BlobRef {
   expiredAt?: string;
 }
 
+/**
+ * Where a recorded identifier can be LOOKED AT, built by `apps/api/src/links.mjs`.
+ *
+ * The API is the only place that turns an id into a URL — no surface hand-rolls
+ * an explorer path — so these arrive already built and the page's only job is to
+ * render them. Every field is optional because that module omits anything the
+ * record does not carry: a dead link that looks alive is worse than no link.
+ *
+ * Not part of `@surex/core`'s frozen `VerdictHead` contract, and deliberately
+ * not added to it: the gate resolves a decision from annotations alone and has
+ * no use for a URL. This type describes what the WEB receives, which is a
+ * superset.
+ */
+export interface RecordLinks {
+  /** The bytes themselves, from a Walrus aggregator. */
+  blob?: string;
+  /** The blob's object on Sui, when our own wallet registered it. */
+  suiObject?: string;
+  registerTx?: string;
+  certifyTx?: string;
+  /** The entity on the Arkiv (Braga) explorer — where the pointer is recorded. */
+  arkivEntity?: string;
+}
+
 /** The whole hot-path answer. Field-for-field with VERDICT_HEAD_FIELDS. */
 export interface VerdictHead {
   fingerprint: string;
@@ -89,6 +113,7 @@ export interface VerdictHead {
   severity: number;
   tier: Tier;
   reason?: string;
+  links?: RecordLinks;
   name?: string;
   enforceAfter?: number;
   reviewedCommit?: string;
@@ -170,6 +195,8 @@ export interface Entry {
     licence?: string;
     blob?: BlobRef;
     normalisedTreeSha256?: string;
+    /** Its OWN links. The source blob and the review blob are different blobs. */
+    links?: RecordLinks;
   };
   review?: {
     key?: string;
@@ -178,6 +205,7 @@ export interface Entry {
     agreementRuns?: number;
     analyzedAt?: string;
     blob?: BlobRef;
+    links?: RecordLinks;
   };
   /** What the gate compared locally, in words. Never a claim about the machine. */
   localLinkage?: { text: string; tone: 'clean' | 'stale' | 'unknown' };
