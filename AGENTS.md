@@ -31,17 +31,17 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 |---|---|
 | Product specs (PRD, tech spec, track fit, failure modes) | written — `docs/`, corrected against measurement as we go |
 | Design system + screens | first round done — `design/` |
-| Public explainer | done — deployed |
+| Public explainer (GitHub Pages) | superseded by the deployed app — it still says "design phase" and understates the project |
 | `packages/core` | **done** — SXF-1, the frozen `/v1` contract, verdict decision, copy law, blob verification |
 | `packages/plugin` | **done** — the gate + `surex` CLI, zero dependencies, installable from this repo |
 | `packages/fixture-mcp` | **done** — the deliberately malicious fixture, safe to run |
 | `packages/reviewer` | **done** — real review run on the DGX; the injection defence held |
-| `apps/api` | **done** — read path, live against Braga. Not deployed to Vercel |
-| `apps/web` | **done** — four screens, build clean. Not deployed |
+| `apps/api` | **done and deployed** — read path, live against Braga |
+| `apps/web` | **done and deployed** — four screens |
 | **The chain, end to end** | **verified — `node demo/chain.mjs`, 13/13** |
 | One Walrus blob written + certified | **done**, both Sui digests captured — §7 |
 | One Arkiv entity written + read filtered by `.createdBy` | **done**, including the adversarial case — §7 |
-| `packages/worker` + seeding | in progress |
+| `packages/worker` + seeding | **done** — 50 real servers seeded from the official MCP registry into one certified Walrus quilt, resume tested twice |
 | World **AgentKit / AgentBook** | **built and live** — `SUREX_WORLD=1` on the deployed API. The agent path recovers the address from the signature locally, then reads AgentBook on World Chain 480. Exercised against a real third-party registration. **Nobody is registered as our agent yet** — that is the Orb step. |
 | World **ID** (human disputes) | **built, not provable yet** — needs a Developer Portal app (`WORLD_RP_ID`, `RP_SIGNING_KEY`, `NEXT_PUBLIC_WORLD_APP_ID`). Unset gives an explicit configuration error that says it is *our* misconfiguration and not a judgement about the contestant. Never a pass. |
 | Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
@@ -49,7 +49,7 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | The registry, live | **51 entries** · 1 flagged (our fixture) · 10 unreviewable(licence) · 40 unknown · 0 clean |
 
-**Total: 223 tests green** (`pnpm test`), plus 9 copy-law tests in the web app.
+**Total: 285 tests green** (`pnpm test`), plus 21 in the web app including the copy-law walk.
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
 the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
