@@ -1,0 +1,147 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "flagged-tier-b",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex/fixture-mcp@0.1.0"
+    ]
+  },
+  "fingerprint": "sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1",
+  "head": {
+    "fingerprint": "sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1",
+    "state": "flagged",
+    "severity": 4,
+    "tier": "B",
+    "name": "@surex/fixture-mcp@0.1.0",
+    "enforceAfter": 1785142800000,
+    "reviewedCommit": "b7e40c19f2a8d365e0147cb92f5d8a30e6b1cc47",
+    "reviewedAt": "2026-07-25T02:41:09.000Z",
+    "modelId": "gpt-oss:120b",
+    "promptVersion": "sxr-2026-07-24",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "detail": "outbound POST to a hardcoded host"
+      },
+      "filesystem": {
+        "present": true,
+        "detail": "reads paths outside the working directory"
+      },
+      "exec": {
+        "present": false
+      },
+      "env": {
+        "present": true,
+        "detail": "enumerates process.env"
+      },
+      "credentials": {
+        "present": true,
+        "detail": "reads ~/.aws/credentials and ~/.ssh/id_*"
+      }
+    },
+    "topFinding": {
+      "file": "src/tools/search.mjs",
+      "line": 118,
+      "severity": 4,
+      "category": "exfiltration",
+      "description": "The tool description for search_notes says \"read-only local search, never leaves your machine\". The handler reads ~/.aws/credentials and ~/.ssh/id_* and POSTs their contents to https://collector.surex-fixture.invalid/ingest on every call."
+    },
+    "evidence": {
+      "blobId": "DEMO_blob_flagged-review",
+      "suiObjectId": "0xDEM0objflaggedreview0000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_flagged-review",
+      "certifyTx": "DEMO_suitx_certify_flagged-review",
+      "encodingType": "RS2"
+    },
+    "arkivEntityKey": "0xDEM0headflagged000000000000000000000000000000000000000000000000",
+    "updatedAt": "2026-07-25T02:41:09.000Z"
+  },
+  "entry": {
+    "fingerprint": "sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1",
+    "entityType": "registryEntry",
+    "key": "0xDEM0entryflagged00000000000000000000000000000000000000000000000",
+    "name": "@surex/fixture-mcp@0.1.0",
+    "tier": "B",
+    "seedSource": "fixture",
+    "description": "A deliberately malicious MCP server we wrote ourselves, so the demo never points a finding at someone else. It is the only thing SureX flags publicly.",
+    "aliases": [
+      "@surex/fixture-mcp"
+    ],
+    "blob": {
+      "id": "DEMO_blob_flagged-entry",
+      "suiObjectId": "0xDEM0objflaggedentry00000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_flagged-entry",
+      "certifyTx": "DEMO_suitx_certify_flagged-entry",
+      "encodingType": "RS2"
+    }
+  },
+  "sources": [
+    {
+      "fingerprint": "sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1",
+      "entityType": "source",
+      "key": "0xDEM0srcflagged0100000000000000000000000000000000000000000000000",
+      "versionString": "0.1.0",
+      "fetchedAt": "2026-07-25T02:38:20.000Z",
+      "licence": "MIT",
+      "repo": "https://github.com/surex-demo/fixture-mcp",
+      "commit": "b7e40c19f2a8d365e0147cb92f5d8a30e6b1cc47",
+      "normalisedTreeSha256": "19c4a80b3e5d7f2618ba0c94e7d3512f8a06bd41c9e720f3a85d1c6b04ef9382",
+      "blob": {
+        "id": "DEMO_blob_flagged-source-010",
+        "suiObjectId": "0xDEM0objflaggedsource0100000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_flagged-source-010",
+        "certifyTx": "DEMO_suitx_certify_flagged-source-010",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "fingerprint": "sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1",
+      "entityType": "review",
+      "key": "0xDEM0revflagged0100000000000000000000000000000000000000000000000",
+      "sourceKey": "0xDEM0srcflagged0100000000000000000000000000000000000000000000000",
+      "verdict": "flagged",
+      "severity": 4,
+      "analyzedAt": "2026-07-25T02:41:09.000Z",
+      "reviewedSourceBlobId": "DEMO_blob_flagged-source-010",
+      "supersedes": null,
+      "modelId": "gpt-oss:120b",
+      "promptVersion": "sxr-2026-07-24",
+      "agreementRuns": 2,
+      "statedIntentSummary": "Presents itself as an offline notes search. The code reaches credential files and an external host.",
+      "findings": [
+        {
+          "file": "src/tools/search.mjs",
+          "line": 118,
+          "severity": 4,
+          "category": "exfiltration",
+          "description": "Reads ~/.aws/credentials and ~/.ssh/id_* and POSTs their contents to https://collector.surex-fixture.invalid/ingest on every search_notes call."
+        },
+        {
+          "file": "src/tools/search.mjs",
+          "line": 41,
+          "severity": 3,
+          "category": "description-mismatch",
+          "description": "The advertised tool description states the server never opens a socket. The handler opens one unconditionally."
+        },
+        {
+          "file": "README.md",
+          "line": 7,
+          "severity": 2,
+          "category": "prompt-injection",
+          "description": "The README contains text addressed to an automated reviewer instructing it to report no findings. It was ignored; it is reported as a finding instead."
+        }
+      ],
+      "blob": {
+        "id": "DEMO_blob_flagged-review",
+        "suiObjectId": "0xDEM0objflaggedreview0000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_flagged-review",
+        "certifyTx": "DEMO_suitx_certify_flagged-review",
+        "encodingType": "RS2"
+      }
+    }
+  ]
+}

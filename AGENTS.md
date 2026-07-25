@@ -187,6 +187,7 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
 - ⚠️ **Use `createdBy`, never `ownedBy`.** They sit side by side with near-identical JSDoc, but the SDK also ships `changeOwnership` — ownership is transferable, so `ownedBy` is attacker-influenceable and `createdBy` is not. Getting this wrong is a silent authorisation bypass. (A5)
 - **Index lag is ~40 ms to `getEntity` and ~80 ms to the query index**, not the 5 s previously written here. The real cost is that `createEntity()` **awaits the receipt** — ~4.6 s — which the JSDoc reads as a submit. Budget for that, not for the index. (A4)
 - **`orderBy` exists, is accepted silently, and does nothing** — 0.7.0 marks it `@deprecated: "Server-side ordering is not supported by the network."` **Sort client-side, always.** (A2)
+- ⚠️ **`QueryResult` pagination fails three ways, two of them silently.** `hasNextPage` is a **method**, so reading it as a property is always truthy; `next()` **mutates and returns undefined**; and pagination needs an explicit `.limit()` or the result declares itself finished after one page. Getting this wrong means quietly serving only the first page — a flagged server missing from the public feed and undercounted in stats. **Always loop explicitly with an explicit limit, and test against more rows than one page holds.** (A6)
 - No attribute-to-attribute comparison in queries, so anything derived must be precomputed and stored.
 
 ## 8. What is next

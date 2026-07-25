@@ -1,0 +1,18 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "unknown-miss",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex-demo/mcp-nowhere@0.0.1"
+    ]
+  },
+  "fingerprint": "sxf1_08a9a0ed5091db56ded9070a70d730a4a5cd879a51b4df08fd36d8ea78d34426",
+  "head": null,
+  "entry": null,
+  "sources": [],
+  "reviews": [],
+  "absent": true,
+  "why": "This fingerprint is deliberately NOT in the fixture registry. GET /v1/verdict for it returns the unknown head, which the gate turns into a warning and a proceed — never a block, and never a clean."
+}

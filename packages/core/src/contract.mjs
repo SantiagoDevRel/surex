@@ -75,7 +75,30 @@ export const ERROR_CODES = Object.freeze({
   AGENT_NOT_HUMAN_BACKED: 'agent_not_human_backed',
   UPSTREAM_UNAVAILABLE: 'upstream_unavailable',
   INVALID_BODY: 'invalid_body',
+  /**
+   * An unexpected fault on our side. Added because without it an internal error
+   * had to be reported as `upstream_unavailable`, which blames the wrong party —
+   * and a client deciding whether to retry needs to know which of the two it is.
+   */
+  INTERNAL: 'internal',
+  /** A route that exists in the contract but is not built in this deployment. */
+  NOT_IMPLEMENTED: 'not_implemented',
 });
+
+/**
+ * The batch envelope. Specified late, after the API lane had to invent it — so it
+ * is written down here now rather than living in one implementation.
+ *
+ * `invalid` exists so one malformed fingerprint cannot fail a whole prefetch: a
+ * session with twenty servers and one bad entry should still warm nineteen.
+ *
+ * @typedef {Object} BatchResponse
+ * @property {number}  requested   how many valid fingerprints were asked about
+ * @property {Array}   heads       one per valid requested fingerprint, IN REQUEST ORDER
+ * @property {string[]} invalid    entries rejected as not-a-fingerprint
+ * @property {number}  ttlMs       how long the caller may cache these
+ */
+export const BATCH_MAX = 100;
 
 const FINGERPRINT_RE = /^sxf1_[0-9a-f]{64}$/;
 

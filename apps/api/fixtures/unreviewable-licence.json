@@ -1,0 +1,44 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "unreviewable-licence",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex-demo/mcp-crm-bridge@1.0.0"
+    ]
+  },
+  "fingerprint": "sxf1_c991cb8c7439a0b68486e0ca108c880a1a32966fd2c34dab3f8b88d953ade936",
+  "head": {
+    "fingerprint": "sxf1_c991cb8c7439a0b68486e0ca108c880a1a32966fd2c34dab3f8b88d953ade936",
+    "state": "unreviewable",
+    "severity": 0,
+    "tier": "C",
+    "reason": "licence",
+    "name": "@surex-demo/mcp-crm-bridge@1.0.0",
+    "reviewedAt": "2026-07-24T21:07:33.000Z",
+    "updatedAt": "2026-07-24T21:07:33.000Z",
+    "arkivEntityKey": "0xDEM0headunreviewable0000000000000000000000000000000000000000000"
+  },
+  "entry": {
+    "fingerprint": "sxf1_c991cb8c7439a0b68486e0ca108c880a1a32966fd2c34dab3f8b88d953ade936",
+    "entityType": "registryEntry",
+    "key": "0xDEM0entryunreviewable000000000000000000000000000000000000000000",
+    "name": "@surex-demo/mcp-crm-bridge@1.0.0",
+    "tier": "C",
+    "seedSource": "fixture",
+    "description": "The licence gate found no SPDX identifier and no LICENSE file it could match, so the source was never uploaded and no model ever read it. An unmatched licence is treated as ineligible, not as permissive — guessing the other way writes someone else code to storage with no delete.",
+    "aliases": [
+      "@surex-demo/mcp-crm-bridge"
+    ],
+    "blob": {
+      "id": "DEMO_blob_unreviewable-entry",
+      "suiObjectId": "0xDEM0objunreviewableentry000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_unreviewable-entry",
+      "certifyTx": "DEMO_suitx_certify_unreviewable-entry",
+      "encodingType": "RS2"
+    }
+  },
+  "sources": [],
+  "reviews": []
+}

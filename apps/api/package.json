@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "description": "The read path. Thin, cacheable, and it never shares a process with the write path.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch src/server.mjs",
     "start": "node src/server.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "smoke:live": "node test/live-arkiv.smoke.mjs"
   },
   "dependencies": {
     "@arkiv-network/sdk": "^0.7.0",

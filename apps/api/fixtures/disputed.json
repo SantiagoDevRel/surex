@@ -1,0 +1,152 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "disputed",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex-demo/mcp-issue-triage@3.0.1"
+    ]
+  },
+  "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+  "head": {
+    "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+    "state": "disputed",
+    "severity": 3,
+    "tier": "B",
+    "name": "@surex-demo/mcp-issue-triage@3.0.1",
+    "enforceAfter": 1785247200000,
+    "reviewedCommit": "2a9f74d0c1b83e56af02d7194cb6e830f5a2d1e9",
+    "reviewedAt": "2026-07-25T01:03:12.000Z",
+    "modelId": "gpt-oss:120b",
+    "promptVersion": "sxr-2026-07-24",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "detail": "outbound HTTPS to one configurable host"
+      },
+      "filesystem": {
+        "present": true,
+        "detail": "reads the repository working tree"
+      },
+      "exec": {
+        "present": false
+      },
+      "env": {
+        "present": true,
+        "detail": "reads two named variables"
+      },
+      "credentials": {
+        "present": false
+      }
+    },
+    "topFinding": {
+      "file": "src/telemetry.mjs",
+      "line": 63,
+      "severity": 3,
+      "category": "undisclosed-egress",
+      "description": "Issue titles and bodies are sent to an analytics host that no tool description mentions."
+    },
+    "disputeSummary": "The maintainer says the host is a self-hosted sink that is off unless TRIAGE_TELEMETRY_URL is set, and has opened a pull request removing the default. A human review is pending.",
+    "evidence": {
+      "blobId": "DEMO_blob_disputed-review",
+      "suiObjectId": "0xDEM0objdisputedreview000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_disputed-review",
+      "certifyTx": "DEMO_suitx_certify_disputed-review",
+      "encodingType": "RS2"
+    },
+    "arkivEntityKey": "0xDEM0headdisputed00000000000000000000000000000000000000000000000",
+    "updatedAt": "2026-07-25T03:22:40.000Z"
+  },
+  "entry": {
+    "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+    "entityType": "registryEntry",
+    "key": "0xDEM0entrydisputed0000000000000000000000000000000000000000000000",
+    "name": "@surex-demo/mcp-issue-triage@3.0.1",
+    "tier": "B",
+    "seedSource": "fixture",
+    "description": "An issue-triage MCP server. Written for this demo, published nowhere.",
+    "aliases": [
+      "@surex-demo/mcp-issue-triage"
+    ],
+    "blob": {
+      "id": "DEMO_blob_disputed-entry",
+      "suiObjectId": "0xDEM0objdisputedentry0000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_disputed-entry",
+      "certifyTx": "DEMO_suitx_certify_disputed-entry",
+      "encodingType": "RS2"
+    }
+  },
+  "sources": [
+    {
+      "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+      "entityType": "source",
+      "key": "0xDEM0srcdisputed301000000000000000000000000000000000000000000000",
+      "versionString": "3.0.1",
+      "fetchedAt": "2026-07-25T00:58:44.000Z",
+      "licence": "Apache-2.0",
+      "repo": "https://github.com/surex-demo/mcp-issue-triage",
+      "commit": "2a9f74d0c1b83e56af02d7194cb6e830f5a2d1e9",
+      "normalisedTreeSha256": "d05a917c3e6b28f41a7d0c95b3e178624fa0d3c7185be924c60af3d17b8e5029",
+      "blob": {
+        "id": "DEMO_blob_disputed-source-301",
+        "suiObjectId": "0xDEM0objdisputedsource301000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_disputed-source-301",
+        "certifyTx": "DEMO_suitx_certify_disputed-source-301",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+      "entityType": "review",
+      "key": "0xDEM0revdisputed301000000000000000000000000000000000000000000000",
+      "sourceKey": "0xDEM0srcdisputed301000000000000000000000000000000000000000000000",
+      "verdict": "flagged",
+      "severity": 3,
+      "analyzedAt": "2026-07-25T01:03:12.000Z",
+      "reviewedSourceBlobId": "DEMO_blob_disputed-source-301",
+      "supersedes": null,
+      "modelId": "gpt-oss:120b",
+      "promptVersion": "sxr-2026-07-24",
+      "agreementRuns": 2,
+      "statedIntentSummary": "Reads a repository and proposes issue labels. Does not disclose any egress.",
+      "findings": [
+        {
+          "file": "src/telemetry.mjs",
+          "line": 63,
+          "severity": 3,
+          "category": "undisclosed-egress",
+          "description": "Issue titles and bodies are sent to an analytics host that no tool description mentions."
+        }
+      ],
+      "blob": {
+        "id": "DEMO_blob_disputed-review",
+        "suiObjectId": "0xDEM0objdisputedreview000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_disputed-review",
+        "certifyTx": "DEMO_suitx_certify_disputed-review",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "dispute": {
+    "fingerprint": "sxf1_579504ed350b6bbd882d84ef3db75e3d7f1466865bab1478f8e23f5a4d946341",
+    "entityType": "dispute",
+    "key": "0xDEM0dispute3010000000000000000000000000000000000000000000000000",
+    "reviewKey": "0xDEM0revdisputed301000000000000000000000000000000000000000000000",
+    "status": "under_review",
+    "contestantType": "agent",
+    "submittedAt": "2026-07-25T03:22:40.000Z",
+    "statement": "The telemetry host is self-hosted and inert unless TRIAGE_TELEMETRY_URL is set. A pull request removing the default is open.",
+    "agentBookHumanId": "DEMO_humanId_issue_triage_maintainer",
+    "agentAddress": "0xDEM0000000000000000000000000000000000001",
+    "blob": {
+      "id": "DEMO_blob_disputed-dispute",
+      "suiObjectId": "0xDEM0objdisputeddispute00000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_disputed-dispute",
+      "certifyTx": "DEMO_suitx_certify_disputed-dispute",
+      "encodingType": "RS2"
+    }
+  }
+}

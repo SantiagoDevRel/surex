@@ -1,0 +1,135 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "clean-tier-a",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex-demo/mcp-notes@1.4.2"
+    ]
+  },
+  "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+  "head": {
+    "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+    "state": "clean",
+    "severity": 0,
+    "tier": "A",
+    "name": "@surex-demo/mcp-notes@1.4.2",
+    "reviewedCommit": "4f2c1ab9e0d3c77b21a5f0e8c94d6b3a7e51f0821",
+    "reviewedAt": "2026-07-24T18:12:41.000Z",
+    "modelId": "gpt-oss:120b",
+    "promptVersion": "sxr-2026-07-24",
+    "integrity": "sha512-DEMO00000000000000000000000000000000000000000000000000000000000000000000000000000000000000==",
+    "capabilities": {
+      "network": {
+        "present": false
+      },
+      "filesystem": {
+        "present": true,
+        "detail": "reads and writes under ~/.surex-demo/notes and nowhere else"
+      },
+      "exec": {
+        "present": false
+      },
+      "env": {
+        "present": false
+      },
+      "credentials": {
+        "present": false
+      }
+    },
+    "evidence": {
+      "blobId": "DEMO_blob_clean-review",
+      "suiObjectId": "0xDEM0objcleanreview000000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_clean-review",
+      "certifyTx": "DEMO_suitx_certify_clean-review",
+      "encodingType": "RS2"
+    },
+    "arkivEntityKey": "0xDEM0headclean00000000000000000000000000000000000000000000000000",
+    "updatedAt": "2026-07-24T18:12:41.000Z"
+  },
+  "entry": {
+    "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+    "entityType": "registryEntry",
+    "key": "0xDEM0entryclean0000000000000000000000000000000000000000000000000",
+    "name": "@surex-demo/mcp-notes@1.4.2",
+    "tier": "A",
+    "seedSource": "fixture",
+    "description": "A local notes MCP server. Written for this demo, published nowhere.",
+    "aliases": [
+      "@surex-demo/mcp-notes"
+    ],
+    "blob": {
+      "id": "DEMO_blob_clean-entry",
+      "suiObjectId": "0xDEM0objcleanentry0000000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_clean-entry",
+      "certifyTx": "DEMO_suitx_certify_clean-entry",
+      "encodingType": "RS2"
+    }
+  },
+  "sources": [
+    {
+      "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+      "entityType": "source",
+      "key": "0xDEM0srcclean142000000000000000000000000000000000000000000000000",
+      "versionString": "1.4.2",
+      "fetchedAt": "2026-07-24T18:09:02.000Z",
+      "licence": "MIT",
+      "repo": "https://github.com/surex-demo/mcp-notes",
+      "commit": "4f2c1ab9e0d3c77b21a5f0e8c94d6b3a7e51f0821",
+      "normalisedTreeSha256": "a3d1c0f7b48e2915d6c0aa73f21e88b40c5d9e6217ab34c8f0d51e9b7a2c6d40",
+      "integrity": "sha512-DEMO00000000000000000000000000000000000000000000000000000000000000000000000000000000000000==",
+      "blob": {
+        "id": "DEMO_blob_clean-source-142",
+        "suiObjectId": "0xDEM0objcleansource142000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_clean-source-142",
+        "certifyTx": "DEMO_suitx_certify_clean-source-142",
+        "encodingType": "RS2"
+      }
+    },
+    {
+      "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+      "entityType": "source",
+      "key": "0xDEM0srcclean141000000000000000000000000000000000000000000000000",
+      "versionString": "1.4.1",
+      "fetchedAt": "2026-07-20T11:31:55.000Z",
+      "licence": "MIT",
+      "repo": "https://github.com/surex-demo/mcp-notes",
+      "commit": "c81b0d2e5a4f6739ac1e0b53d8f27a91e604cb35",
+      "normalisedTreeSha256": "77b2ee54c9013af8265d0b1e34c7a908fd6215b0e4c3798a1d0f62bb5e39cc71",
+      "integrity": "sha512-DEMO00000000000000000000000000000000000000000000000000000000000000000000000000000000000000==",
+      "blob": {
+        "id": "DEMO_blob_clean-source-141",
+        "suiObjectId": "0xDEM0objcleansource141000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_clean-source-141",
+        "certifyTx": "DEMO_suitx_certify_clean-source-141",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "fingerprint": "sxf1_98a187b5c52ccc054ff7aab31a1507f1264bbfc1b9d1c274d8e636d3b7e1bd8b",
+      "entityType": "review",
+      "key": "0xDEM0revclean142000000000000000000000000000000000000000000000000",
+      "sourceKey": "0xDEM0srcclean142000000000000000000000000000000000000000000000000",
+      "verdict": "clean",
+      "severity": 0,
+      "analyzedAt": "2026-07-24T18:12:41.000Z",
+      "reviewedSourceBlobId": "DEMO_blob_clean-source-142",
+      "supersedes": null,
+      "modelId": "gpt-oss:120b",
+      "promptVersion": "sxr-2026-07-24",
+      "agreementRuns": 2,
+      "statedIntentSummary": "Stores, searches and edits plain-text notes in a directory under the user home. Claims no network access.",
+      "findings": [],
+      "blob": {
+        "id": "DEMO_blob_clean-review",
+        "suiObjectId": "0xDEM0objcleanreview000000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_clean-review",
+        "certifyTx": "DEMO_suitx_certify_clean-review",
+        "encodingType": "RS2"
+      }
+    }
+  ]
+}

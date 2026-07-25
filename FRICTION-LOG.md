@@ -659,3 +659,110 @@ Fix: `finally { clearTimeout(timer) }`.
 **Worth writing down** because the shape is generic — every fetch-with-timeout helper in this repo has
 it — and because the *symptom* points at the wrong culprit. If a test file hangs after reporting all
 its passes, look for a leaked timer, not for a slow test.
+
+---
+
+## Next.js / Tailwind v4
+
+Found while building `apps/web` (the registry site) on **Next 15.5.21 · Tailwind 4.3.3 · React 19 ·
+Node 22.22.3 · pnpm 9.12.3 · Windows 11**.
+
+### N1 — Editing `package.json` under a running `next dev` silently 404s the CSS route [VERIFIED]
+
+**Expected:** adding `"type": "module"` to `apps/web/package.json` is a metadata change; `next dev` either
+picks it up or ignores it.
+
+**What happened:** the running dev server kept serving pages with **HTTP 200** but
+`/_next/static/css/app/layout.css?v=…` began returning **404**. Every page rendered as unstyled HTML —
+correct DOM, zero CSS — while the terminal showed
+`TypeError: __webpack_modules__[moduleId] is not a function` and
+`Could not find the module …/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode in the
+React Client Manifest`.
+
+**How we found out:** a headless screenshot came back as unstyled black-on-white text even though
+`pnpm build` was green and the compiled bundle contained the Tailwind output. `curl` on the stylesheet URL
+taken from that same HTML response confirmed the 404.
+
+```bash
+# reproduce
+pnpm --filter @surex/web dev &
+# ... edit apps/web/package.json (add or remove "type": "module")
+U=$(curl -s http://localhost:4311/ | grep -o '/_next/static/css/[^"]*' | head -1)
+curl -s -o /dev/null -w '%{http_code}\n' "http://localhost:4311$U"   # → 404
+
+# fix
+kill %1 && rm -rf apps/web/.next && pnpm --filter @surex/web dev
+U=$(curl -s http://localhost:4311/ | grep -o '/_next/static/css/[^"]*' | head -1)
+curl -s -o /dev/null -w '%{http_code}\n' "http://localhost:4311$U"   # → 200
+```
+
+**What would have prevented it:** the dev server failing loudly. A 404 on the app's only stylesheet is not a
+recoverable condition, and returning 200 for the page while dropping its CSS produces a symptom
+("Tailwind isn't working") that sends you to `@theme`, PostCSS and `content` globs — none of which is the
+problem. Next already restarts itself on `next.config.ts` changes; `package.json` `type` deserves the same
+treatment, or at minimum a fatal error instead of a silent asset 404.
+
+### N2 — `animation-delay` + `fill-mode: both` deletes content in any renderer that skips animations [VERIFIED]
+
+**Expected:** a staggered reveal (`animation: draw .4s .35s both`) is decoration. Worst case it appears
+instantly.
+
+**What happened:** it is not decoration — it is a hidden element. `both` applies the *backwards* fill during
+the delay, so for the first 350 ms the element sits at its `from` state (`transform: scaleX(0)`,
+`opacity: 0`). Anything that captures before the animation finishes, or never runs it, gets nothing. Our
+tier meter — the primary display for *how strongly the reviewed bytes are linked to the installed bytes* —
+rendered as one visible segment out of three, and the "AUTOMATED · NO HUMAN AUDIT" counter-stamp did not
+render at all. The page was factually wrong about its own verdict.
+
+**How we found out:** headless screenshots via `chrome-headless-shell --screenshot`. CDP
+`getBoundingClientRect()` reported the elements present and correctly positioned, which is what pointed at
+timing rather than layout.
+
+```bash
+# 3 filled segments expected; 1 rendered
+chrome-headless-shell --headless --screenshot=out.png --virtual-time-budget=4000 \
+  http://localhost:4311/r/<fingerprint>
+```
+
+**Fix, and the general rule:** put the stagger in the **duration**, never in a delay — all elements start at
+`t=0` and finish in sequence, so none is ever pinned at `scaleX(0)`. Where a real hold is needed, put it
+inside the keyframe (`0%,60% { opacity: 0 }`) rather than in `animation-delay`. `prefers-reduced-motion`
+handling does not save you here: reduced motion collapses the duration, and the delay survives.
+
+**What would have prevented it:** treating "does this element still exist with animations off?" as part of
+writing the animation. A `prefers-reduced-motion` block is not the same check — and it is worth noting this
+class of bug is invisible in a browser you are watching and obvious the moment you screenshot.
+
+### N3 — Tailwind v4 `@theme` vs `@theme inline` decides whether a token can be themed at all
+
+**Expected:** put the palette in `@theme`, override the variables per theme, done.
+
+**What happened:** a plain `@theme { --color-clean: #6aa87c }` resolves the hex into the generated utility,
+so `text-clean` is frozen at build time and re-declaring `--color-clean` under
+`:root[data-theme="light"]` changes nothing. Only `@theme inline { --color-clean: var(--sx-clean) }` emits
+`color: var(--sx-clean)` into the utility, which is what lets one class follow the theme.
+
+**How we found out:** reading the compiled `layout.css` — the utility contained the literal hex.
+
+**What would have prevented it:** the v4 docs lead with `@theme` and treat `inline` as an optimisation
+detail. For a themed design system it is the load-bearing choice, and the failure is silent: the light
+variant simply does not apply. Rule of thumb — token that flips at runtime → `@theme inline` over a
+`--sx-*` variable; token that never flips (radii, durations, type scale) → plain `@theme`.
+
+### N4 — Node 22 type-stripping makes a `.ts` copy module directly testable, with two constraints
+
+**Not a bug** — worth recording because it removed a build step from the copy-law test.
+
+`node --test test/copy.test.mjs` imports `../lib/copy.ts` directly: Node 22.18+ strips types by default, so
+the law is enforced against the same file the app imports, with no compile step in between. Two constraints
+that are easy to trip:
+
+- **explicit `.ts` extensions are required** in the import specifier (`./types.ts`, not `./types`), which
+  means `allowImportingTsExtensions: true` in `tsconfig.json` — harmless with `noEmit`, and Next resolves
+  the literal path fine.
+- **`node --test test/` does not work** — a bare directory is resolved as a module path and fails with
+  `MODULE_NOT_FOUND`. Use a glob: `node --test test/*.test.mjs`.
+
+Without `"type": "module"` on the nearest `package.json`, every run also prints
+`MODULE_TYPELESS_PACKAGE_JSON` and reparses the file. Adding it is the fix — see N1 for what that costs if
+the dev server is already running.

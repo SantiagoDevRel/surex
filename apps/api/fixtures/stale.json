@@ -1,0 +1,117 @@
+{
+  "$note": "ILLUSTRATIVE FIXTURE — not a real review of a real server. Nothing here was reviewed, written to Arkiv, or stored on Walrus. Every API response built from this file carries illustrative: true, and that flag is never to be stripped. Blob IDs, object IDs, tx digests and entity keys are DEMO_ placeholders on purpose: a plausible-looking digest that resolves to nothing would be a fabrication.",
+  "label": "stale",
+  "config": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@surex-demo/mcp-changelog@2.2.0"
+    ]
+  },
+  "fingerprint": "sxf1_fad06f02cef2fffc028ae74641b8c8a207a9aaa85973812fd97cfea0ab2101e0",
+  "head": {
+    "fingerprint": "sxf1_fad06f02cef2fffc028ae74641b8c8a207a9aaa85973812fd97cfea0ab2101e0",
+    "state": "stale",
+    "severity": 0,
+    "tier": "B",
+    "name": "@surex-demo/mcp-changelog@2.2.0",
+    "reviewedCommit": "9d3e17b4c8a05f2617e0bd4913c7a2f508e6b31d",
+    "reviewedAt": "2026-07-19T09:44:02.000Z",
+    "modelId": "gpt-oss:120b",
+    "promptVersion": "sxr-2026-07-19",
+    "capabilities": {
+      "network": {
+        "present": false
+      },
+      "filesystem": {
+        "present": true,
+        "detail": "reads CHANGELOG.md and git metadata"
+      },
+      "exec": {
+        "present": true,
+        "detail": "shells out to git"
+      },
+      "env": {
+        "present": false
+      },
+      "credentials": {
+        "present": false
+      }
+    },
+    "evidence": {
+      "blobId": "DEMO_blob_stale-review",
+      "suiObjectId": "0xDEM0objstalereview000000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_stale-review",
+      "certifyTx": "DEMO_suitx_certify_stale-review",
+      "encodingType": "RS2"
+    },
+    "arkivEntityKey": "0xDEM0headstale00000000000000000000000000000000000000000000000000",
+    "updatedAt": "2026-07-25T04:15:00.000Z"
+  },
+  "entry": {
+    "fingerprint": "sxf1_fad06f02cef2fffc028ae74641b8c8a207a9aaa85973812fd97cfea0ab2101e0",
+    "entityType": "registryEntry",
+    "key": "0xDEM0entrystale0000000000000000000000000000000000000000000000000",
+    "name": "@surex-demo/mcp-changelog",
+    "tier": "B",
+    "seedSource": "fixture",
+    "description": "A changelog MCP server. 2.2.0 was reviewed; 2.3.0 shipped four hours ago and has not been read yet, so the head reads stale rather than clean. That window is exactly when a rug-pull lands.",
+    "aliases": [
+      "@surex-demo/mcp-changelog"
+    ],
+    "blob": {
+      "id": "DEMO_blob_stale-entry",
+      "suiObjectId": "0xDEM0objstaleentry0000000000000000000000000000000000000000000000",
+      "registerTx": "DEMO_suitx_register_stale-entry",
+      "certifyTx": "DEMO_suitx_certify_stale-entry",
+      "encodingType": "RS2"
+    }
+  },
+  "sources": [
+    {
+      "fingerprint": "sxf1_fad06f02cef2fffc028ae74641b8c8a207a9aaa85973812fd97cfea0ab2101e0",
+      "entityType": "source",
+      "key": "0xDEM0srcstale220000000000000000000000000000000000000000000000000",
+      "versionString": "2.2.0",
+      "fetchedAt": "2026-07-19T09:40:11.000Z",
+      "licence": "ISC",
+      "repo": "https://github.com/surex-demo/mcp-changelog",
+      "commit": "9d3e17b4c8a05f2617e0bd4913c7a2f508e6b31d",
+      "normalisedTreeSha256": "5b90c31f7ad6e84205c1f9b0e37d4a6128c05f9e3b71da480c6e2f5a91d70b34",
+      "blob": {
+        "id": "DEMO_blob_stale-source-220",
+        "suiObjectId": "0xDEM0objstalesource220000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_stale-source-220",
+        "certifyTx": "DEMO_suitx_certify_stale-source-220",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "fingerprint": "sxf1_fad06f02cef2fffc028ae74641b8c8a207a9aaa85973812fd97cfea0ab2101e0",
+      "entityType": "review",
+      "key": "0xDEM0revstale220000000000000000000000000000000000000000000000000",
+      "sourceKey": "0xDEM0srcstale220000000000000000000000000000000000000000000000000",
+      "verdict": "clean",
+      "severity": 0,
+      "analyzedAt": "2026-07-19T09:44:02.000Z",
+      "reviewedSourceBlobId": "DEMO_blob_stale-source-220",
+      "supersedes": null,
+      "modelId": "gpt-oss:120b",
+      "promptVersion": "sxr-2026-07-19",
+      "agreementRuns": 2,
+      "statedIntentSummary": "Reads a changelog and git history and summarises releases.",
+      "findings": [],
+      "blob": {
+        "id": "DEMO_blob_stale-review",
+        "suiObjectId": "0xDEM0objstalereview000000000000000000000000000000000000000000000",
+        "registerTx": "DEMO_suitx_register_stale-review",
+        "certifyTx": "DEMO_suitx_certify_stale-review",
+        "encodingType": "RS2"
+      }
+    }
+  ],
+  "latestReleaseVersion": "2.3.0",
+  "latestReleaseSeenAt": "2026-07-25T04:15:00.000Z"
+}
