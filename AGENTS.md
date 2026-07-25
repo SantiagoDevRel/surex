@@ -35,16 +35,25 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | `packages/core` | **done** — SXF-1, the frozen `/v1` contract, verdict decision, copy law, blob verification |
 | `packages/plugin` | **done** — the gate + `surex` CLI, zero dependencies, installable from this repo |
 | `packages/fixture-mcp` | **done** — the deliberately malicious fixture, safe to run |
+| `packages/reviewer` | **done** — real review run on the DGX; the injection defence held |
+| `apps/api` | **done** — read path, live against Braga. Not deployed to Vercel |
+| `apps/web` | **done** — four screens, build clean. Not deployed |
 | **The chain, end to end** | **verified — `node demo/chain.mjs`, 13/13** |
 | One Walrus blob written + certified | **done**, both Sui digests captured — §7 |
 | One Arkiv entity written + read filtered by `.createdBy` | **done**, including the adversarial case — §7 |
-| Reviewer, API, web app, worker + seeding | in progress |
-| Any **real** review of a real server | **none yet** — nothing in the registry describes a real review |
+| `packages/worker` + seeding | in progress |
+| World ID / AgentKit wiring | **not built** — the dispute route has the gate and an injectable verifier that refuses everything, and the submit page sends a real request with no proof and renders the 401 verbatim |
+| Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
+| Deployed anywhere | **no** — everything above runs locally |
 
-**What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch
-and the blob-ID recomputation are real and tested. The *verdict content* in the demo is a hand-written head
-pointing at a real certified blob — the mechanism is genuine, the finding is about our own fixture, and no
-third-party server has been reviewed by anything. Say it that way.
+**Total: 223 tests green** (`pnpm test`), plus 9 copy-law tests in the web app.
+
+**What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
+the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
+*verdict content* in the demo is a hand-written head pointing at a real certified blob — the mechanism is
+genuine, the finding is about our own fixture, and **no third-party server has been reviewed by anything**.
+Say it that way. Anything the API serves in mock mode carries `illustrative: true` and the web app renders a
+banner derived from that flag, not from a setting someone could forget.
 
 Everything numeric in `design/prototype.html` is **placeholder content** served behind a banner. Never
 remove that banner while the data is fake, and never quote those numbers as if they were real. Anything the
