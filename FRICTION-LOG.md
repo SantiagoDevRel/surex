@@ -53,7 +53,111 @@
 
 ## Arkiv
 
-*(nothing yet — log as we build)*
+> All entries below found while writing `probes/arkiv-write-read.mjs` — one entity written to Braga and read
+> back filtered by `.createdBy`, plus the adversarial case. Repro for every entry:
+> `node probes/arkiv-write-read.mjs` with `ARKIV_WRITER_PK` and `ARKIV_FOREIGN_PK` set to two funded Braga
+> wallets. Versions: `@arkiv-network/sdk@0.7.0`, `viem@2.55.8`, node v22.22.3, Braga chainId 60138453102.
+
+### A1 · Upgrading 0.6.8 → 0.7.0 breaks every existing snippet at the import line, and there is no changelog — **[VERIFIED, reproduced twice]**
+**Severity: medium.** Loud rather than silent, but it strands every tutorial, README and blog post written
+against 0.6.x, and there is nothing in the package telling you what changed.
+
+- **Expected:** `import { createPublicClient, createWalletClient, http } from '@arkiv-network/sdk'` and
+  `import { privateKeyToAccount } from '@arkiv-network/sdk/accounts'` — the shape used by every 0.6.x
+  example, including two production apps of ours.
+- **Happened:** two consecutive hard failures on a clean install of `0.7.0`:
+  1. `ERR_PACKAGE_PATH_NOT_EXPORTED: Package subpath './accounts' is not defined by "exports"`
+  2. `SyntaxError: The requested module '@arkiv-network/sdk' does not provide an export named 'http'`
+- **Root cause:** `0.6.8`'s `src/index.ts` began with `export * from "viem"`, and `./accounts` was a subpath
+  whose entire content was `export * from "viem/accounts"`. `0.7.0` dropped both. `viem` is a *peer*
+  dependency, so it is now the consumer's job to install and import it.
+- **How we found out:** ran the probe. Fixed it by reading `node_modules/@arkiv-network/sdk/README.md`,
+  which is correct for 0.7.0 (`import { http } from "viem"`, `import { privateKeyToAccount } from
+  "viem/accounts"`) — but you only find that after the failure.
+- **What would have prevented it:** a `CHANGELOG.md` in the published package. There is none — `ls` on the
+  package root shows `LICENSE.md README.md dist package.json src` and nothing else. Two lines
+  ("0.7.0 — BREAKING: viem is no longer re-exported; import `http` from `viem` and `privateKeyToAccount`
+  from `viem/accounts`. The `/accounts` subpath is removed.") would have cost us zero minutes.
+- **Also worth doing:** `0.7.0` is a minor bump carrying breaking changes. Under semver this is a major.
+
+### A2 · `orderBy` is on the query builder, is accepted silently, and does nothing — **[VERIFIED, reproduced twice]**
+**Severity: medium.** A query API with a no-op sort is a correctness trap: you write `orderBy("severity",
+"number", "desc")`, it does not throw, results come back, and they are simply not sorted.
+
+- **Expected:** `client.buildQuery().where(...).orderBy("severity", "number", "desc")` orders the results.
+  The builder exposes `orderBy()` with two overloads plus exported `asc()` / `desc()` helpers, and the
+  chain plumbs `orderBy` all the way into the RPC params — nothing at the call site suggests it is inert.
+- **Happened:** identical result order for `asc` and `desc` over two entities with `severity` 0 and 4.
+  Severities came back `0,4` both times. No throw, no warning at runtime.
+- **How we found out:** we tested it deliberately (step 5 of the probe) because it was unconfirmed. The
+  answer is also in the source: `0.7.0` marks `orderBy`, `asc` and `desc` `@deprecated` with the line
+  *"Server-side ordering is not supported by the network."* — `0.6.8` carried no such note.
+- **What would have prevented it:** don't ship an inert method. Throw `NotSupportedError`, or drop it from
+  the builder. Failing that, put the deprecation where a developer actually reads it — the README's query
+  section still shows `orderBy: [{ name: "key", type: "string", desc: "asc" }]` in the `query()` options
+  with no warning at all.
+- **Consequence for us:** all ordering is client-side. Anything the gate needs ranked must be sorted in JS,
+  and any "top N" must fetch the full scoped set first.
+
+### A3 · `expiresIn` is seconds but must be an even number of them, and 0.6.8 → 0.7.0 turned silent rounding into a throw — **[VERIFIED, reproduced twice]**
+- **Expected:** `expiresIn` is "the expires in of the entity in seconds" (0.6.8 JSDoc, verbatim), so any
+  positive integer works.
+- **Happened on 0.7.0:** `expiresIn: 3601` throws
+  `InvalidExpirationError: Invalid expiresIn: 3601. expiresIn must be a positive integer and a multiple of
+  the Arkiv block time (2 seconds), because expiration is measured in whole blocks (1 block = 2 seconds).`
+  The error message is genuinely good — it explains the *why*, not just the *what*.
+- **The skew:** `0.6.8` did `Math.ceil(item.expiresIn / BLOCK_TIME)` and silently accepted anything;
+  `0.7.0` calls `validateExpiresIn()` first. So an odd `expiresIn` that worked on 0.6.8 is a hard throw
+  after the upgrade, and this is not in a changelog either (see A1).
+- **Confirmed on chain:** `expiresIn: 3600` → `expiresAtBlock - createdAtBlock = 1800` blocks, both runs.
+  Seconds in, blocks stored, 2 s per block. Units check out.
+- **What would have prevented it:** the constraint is now in the JSDoc (good), but it should also be in the
+  README's write example, which just passes a number. The single most common value a developer will try is
+  `expiresIn: 3600` — which happens to be legal — so the trap only springs later on something like `86401`
+  or a computed value.
+
+### A4 · The indexing lag everyone warns about is ~40 ms; the 4.6 s wait is `createEntity` itself, and nothing says so — **[VERIFIED, reproduced twice]**
+**Severity: low, but it sends teams optimising the wrong thing.**
+
+- **Expected:** from Arkiv guidance we had been carrying (poll `getEntity` at 250 ms for up to 5 s before
+  trusting a read-after-write) we assumed a meaningful indexing delay after the transaction lands.
+- **Measured, from the moment `createEntity()` returns:**
+  | | run 1 | run 2 |
+  |---|---|---|
+  | `createEntity()` call itself | 4624 ms | 4571 ms |
+  | receipt → visible via `getEntity` | 42 ms (1 poll) | 38 ms (1 poll) |
+  | receipt → visible via the **query index** | 79 ms total | 77 ms total |
+  Every read-after-write in the probe — including after `updateEntity` — landed on the **first** poll.
+- **So:** the lag is real but sub-100 ms, and the query index (what our gate actually reads) trails
+  `getEntity` by only ~37 ms. The 4.5 s is `createEntity` blocking on the transaction receipt, which the
+  JSDoc does not mention — it returns `{entityKey, txHash}` and reads like a submit, not a wait.
+- **What would have prevented it:** say in the JSDoc that the write actions await the receipt, and publish
+  a real number for index lag instead of a defensive "poll for 5 s". Teams budget latency off these
+  numbers; ours would have been wrong by two orders of magnitude in one direction and 50x in the other.
+
+### A5 · `ownedBy` and `createdBy` sit side by side in the builder with nothing saying one of them is spoofable — **[VERIFIED — exclusion proven end-to-end]**
+**Severity: high (security-shaped, docs-fixable).** This is the entry we most want a maintainer to read.
+
+- **The situation:** Braga is a shared public database with no uniqueness constraint on attributes. Anyone
+  can write an entity carrying exactly your `project` + `entityType` + `fingerprint`. If a consumer scopes
+  its reads only by attributes, an attacker picks the answer it gets.
+- **What we proved** (probe step 4, both runs). Same `project`, same `entityType`, same `fingerprint`;
+  ours `state=flagged severity=4 tier=B`, the attacker's `state=clean severity=0 tier=A` from a second
+  wallet:
+  - unfiltered query → **2 entities** (the collision is real, not hypothetical)
+  - `.createdBy(WRITER)` → **1**, ours only, run 1 `0x72ebc165…fb77`, run 2 `0x79aaa607…da36`
+  - `.createdBy(FOREIGN)` → **1**, theirs only — our entity is absent, so the filter is a real partition
+    and not just a coincidence of ordering
+  - identical results via the non-deprecated `client.select('*')` path
+- **The docs gap:** `QueryBuilder` exposes `ownedBy()` and `createdBy()` as symmetrical one-line filters
+  with near-identical JSDoc. But the wallet client also ships `changeOwnership`, so **ownership is
+  transferable and therefore attacker-influenceable** — an attacker can transfer a crafted entity *to* your
+  address and have it pass an `ownedBy(you)` filter. Creator is immutable. `ownedBy` is a convenience
+  filter; `createdBy` is the security boundary, and only one of them can be used for trust.
+- **What would have prevented it:** one sentence on `ownedBy()` — *"Ownership is transferable via
+  `changeOwnership`; do not use `ownedBy` as a trust boundary. Use `createdBy`, which is immutable."* — and
+  the same note in the query docs next to `$owner` / `$creator`. Right now the safe choice is discoverable
+  only by noticing that `changeOwnership` exists.
 
 ---
 

@@ -1,0 +1,10 @@
+{
+  "name": "surex-probes",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway verification probes. Not product code.",
+  "dependencies": {
+    "@arkiv-network/sdk": "0.7.0",
+    "viem": "^2.55.8"
+  }
+}
