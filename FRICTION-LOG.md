@@ -47,7 +47,83 @@
 
 ## Sui / Walrus
 
-*(nothing yet — log as we build)*
+> Context for every entry below: `@mysten/sui@2.22.1` + `@mysten/walrus@1.2.9` on Node 22.22.3 /
+> Windows 11, against Sui testnet (`sui-node/1.76.0`, chain `69WiPg3D…`) and Walrus testnet
+> (system object `0x6c2547cb…f6af`, package `0x849e95d2…d8cc`, walrus epoch 469). Repro script:
+> `probes/walrus-write.mjs`. It wrote blob `-SzjTmxUSjs01bmC2AZ48iqz-fTCcllwcLu3nc2rb2Y`.
+
+### S1 · The testnet SUI faucet is effectively unusable at an event, and its `retry-after` is fiction — **[VERIFIED]**
+**Severity: high.** This is the single thing most likely to cost a team at Lisbon their Saturday.
+
+- **Expected:** `POST https://faucet.testnet.sui.io/v2/gas` returns test SUI, or a rate-limit response that tells you when to come back.
+- **Happened:** `429 Too Many Requests` continuously for ~7 minutes. The body and the `retry-after` header say **`Wait for 0s`**, `1s`, `2s`, `3s`, `4s` — seemingly at random — and honouring that value never once worked. Success finally came on **attempt 53** of a blind 8-second retry loop.
+- **It is not per-IP.** We re-issued the identical request from a completely different egress (a machine in Colombia, vs. the venue NAT in Lisbon, `colo=LIS`) and got `429 … Wait for 0s` on the *first* try from that fresh IP. So a hackathon venue cannot route around it, and the advertised backoff is meaningless.
+- **The SDK makes it worse:** `requestSuiFromFaucetV2` throws `FaucetRateLimitError: "Too many requests from this client have been sent to the faucet. Please retry later"` and **discards the `retry-after` header**. From TypeScript there is no way to distinguish a 3-second throttle from a daily ban, so the natural reaction is to give up on a faucet that would have worked 5 minutes later.
+- **Repro:**
+  ```bash
+  curl -i -X POST https://faucet.testnet.sui.io/v2/gas -H 'Content-Type: application/json' \
+    -d '{"FixedAmountRequest":{"recipient":"0x79d8e8063dd83035f72b5b7c464474ad737c9a17f994611781f91ec2c479ff35"}}'
+  # → HTTP 429, retry-after: 3, body "Too Many Requests! Wait for 3s"  (repeat for 7 min)
+  ```
+- **Fix we'd suggest:** return a real `retry-after` / `x-ratelimit-reset`, propagate it onto `FaucetRateLimitError` as a field, and give hackathons an event-scoped quota or a per-address rather than global bucket. A one-line "retry in N seconds" that is actually true removes the whole failure mode.
+
+### S2 · An out-of-range `epochs` comes back as HTTP 500 with a raw Move abort — and the real maximum is not what the docs say — **[VERIFIED]**
+- **Expected:** testnet max storage term is 183 epochs (what our own briefing and several docs pages say). Store with `?epochs=183`.
+- **Happened:** `HTTP 500` with `{"error":{"status":"INTERNAL","code":500,"message":"client internal error: transaction execution failed: contract execution failed in walrus::system_state_inner::reserve_space at address 0x849e95d2…d8cc with error type EInvalidEpochsAhead"}}`. A user input error is reported as an internal server error carrying a Move abort code.
+- **The real number, read on chain:** `max_epochs_ahead = 53`, i.e. `SystemStateInner.future_accounting.length` (`current_index=45`, ring buffer length 53). `epochs=53` succeeded immediately. On a 1-day testnet epoch that is a 53-day ceiling, not 183.
+- **How we found out:** there is no other way — `GET https://publisher.walrus-testnet.walrus.space/v1/info` **404s**, and `WalrusClient.systemState()` does not surface `max_epochs_ahead` as a named field. We had to know that the ring buffer length *is* the maximum.
+- **Repro:**
+  ```bash
+  curl -X PUT "https://publisher.walrus-testnet.walrus.space/v1/blobs?epochs=183&permanent=true" --data-binary @blob.txt
+  ```
+- **Fix we'd suggest:** `400` with `"max epochs is 53"`; serve `/v1/info` on publishers; expose `maxEpochsAhead` on `systemState()` so nobody has to learn that a ring buffer length is a policy limit.
+
+### S3 · Identical bytes deduplicate through the HTTP publisher but **not** through the TS SDK — you silently pay twice — **[VERIFIED]**
+**Severity: high — this one costs real money on mainnet.**
+
+- **Expected:** blob IDs are content-derived and deterministic, so re-storing identical bytes deduplicates and returns `alreadyCertified`. That is what the docs and every summary say, without qualification.
+- **Happened:** true for the HTTP publisher, false for `@mysten/walrus`.
+  - Publisher, same bytes second time → `{"alreadyCertified":{"blobId":"-SzjTmx…b2Y","event":{"txDigest":"Frk5H32…JQmd"},"endEpoch":522}}`, no new object, no cost.
+  - `client.walrus.writeBlobFlow()` on bytes **already certified on chain** → happily ran the full register + certify, minted a *second* `Blob` object (`0xe0ad0c98…f5e8`) for the same blob ID, and charged **11,312,154 FROST of WAL + 6,163,520 MIST of gas**.
+- **How we found out:** after our own certify, `getVerifiedBlobStatus({blobId})` returned `statusEvent.txDigest = Frk5H32…JQmd` — a digest that was **not ours**. It pointed at the earlier publisher certification of the same content. The blob was already certified before we paid to certify it.
+- **Why it matters:** dedup is a *publisher behaviour*, not a protocol guarantee, and the SDK is the path you take precisely when you care about paying for your own storage. Anyone who assumes the documented dedup applies to `writeBlob` will re-buy storage on every retry — including on crash-recovery retries, which is exactly when it will happen.
+- **Fix we'd suggest:** have `writeBlobFlow`/`writeBlob` check blob status after `encode()` and short-circuit (or expose `skipIfCertified: true`); and state explicitly in the docs that `alreadyCertified` is something the publisher does for you, not something the protocol does.
+
+### S4 · `flow.executeCertify()` throws away the certify transaction digest — **[VERIFIED, from the shipped source]**
+- **Expected:** the flow's typed helpers give you the outcome of each step. `executeRegister` returns `{step:'registered', blobId, blobObjectId, txDigest}`.
+- **Happened:** `executeCertify` returns `{step:'certified', blobId, blobObjectId, blobObject}` — **no `txDigest`**. The interface `WriteBlobStepCertified` simply has no such field, and the implementation drops the value: `await ctx.executeTransaction(transaction, signer, "certify blob")` discards its own return.
+- **Why it matters:** a blob's on-chain proof is *both* transactions. Any app that records provenance — ours records `blobId`, `suiObjectId`, register digest and certify digest per record — cannot use the ergonomic API at all. You have to drop to `flow.certify()` (which returns an unsigned `Transaction`) and execute it yourself, which is what `probes/walrus-write.mjs` does.
+- **How we found out:** reading `node_modules/@mysten/walrus/dist/flows/write-blob.mjs` after the returned object had no digest on it.
+- **Fix we'd suggest:** add `txDigest` to `WriteBlobStepCertified`. It is one field and the value is already in hand.
+
+### S5 · `client.core.getObject({ objectId, version })` silently ignores `version` — **[VERIFIED]**
+- **Expected:** passing a historical `version` returns the object at that version (we were walking a `Blob` object's history backwards to find its register transaction).
+- **Happened:** it returns the **latest** version, with no error and no warning. Asking for `952302826` returns `952302828`. Our history walker therefore looped on the same transaction ten times before we noticed the version never moved.
+- **Repro:**
+  ```js
+  const at = await client.core.getObject({ objectId: OBJ, version: '952302826', include: { previousTransaction: true } });
+  console.log(at.object.version); // → 952302828
+  ```
+- **Fix we'd suggest:** honour it, or reject unknown/unsupported options loudly. A silently-ignored argument that changes the meaning of the result is worse than an unimplemented one.
+
+### S6 · JSON-RPC is not "deprecated" on testnet — it is gone, and it 404s with an empty body — **[VERIFIED]**
+- **Expected:** JSON-RPC is deprecated in favour of gRPC but still answers, per most current material.
+- **Happened:** `POST https://fullnode.testnet.sui.io:443` with `{"method":"sui_getChainIdentifier"}` → **`HTTP 404`, `Content-Length: 0`**, server `sui-node/1.76.0`. No JSON, no error object, no pointer to the replacement. An empty 404 from a *correct* URL reads like a network problem, not an API removal.
+- **Why it matters:** essentially every pre-2026 tutorial, StackOverflow answer and LLM completion for "query Sui transaction history" emits JSON-RPC. `suix_queryTransactionBlocks` is still the first thing anyone reaches for to find the transactions that touched an object, and there is no obvious gRPC equivalent. We had to reconstruct history from `effects.dependencies` + `previousTransaction` instead.
+- **Fix we'd suggest:** return a JSON error body — `{"error":"JSON-RPC was removed in <version>; use gRPC at …"}` — instead of a bare 404. One string saves every migrating developer the same 20 minutes.
+
+### S7 · `Ed25519Keypair.generate()` dies with an error that names neither the SDK nor the culprit — **[OBSERVED, NOT MINIMALLY REPRODUCED]**
+- **Expected:** `Ed25519Keypair.generate()` works after `npm install @mysten/sui`.
+- **Happened:** `TypeError: ed25519.utils.randomSecretKey is not a function` at `@mysten/sui/dist/keypairs/ed25519/keypair.mjs:44`.
+- **Root cause:** `@mysten/sui@2.22.1` requires `@noble/curves ^2.2.0` (where the method is `randomSecretKey`), but an older `@noble/curves@1.9.1` — pulled in by `viem` → `ox` — had won top-level resolution in our `node_modules`. In 1.x the method is `randomPrivateKey`. Confirmed by `npm ls @noble/curves` reporting `1.9.1 invalid: "^2.2.0" from node_modules/@mysten/sui`, and by `Object.keys(ed25519.utils)` → `['getExtendedPublicKey','randomPrivateKey','precompute']`.
+- **Honesty note:** we could **not** reduce this to a clean-room repro. Three attempts (`npm i @mysten/sui viem`; `npm i @mysten/sui` then `pnpm add viem`; and the same with a package.json that omitted `@mysten/sui`) all resolved `@noble/curves@2.2.0` and worked. Our tree got into the bad state through mixed npm/pnpm installs in a directory two agents were sharing. So: the version skew is real and the failure is real, the exact install sequence that produces it is not pinned down. `pnpm install` fixed it.
+- **The sponsor-actionable half is the error quality:** a `@noble/curves` major mismatch surfaces as a `TypeError` on a private helper, naming neither `@mysten/sui` nor `@noble/curves` nor the word "version". Given that Sui SDK + `viem` in one `node_modules` is the *normal* case at a multi-chain hackathon, a guard at import time (`if (typeof ed25519.utils.randomSecretKey !== 'function') throw new Error('@mysten/sui requires @noble/curves ^2.2.0; found an incompatible copy')`) would turn a 30-minute dig into a one-line fix.
+
+### S8 · Things the docs got right, recorded so nobody re-litigates them
+- One blob write really is **two Sui transactions**, and the register one is a PTB: `system::reserve_space` + `system::register_blob` (net gas 4,683,480 MIST), then `system::certify_blob` (net gas 1,480,040 MIST). Total **6,163,520 MIST ≈ 0.0062 SUI** of gas plus **11,312,154 FROST ≈ 0.0113 WAL** of storage, for **129 bytes over 53 epochs**. Cost is per blob, not per byte — a 129-byte blob is billed on an encoded length of 66,034,000.
+- A blob ID is **not** `sha256(bytes)`. For our payload, blobId `-SzjTmxUSjs01bmC2AZ48iqz-fTCcllwcLu3nc2rb2Y` vs `sha256` base64url `8EV8MBKjUbid8poZDYGJWVB0zy_oQ9ha7_gEfMH_Ktc`. Deriving a blob ID needs the Walrus encoder (`flow.encode()` / `client.walrus.encodeBlob()`), which is WASM — it cannot be done with a stdlib hash.
+- The SDK does read package/object IDs at runtime, so nothing has to be pinned by hand: `TESTNET_WALRUS_PACKAGE_CONFIG` gives the system object and the SUI→WAL `exchangeIds`, and the exchange *package* ID falls out of the on-chain type of the exchange object (`0x82593828…ef9f::wal_exchange::Exchange`).
+- Read-after-certify did **not** need a retry: the public aggregator served the blob on the first attempt.
 
 ---
 
