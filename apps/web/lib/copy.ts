@@ -361,6 +361,14 @@ export const COPY = {
     repoPlaceholder: 'github.com/acme/acme-mcp',
     releaseLabel: 'Release tag',
     releasePlaceholder: 'v2.3.0',
+    /**
+     * The release is chosen from what the repository has, never typed. These two
+     * cover the cases where there is nothing to choose from — said plainly,
+     * because "no releases" is a fact about the repository and "we could not
+     * read it" is a fact about the request.
+     */
+    releaseEmpty: 'paste a repository first',
+    releaseDefaultBranch: 'default branch (moves — cannot pin bytes)',
     action: 'Queue the review',
 
     /**

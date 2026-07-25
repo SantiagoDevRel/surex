@@ -159,3 +159,44 @@ test('a rate limit is reported as a problem, not as a verdict about the repo', (
   assert.ok(r.problems.some((p) => /rate-limited/i.test(p)), JSON.stringify(r.problems));
   assert.equal(r.mcp.undetermined, true, 'the form must not refuse this repository');
 }));
+
+// ---------------------------------------------------------------------------
+// the version is chosen from what the repository has, never typed
+// ---------------------------------------------------------------------------
+
+test('the form is offered the repository\'s own releases, newest first', async () => {
+  const { listReleases } = await import('../lib/github.ts');
+  const problems = [];
+  const list = await listReleases({ owner: 'a', repo: 'b' }, scriptedFetch({
+    '/releases?': { status: 200, body: [
+      { tag_name: 'v3.0.0' },
+      { tag_name: 'v3.0.0-rc1', prerelease: true },
+      { tag_name: 'v2.9.0', draft: true },
+    ] },
+    '/tags?': { status: 200, body: [{ name: 'v3.0.0', commit: { sha: 'c'.repeat(40) } }, { name: 'v1.0.0', commit: { sha: 'd'.repeat(40) } }] },
+  }), problems);
+
+  assert.deepEqual(list.map((r) => r.tag), ['v3.0.0', 'v3.0.0-rc1', 'v1.0.0']);
+  assert.equal(list[1].source, 'pre-release', 'a pre-release is offered but labelled');
+  assert.ok(!list.some((r) => r.tag === 'v2.9.0'), 'a draft is not something anyone can install');
+});
+
+test('a repository with no releases and no tags offers only the branch head, labelled', async () => {
+  const { listReleases } = await import('../lib/github.ts');
+  const list = await listReleases({ owner: 'a', repo: 'b' }, scriptedFetch({
+    '/releases?': { status: 200, body: [] },
+    '/tags?': { status: 200, body: [] },
+    '/commits/HEAD': { status: 200, body: { sha: 'e'.repeat(40) } },
+  }), []);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].source, 'default-branch', 'a branch head moves and must say so');
+  assert.equal(list[0].tag, '');
+});
+
+test('selecting a version resolves its commit, dereferencing an annotated tag', async () => {
+  const { resolveCommit } = await import('../lib/github.ts');
+  const sha = await resolveCommit({ owner: 'a', repo: 'b' }, 'v2.3.0', scriptedFetch({
+    '/commits/v2.3.0': { status: 200, body: { sha: 'f'.repeat(40) } },
+  }));
+  assert.equal(sha, 'f'.repeat(40));
+});

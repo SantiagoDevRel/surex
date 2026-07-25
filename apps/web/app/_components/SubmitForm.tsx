@@ -4,7 +4,13 @@ import type { IDKitResult } from '@worldcoin/idkit';
 import { useActionState, useRef, useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
-import { inspectRepo, parseRepo, type RepoInspection as Inspection } from '@/lib/github.ts';
+import {
+  inspectRepo,
+  parseRepo,
+  resolveCommit,
+  type ReleaseRef,
+  type RepoInspection as Inspection,
+} from '@/lib/github.ts';
 import { submitRelease, type SubmitOutcome } from '@/lib/submit-action.ts';
 
 import { Banner, type BannerTone } from './Banner.tsx';
@@ -64,6 +70,8 @@ export function SubmitForm() {
   const [outcome, action, pending] = useActionState(submitRelease, INITIAL);
   const [repo, setRepo] = useState('');
   const [release, setRelease] = useState('');
+  const [commit, setCommit] = useState('');
+  const [releases, setReleases] = useState<ReleaseRef[]>([]);
   const [proof, setProof] = useState<IDKitResult | null>(null);
   const [inspection, setInspection] = useState<Inspection | 'loading' | null>(null);
   /**
@@ -86,8 +94,30 @@ export function SubmitForm() {
     const result = await inspectRepo(value);
     if (inspectionId.current !== id) return;
     setInspection(result);
-    // Fill the tag, never overwrite what the maintainer typed themselves.
-    if (result.release?.tag) setRelease((current) => current || result.release!.tag);
+    setReleases(result.releases ?? []);
+    const first = result.releases?.[0] ?? result.release ?? null;
+    setRelease(first?.tag ?? '');
+    setCommit(first?.sha ?? '');
+  }
+
+  /**
+   * Choosing a different version re-resolves its commit.
+   *
+   * The list is fetched with the SHAs unresolved on purpose — resolving ten of
+   * them would cost ten requests against GitHub's sixty-per-hour unauthenticated
+   * budget, and only the chosen one is ever submitted. The cost is paid here, on
+   * the one that matters.
+   */
+  async function pickRelease(tag: string) {
+    setRelease(tag);
+    const known = releases.find((r) => r.tag === tag);
+    setCommit(known?.sha ?? '');
+    const ref = parseRepo(repo);
+    if (!ref || known?.sha) return;
+    const id = inspectionId.current;
+    const sha = await resolveCommit(ref, tag);
+    // Ignore a late answer for a version the user has already moved off.
+    if (inspectionId.current === id) setCommit(sha ?? '');
   }
 
   // The refusal is only ever on a READ answer. `undetermined` — GitHub did not
@@ -112,6 +142,12 @@ export function SubmitForm() {
               setRepo(e.target.value);
               if (proof) setProof(null);
               setInspection(null);
+              // A version resolved from the previous repository is not a version of
+              // this one. Clearing them is what stops a submission naming a commit
+              // that belongs to a different project.
+              setReleases([]);
+              setRelease('');
+              setCommit('');
             }}
             onBlur={(e) => void inspect(e.target.value)}
             onPaste={(e) => {
@@ -126,28 +162,43 @@ export function SubmitForm() {
 
         <RepoInspection state={inspection} />
 
+        {/*
+          The release is CHOSEN from what the repository has, never typed.
+          Free text can only produce a wrong answer — a typo, a tag that does not
+          exist, a version the maintainer means but the repository does not carry —
+          and a submission names bytes. The repository is the only authority on
+          which bytes exist, so the options come from it and the commit comes with
+          them.
+        */}
         <label className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.releaseLabel}</span>
-          <input
-            name="release"
+          <select
             value={release}
-            onChange={(e) => setRelease(e.target.value)}
-            placeholder={COPY.submit.releasePlaceholder}
-            className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
-          />
+            onChange={(e) => void pickRelease(e.target.value)}
+            disabled={!releases.length}
+            className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink disabled:text-faint"
+          >
+            {releases.length ? (
+              releases.map((r) => (
+                <option key={r.tag || 'HEAD'} value={r.tag}>
+                  {r.tag || COPY.submit.releaseDefaultBranch}
+                  {r.source !== 'release' ? ` · ${r.source}` : ''}
+                </option>
+              ))
+            ) : (
+              <option value="">{COPY.submit.releaseEmpty}</option>
+            )}
+          </select>
         </label>
 
         {/*
-          The commit the tag resolved to, carried to the server alongside the tag.
-          This is the field that decides how strongly a verdict can be linked to
-          the bytes a user installs: a tag is a label that can be repointed, a
-          commit is not.
+          Both travel to the server: the tag names the version a human recognises,
+          the commit is the bytes. Which of the two a submission carries is what
+          bounds the tier a verdict about it can ever reach — a tag can be
+          repointed or deleted, a commit cannot.
         */}
-        <input
-          type="hidden"
-          name="commit"
-          value={inspection !== null && inspection !== 'loading' ? (inspection.release?.sha ?? '') : ''}
-        />
+        <input type="hidden" name="release" value={release} />
+        <input type="hidden" name="commit" value={commit} />
 
         <div className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.stepHuman}</span>

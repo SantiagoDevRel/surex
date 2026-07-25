@@ -177,6 +177,16 @@ export interface ReleaseRef {
 export interface RepoInspection {
   ref: RepoRef | null;
   release: ReleaseRef | null;
+  /**
+   * What this repository actually offers, newest first — releases, then tags,
+   * then the default branch as a last resort.
+   *
+   * The form used to take the release as free text. That is a manual step that
+   * can only produce a wrong answer: a typo, a tag that does not exist, or a
+   * version the maintainer means but the repository does not have. A submission
+   * names bytes, and the only authority on which bytes exist is the repository.
+   */
+  releases: ReleaseRef[];
   mcp: McpEvidence | null;
   /** Human-readable reasons things could not be read. Never silently dropped. */
   problems: string[];
@@ -242,6 +252,70 @@ export async function latestRelease(
   return { tag: tag ?? '', sha, source: tag ? source : 'default-branch' };
 }
 
+/**
+ * Everything this repository offers as a reviewable version, newest first.
+ *
+ * Releases first (a maintainer chose to cut them), then tags, and the default
+ * branch only if there is nothing else — labelled as such, because a branch head
+ * moves and cannot anchor a verdict.
+ *
+ * SHAs are resolved lazily: listing ten releases would otherwise cost ten extra
+ * requests against a 60-per-hour unauthenticated budget, and only the chosen one
+ * is ever submitted. `resolveCommit` fills it in on selection.
+ */
+export async function listReleases(
+  ref: RepoRef,
+  fetchImpl: typeof fetch,
+  problems: string[],
+  { limit = 10 } = {},
+): Promise<ReleaseRef[]> {
+  const { owner, repo } = ref;
+  const out: ReleaseRef[] = [];
+
+  const releases = await getJson(`${API}/repos/${owner}/${repo}/releases?per_page=${limit}`, fetchImpl, problems);
+  if (Array.isArray(releases)) {
+    for (const r of releases) {
+      if (r?.draft) continue; // a draft is not something anyone can install
+      if (r?.tag_name) out.push({ tag: String(r.tag_name), sha: null, source: r.prerelease ? 'pre-release' : 'release' });
+    }
+  }
+
+  if (out.length < limit) {
+    const tags = await getJson(`${API}/repos/${owner}/${repo}/tags?per_page=${limit}`, fetchImpl, problems);
+    if (Array.isArray(tags)) {
+      for (const t of tags) {
+        const name = t?.name ? String(t.name) : null;
+        if (!name || out.some((r) => r.tag === name)) continue;
+        out.push({ tag: name, sha: t?.commit?.sha ? String(t.commit.sha) : null, source: 'tag' });
+        if (out.length >= limit) break;
+      }
+    }
+  }
+
+  if (!out.length) {
+    // Nothing versioned at all. Offer the branch head, and say what it is — this
+    // is the one option that cannot support a strong tier.
+    const commit = await getJson(`${API}/repos/${owner}/${repo}/commits/HEAD`, fetchImpl, problems);
+    if (commit?.sha) out.push({ tag: '', sha: String(commit.sha), source: 'default-branch' });
+  }
+  return out;
+}
+
+/** The commit a tag points at, dereferencing an annotated tag object. */
+export async function resolveCommit(
+  ref: RepoRef,
+  target: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const problems: string[] = [];
+  const commit = await getJson(
+    `${API}/repos/${ref.owner}/${ref.repo}/commits/${encodeURIComponent(target || 'HEAD')}`,
+    fetchImpl,
+    problems,
+  );
+  return commit?.sha ? String(commit.sha) : null;
+}
+
 /** Fetch the manifests the MCP detector reads, at a specific ref. */
 export async function fetchManifests(
   ref: RepoRef,
@@ -281,12 +355,20 @@ export async function inspectRepo(
 ): Promise<RepoInspection> {
   const problems: string[] = [];
   const ref = parseRepo(input);
-  if (!ref) return { ref: null, release: null, mcp: null, problems };
+  if (!ref) return { ref: null, release: null, releases: [], mcp: null, problems };
 
   const release = await latestRelease(ref, fetchImpl, problems);
+  const listed = await listReleases(ref, fetchImpl, problems);
+
+  // The newest entry carries the SHA we already resolved, so selecting the
+  // default costs no extra request.
+  const releases = listed.map((r) => (
+    release && r.tag === release.tag && !r.sha ? { ...r, sha: release.sha } : r
+  ));
+
   // Read the manifests at the exact commit when we have one: the answer should be
   // about the bytes that would be reviewed, not about whatever main looks like.
   const at = release?.sha ?? release?.tag ?? 'HEAD';
   const files = await fetchManifests(ref, at, fetchImpl, problems);
-  return { ref, release, mcp: detectMcp(files), problems };
+  return { ref, release, releases, mcp: detectMcp(files), problems };
 }
