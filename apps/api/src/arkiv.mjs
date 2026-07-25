@@ -349,6 +349,15 @@ export function createArkivStore(options = {}) {
         (a, b) =>
           (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
           Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
+          // Within a state, MOST RECENTLY ADDED first, not alphabetical.
+          //
+          // Alphabetical put `@adeu/mcp-server` and `@agentutility/mcp-bestiary` on
+          // the first screen and the servers people have actually heard of under
+          // "@m", which made a registry of real data read as placeholder data —
+          // the first question it drew was "are these placeholders?". Recency is a
+          // fact about the registry rather than an editorial ranking, and it puts
+          // the newest work where a visitor looks first.
+          String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')) ||
           String(a.name ?? a.fingerprint).localeCompare(String(b.name ?? b.fingerprint)),
       );
 
