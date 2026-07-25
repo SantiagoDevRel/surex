@@ -324,7 +324,7 @@ function bodyFlag(body: unknown): boolean | undefined {
  * is not reported is left undefined and simply not rendered; nothing here
  * invents one.
  */
-function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: boolean): RegistryStats {
+export function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: boolean): RegistryStats {
   const derived = statsFromRows(rows, illustrative);
   if (!raw || typeof raw !== 'object') return derived;
 
@@ -338,10 +338,23 @@ function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: boolean
   const byState = registry.byState ?? {};
   const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
-  const unreviewable = num(byState.unreviewable) ?? 0;
-  const reviewed =
-    num(flat.reviewed) ??
-    (num(registry.entries) !== undefined ? (registry.entries as number) - unreviewable : undefined);
+  /**
+   * `reviewed` is the SUM of the states only a real review can produce — never
+   * `entries` minus something.
+   *
+   * The subtraction shipped once and published "41 reviewed" on a registry where
+   * exactly ONE server had been reviewed: 40 seeded entries are `unknown` and the
+   * API's byState did not report `unknown`, so the difference silently counted
+   * them as reviewed. Coverage is the one number nobody should inflate, so it is
+   * now built up from what is known rather than derived from what is missing.
+   */
+  const REVIEWED_STATES = ['clean', 'flagged', 'disputed', 'stale'] as const;
+  const reportedReviewed = REVIEWED_STATES.reduce<number | undefined>((sum, key) => {
+    const n = num(byState[key]);
+    if (n === undefined) return sum;
+    return (sum ?? 0) + n;
+  }, undefined);
+  const reviewed = num(flat.reviewed) ?? reportedReviewed;
 
   return {
     reviewed: reviewed ?? derived.reviewed,

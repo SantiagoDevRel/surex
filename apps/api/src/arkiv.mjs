@@ -371,7 +371,11 @@ export function createArkivStore(options = {}) {
     const countFor = (predicates) =>
       client.buildQuery().where(scope(predicates)).createdBy(writerAddress).count();
 
-    const states = ['clean', 'flagged', 'disputed', 'unreviewable', 'stale'];
+    // `unknown` is counted too. Leaving it out is what let a consumer compute
+    // "reviewed = entries - unreviewable" and publish 41 reviewed when ONE server
+    // had been reviewed. A number a consumer needs and cannot get is a number
+    // they will guess.
+    const states = ['clean', 'flagged', 'disputed', 'unreviewable', 'stale', 'unknown'];
     const [totalHeads, totalEntries, ...perState] = await Promise.all([
       countFor([eq('entityType', 'verdictHead')]),
       countFor([eq('entityType', 'registryEntry')]),

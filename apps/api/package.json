@@ -17,6 +17,7 @@
     "@arkiv-network/sdk": "^0.7.0",
     "@hono/node-server": "^1.14.0",
     "@surex/core": "workspace:*",
+    "@worldcoin/agentkit": "^0.2.0",
     "hono": "^4.7.0",
     "viem": "^2.31.0"
   }
