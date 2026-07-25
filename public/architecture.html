@@ -1,0 +1,355 @@
+<meta charset="utf-8">
+<title>SureX &mdash; Architecture Plate</title>
+<style>
+  :root {
+    --ground:      #E7E8E6;
+    --sheet:       #F4F5F3;
+    --ink:         #14181C;
+    --graphite:    #5C6670;
+    --hairline:    #C3C7C4;
+    --accent:      #1F4FA8;
+    --accent-soft: #1F4FA81A;
+    --ok:          #2F7A55;
+    --warn:        #96620F;
+    --stop:        #B93317;
+    --plate-fill:  #FBFBFA;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#0F1317; --sheet:#151A1F; --ink:#DDE3E6; --graphite:#8A959E;
+      --hairline:#2C343B; --accent:#6E9BEE; --accent-soft:#6E9BEE1F;
+      --ok:#5FBE8C; --warn:#DCA23F; --stop:#F0705A; --plate-fill:#11161A;
+    }
+  }
+  :root[data-theme="light"] {
+    --ground:#E7E8E6; --sheet:#F4F5F3; --ink:#14181C; --graphite:#5C6670;
+    --hairline:#C3C7C4; --accent:#1F4FA8; --accent-soft:#1F4FA81A;
+    --ok:#2F7A55; --warn:#96620F; --stop:#B93317; --plate-fill:#FBFBFA;
+  }
+  :root[data-theme="dark"] {
+    --ground:#0F1317; --sheet:#151A1F; --ink:#DDE3E6; --graphite:#8A959E;
+    --hairline:#2C343B; --accent:#6E9BEE; --accent-soft:#6E9BEE1F;
+    --ok:#5FBE8C; --warn:#DCA23F; --stop:#F0705A; --plate-fill:#11161A;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    line-height: 1.55;
+    padding: clamp(14px, 3.5vw, 52px) clamp(10px, 3.5vw, 40px) 72px;
+  }
+  .sheet {
+    max-width: 1340px; margin: 0 auto;
+    background: var(--sheet); border: 1px solid var(--hairline);
+  }
+  .pad { padding: clamp(20px, 3.4vw, 44px); }
+
+  .masthead { border-bottom: 1px solid var(--hairline); display: flex; flex-wrap: wrap; gap: 24px 32px; align-items: flex-end; justify-content: space-between; }
+  .wordmark {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(30px, 5.4vw, 50px); font-weight: 600; letter-spacing: .22em;
+    margin: 0 0 8px; text-transform: uppercase;
+  }
+  .thesis { font-size: clamp(15px, 1.5vw, 17.5px); max-width: 60ch; margin: 0; text-wrap: balance; }
+  .thesis b { font-weight: 600; box-shadow: inset 0 -.42em 0 var(--accent-soft); }
+  .stampset { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .stamp {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    border: 1px solid var(--accent); color: var(--accent); padding: 5px 10px; white-space: nowrap;
+  }
+
+  .band { border-top: 1px solid var(--hairline); }
+  .bandhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; }
+  .plateno {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: .18em; color: var(--graphite);
+    text-transform: uppercase; border: 1px solid var(--hairline); padding: 3px 8px;
+  }
+  h2 {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(17px, 2.1vw, 22px); font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; margin: 0;
+  }
+  .tempo {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: .06em; color: var(--graphite);
+  }
+  .lede { max-width: 76ch; color: var(--graphite); font-size: 15px; margin: 10px 0 28px; }
+  .lede code, .lede b { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: .92em; color: var(--ink); font-weight: 500; }
+
+  .scroller { overflow-x: auto; padding-bottom: 6px; }
+  .scroller svg { display: block; min-width: 980px; width: 100%; height: auto; }
+
+  svg text { font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; }
+  .t-node  { font-size: 12.5px; font-weight: 600; letter-spacing: .09em; fill: var(--ink); }
+  .t-sub   { font-size: 10.5px; fill: var(--graphite); }
+  .t-tag   { font-size: 9px;  letter-spacing: .17em; fill: var(--graphite); }
+  .t-lead  { font-size: 10.5px; fill: var(--graphite); }
+  .box     { fill: var(--plate-fill); stroke: var(--hairline); stroke-width: 1; }
+  .box-key { fill: var(--plate-fill); stroke: var(--accent); stroke-width: 1.6; }
+  .wire    { stroke: var(--graphite); stroke-width: 1.2; fill: none; }
+  .wire-hot{ stroke: var(--accent); stroke-width: 1.6; fill: none; }
+  .lead    { stroke: var(--hairline); stroke-width: 1; fill: none; stroke-dasharray: 3 3; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px 44px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  caption {
+    text-align: left; font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--graphite); padding-bottom: 10px;
+  }
+  th, td { text-align: left; padding: 9px 14px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  th {
+    font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--graphite); font-weight: 500;
+  }
+  td.state { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: 12.5px; white-space: nowrap; }
+  .chip {
+    display: inline-block; font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 2px 7px; border: 1px solid currentColor; white-space: nowrap;
+  }
+  .c-ok { color: var(--ok); } .c-warn { color: var(--warn); } .c-stop { color: var(--stop); }
+
+  .rule { border-left: 3px solid var(--accent); padding: 2px 0 2px 20px; max-width: 82ch; }
+  .rule p { margin: 0 0 10px; }
+  .rule p:last-child { margin-bottom: 0; }
+
+  .titleblock { border-top: 1px solid var(--hairline); display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .tbcell { padding: 14px 18px; border-right: 1px solid var(--hairline); }
+  .tbcell:last-child { border-right: none; }
+  .tbkey {
+    font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--graphite); display: block; margin-bottom: 4px;
+  }
+  .tbval { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="sheet">
+
+  <header class="pad masthead">
+    <div>
+      <h1 class="wordmark">SureX</h1>
+      <p class="thesis">A trust registry for MCP servers, and a gate that reads it. Nothing checks the servers your agent runs today &mdash; SureX puts <b>one conscious decision</b> in front of a flagged one, and stays silent otherwise.</p>
+    </div>
+    <div class="stampset">
+      <span class="stamp">Two loops &middot; one shared record</span>
+      <span class="stamp">Arkiv decides &middot; Walrus proves</span>
+    </div>
+  </header>
+
+  <!-- ============ PLATE A ============ -->
+  <section class="pad band">
+    <div class="bandhead">
+      <span class="plateno">Plate A</span>
+      <h2>The Gate</h2>
+      <span class="tempo">consumer loop &middot; runs on EVERY tool call &middot; budget: milliseconds</span>
+    </div>
+    <p class="lede">A <code>PreToolUse</code> hook fires before Claude Code executes any MCP tool. It identifies the server from the install config alone &mdash; never by running it &mdash; and resolves one of three outcomes. In the overwhelming majority of calls, the outcome is silence.</p>
+
+    <div class="scroller">
+      <svg viewBox="0 0 1260 300" role="img" aria-label="Consumer loop: agent, PreToolUse hook, fingerprint, registry lookup, then allow, warn or block.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9" fill="none" stroke="context-stroke" stroke-width="1.4"/>
+          </marker>
+        </defs>
+
+        <rect class="box" x="24" y="118" width="168" height="64"/>
+        <text class="t-node" x="38" y="144">AGENT</text>
+        <text class="t-sub"  x="38" y="164">calls mcp__acme__search</text>
+        <path class="wire" marker-end="url(#ar)" d="M192 150 H 226"/>
+
+        <rect class="box-key" x="232" y="118" width="168" height="64"/>
+        <text class="t-node" x="246" y="144">PRETOOLUSE</text>
+        <text class="t-sub"  x="246" y="164">matcher  mcp__.*</text>
+        <path class="wire" marker-end="url(#ar)" d="M400 150 H 434"/>
+
+        <rect class="box" x="440" y="118" width="168" height="64"/>
+        <text class="t-node" x="454" y="144">SXF-1</text>
+        <text class="t-sub"  x="454" y="164">config fingerprint</text>
+        <path class="wire" marker-end="url(#ar)" d="M608 150 H 642"/>
+
+        <rect class="box" x="648" y="118" width="168" height="64"/>
+        <text class="t-node" x="662" y="144">LOOKUP</text>
+        <text class="t-sub"  x="662" y="164">cache, then registry</text>
+
+        <path class="wire" d="M816 150 H 852"/>
+        <path class="wire" d="M852 60 V 240"/>
+        <path class="wire" marker-end="url(#ar)" d="M852 60  H 894"/>
+        <path class="wire" marker-end="url(#ar)" d="M852 150 H 894"/>
+        <path class="wire" marker-end="url(#ar)" d="M852 240 H 894"/>
+
+        <rect class="box" x="900" y="30" width="336" height="60" stroke="var(--ok)"/>
+        <text class="t-node" x="916" y="55" fill="var(--ok)">ALLOW, SILENT</text>
+        <text class="t-sub"  x="916" y="75">reviewed, no mismatch &middot; exit 0, no output</text>
+
+        <rect class="box" x="900" y="120" width="336" height="60" stroke="var(--warn)"/>
+        <text class="t-node" x="916" y="145" fill="var(--warn)">WARN, PROCEED</text>
+        <text class="t-sub"  x="916" y="165">unknown / stale / unreviewable / offline</text>
+
+        <rect class="box" x="900" y="210" width="336" height="60" stroke="var(--stop)"/>
+        <text class="t-node" x="916" y="235" fill="var(--stop)">BLOCK, OVERRIDABLE</text>
+        <text class="t-sub"  x="916" y="255">flagged or disputed at severity &ge; high</text>
+
+        <path class="lead" d="M316 118 V 76"/>
+        <text class="t-lead" x="248" y="66">no execution, no network to the server</text>
+        <path class="lead" d="M524 182 V 212"/>
+        <text class="t-lead" x="440" y="226">env values and absolute paths are never hashed</text>
+        <path class="lead" d="M732 182 V 250"/>
+        <text class="t-lead" x="640" y="264">registry unreachable = fail open, visibly</text>
+      </svg>
+    </div>
+
+    <div class="grid2" style="margin-top:36px">
+      <table>
+        <caption>What the user is told, by state</caption>
+        <thead><tr><th>State</th><th>Gate</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="state">clean</td><td><span class="chip c-ok">allow</span></td><td>Reviewed at that commit; no intent-vs-code mismatch found.</td></tr>
+          <tr><td class="state">flagged</td><td><span class="chip c-stop">block</span></td><td>Mismatch or malicious pattern found.</td></tr>
+          <tr><td class="state">disputed</td><td><span class="chip c-stop">block</span></td><td>Flagged and contested. Both sides shown, still blocked.</td></tr>
+          <tr><td class="state">stale</td><td><span class="chip c-warn">warn</span></td><td>A newer release landed, or the installed digest stopped matching.</td></tr>
+          <tr><td class="state">unreviewable</td><td><span class="chip c-warn">warn</span></td><td>No redistributable source: remote-only, or the licence forbids it.</td></tr>
+          <tr><td class="state">unknown</td><td><span class="chip c-warn">warn</span></td><td>Not in the registry.</td></tr>
+        </tbody>
+      </table>
+
+      <table>
+        <caption>How strong the link is to your machine</caption>
+        <thead><tr><th>Tier</th><th>Condition</th><th>What it may claim</th></tr></thead>
+        <tbody>
+          <tr><td class="state">A</td><td>Pinned version, and the installed integrity digest matches the reviewed one.</td><td>Reviewed code matches what you are about to run.</td></tr>
+          <tr><td class="state">B</td><td>Pinned version, no local integrity digest obtainable.</td><td>This version was reviewed.</td></tr>
+          <tr><td class="state">C</td><td>Unpinned spec, or a remote endpoint with no local code at all.</td><td>Cannot confirm what will run.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="rule" style="margin-top:34px">
+      <p><strong>Every block is overridable in one command, printed inside the block itself.</strong> A block a user cannot pass is a block that gets the whole gate uninstalled the first time it is wrong. The job is to make sure nobody runs a flagged server <em>without knowing</em> &mdash; not to take the decision away from them.</p>
+      <p><strong>A block never says &ldquo;unsafe&rdquo;.</strong> It says what was reviewed, when, by which model and prompt version, that no human audited it, what the code can reach, and whether anyone is contesting it. Then it hands the decision back.</p>
+    </div>
+  </section>
+
+  <!-- ============ PLATE B ============ -->
+  <section class="pad band">
+    <div class="bandhead">
+      <span class="plateno">Plate B</span>
+      <h2>The Registry</h2>
+      <span class="tempo">supply loop &middot; runs on submission and on every release &middot; budget: minutes</span>
+    </div>
+    <p class="lede">How entries get there. Three inlets, one licence gate, one review, two records. The code and the judgement about the code are stored as <em>separate</em> content-addressed blobs, so each can be verified without the other &mdash; and a verdict can be superseded without touching the evidence it was made against.</p>
+
+    <div class="scroller">
+      <svg viewBox="0 0 1260 480" role="img" aria-label="Supply loop: maintainer, crawler and release listener feed a licence gate, then Walrus source storage, the DGX reviewer and capability scan, a verdict blob, and the Arkiv head. Disputes rewrite the head.">
+
+        <rect class="box" x="20" y="22" width="186" height="60"/>
+        <text class="t-node" x="34" y="46">MAINTAINER</text>
+        <text class="t-sub"  x="34" y="66">World ID + repo proof</text>
+
+        <rect class="box" x="20" y="104" width="186" height="60"/>
+        <text class="t-node" x="34" y="128">SEED CRAWLER</text>
+        <text class="t-sub"  x="34" y="148">starts at unknown</text>
+
+        <rect class="box" x="20" y="186" width="186" height="60"/>
+        <text class="t-node" x="34" y="210">RELEASE FEED</text>
+        <text class="t-sub"  x="34" y="230">new tag = stale</text>
+
+        <path class="wire" d="M206 52  H 232 V 134"/>
+        <path class="wire" d="M206 134 H 232"/>
+        <path class="wire" d="M206 216 H 232 V 134"/>
+        <path class="wire" marker-end="url(#ar)" d="M232 134 H 262"/>
+
+        <rect class="box" x="268" y="104" width="126" height="60"/>
+        <text class="t-node" x="282" y="128">LICENCE</text>
+        <text class="t-sub"  x="282" y="148">gate</text>
+        <path class="wire" marker-end="url(#ar)" d="M394 134 H 424"/>
+        <path class="lead" d="M331 164 V 200"/>
+        <text class="t-lead" x="268" y="214">no permissive licence =</text>
+        <text class="t-lead" x="268" y="228">unreviewable, nothing stored</text>
+
+        <rect class="box-key" x="430" y="96" width="168" height="80"/>
+        <text class="t-tag"  x="444" y="116">WALRUS / SUI</text>
+        <text class="t-node" x="444" y="137">SOURCE BLOB</text>
+        <text class="t-sub"  x="444" y="155">the code, content-</text>
+        <text class="t-sub"  x="444" y="169">addressed</text>
+
+        <path class="wire" marker-end="url(#ar)" d="M598 134 H 620 V 86 H 650"/>
+        <path class="wire" marker-end="url(#ar)" d="M620 134 V 196 H 650"/>
+
+        <rect class="box" x="656" y="54" width="180" height="64"/>
+        <text class="t-node" x="670" y="78">DGX REVIEWER</text>
+        <text class="t-sub"  x="670" y="98">intent vs code, twice</text>
+
+        <rect class="box" x="656" y="164" width="180" height="64"/>
+        <text class="t-node" x="670" y="188">CAPABILITY SCAN</text>
+        <text class="t-sub"  x="670" y="208">static, not the model</text>
+
+        <path class="lead" d="M746 54 V 34"/>
+        <text class="t-lead" x="656" y="24">text that tries to instruct the reviewer is itself a finding</text>
+        <path class="lead" d="M746 228 V 250"/>
+        <text class="t-lead" x="656" y="264">what the code can reach, shown on clean verdicts too</text>
+
+        <path class="wire" d="M836 86  H 858 V 134"/>
+        <path class="wire" d="M836 196 H 858 V 134"/>
+        <path class="wire" marker-end="url(#ar)" d="M858 134 H 888"/>
+
+        <rect class="box-key" x="894" y="96" width="150" height="80"/>
+        <text class="t-tag"  x="908" y="116">WALRUS / SUI</text>
+        <text class="t-node" x="908" y="137">VERDICT</text>
+        <text class="t-sub"  x="908" y="155">findings, file</text>
+        <text class="t-sub"  x="908" y="169">and line</text>
+
+        <path class="wire" marker-end="url(#ar)" d="M1044 134 H 1070"/>
+
+        <rect class="box-key" x="1076" y="96" width="164" height="80"/>
+        <text class="t-tag"  x="1090" y="116">ARKIV</text>
+        <text class="t-node" x="1090" y="137">VERDICT HEAD</text>
+        <text class="t-sub"  x="1090" y="155">the only read on</text>
+        <text class="t-sub"  x="1090" y="169">the hot path</text>
+
+        <rect class="box" x="560" y="270" width="210" height="56" stroke="var(--accent)"/>
+        <text class="t-node" x="574" y="293" fill="var(--accent)">HUMAN</text>
+        <text class="t-sub"  x="574" y="312">World ID</text>
+
+        <rect class="box" x="560" y="344" width="210" height="56" stroke="var(--accent)"/>
+        <text class="t-node" x="574" y="367" fill="var(--accent)">AGENT</text>
+        <text class="t-sub"  x="574" y="386">AgentKit lookupHuman</text>
+
+        <path class="wire-hot" d="M770 298 H 808 V 320"/>
+        <path class="wire-hot" d="M770 372 H 808 V 320"/>
+        <path class="wire-hot" marker-end="url(#ar)" d="M808 320 H 840"/>
+
+        <rect class="box" x="846" y="290" width="196" height="60" stroke="var(--accent)"/>
+        <text class="t-node" x="860" y="314" fill="var(--accent)">DISPUTE</text>
+        <text class="t-sub"  x="860" y="334">standing, not access</text>
+
+        <path class="wire-hot" marker-end="url(#ar)" d="M1042 320 H 1158 V 182"/>
+
+        <path class="lead" d="M944 350 V 398"/>
+        <text class="t-lead" x="800" y="424">head becomes disputed. The gate STILL blocks &mdash; the block now</text>
+        <text class="t-lead" x="800" y="438">carries the rebuttal beside the accusation. Only a human overturns.</text>
+      </svg>
+    </div>
+
+    <div class="rule" style="margin-top:32px">
+      <p><strong>Arkiv answers &ldquo;what is the state of this server?&rdquo; Walrus answers &ldquo;show me exactly what was said, and prove it has not changed.&rdquo;</strong> That split is a hard rule, not a preference: the gate sits in front of every tool call, so every decision-critical field is an Arkiv annotation resolvable in one query. The evidence body is fetched from Walrus at exactly one moment &mdash; when SureX is about to block and a person is about to read it.</p>
+      <p><strong>Nothing is overwritten.</strong> Source records and review records are immutable and append-only; a small mutable head carries current state. A correction supersedes a verdict, and is as durable and as prominent as the original claim.</p>
+    </div>
+  </section>
+
+  <footer class="titleblock">
+    <div class="tbcell"><span class="tbkey">Drawing</span><span class="tbval">SUREX-ARCH-01</span></div>
+    <div class="tbcell"><span class="tbkey">Revision</span><span class="tbval">A &middot; 2026-07-25</span></div>
+    <div class="tbcell"><span class="tbkey">Enforcement</span><span class="tbval">Claude Code PreToolUse</span></div>
+    <div class="tbcell"><span class="tbkey">Record store</span><span class="tbval">Walrus on Sui</span></div>
+    <div class="tbcell"><span class="tbkey">Index</span><span class="tbval">Arkiv &middot; Braga</span></div>
+    <div class="tbcell"><span class="tbkey">Identity</span><span class="tbval">World ID &middot; AgentKit</span></div>
+  </footer>
+
+</div>

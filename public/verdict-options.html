@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#141310;color:#e8e4da;font-family:'IBM Plex Mono',ui-monospace,monospace}
+a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:underline}
+.dv-turn{padding:40px 44px 36px;border-bottom:1px solid rgba(255,255,255,.07);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 22px}
+.dv-tid{font:600 10px 'IBM Plex Mono',monospace;padding:3px 7px;background:#e8e4da;color:#141310;border-radius:3px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'IBM Plex Mono',monospace;color:#e8e4da;letter-spacing:.04em}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(255,255,255,.12);color:#e8e4da;border-radius:4px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Mono',monospace;color:rgba(232,228,218,.6)}
+.dv-card{max-width:100%;background:#1c1a16;border:1px solid rgba(255,255,255,.09);border-radius:6px;overflow:hidden}
+.dv-opt:target .dv-oid{background:#7aa3cc;color:#141310}
+.dv-next{margin:24px 0 0;font:12px/1.5 'IBM Plex Mono',monospace;color:rgba(232,228,218,.5)}
+@property --p{syntax:'<percentage>';inherits:false;initial-value:0%}
+@keyframes ringFill{from{--p:0%}}
+@keyframes stampCycle{0%,100%{opacity:0;transform:scale(1.6) rotate(-6deg)}7%{opacity:1;transform:scale(.98) rotate(-2deg)}10%{transform:scale(1.04) rotate(-2deg)}13%,90%{opacity:1;transform:scale(1) rotate(-2deg)}97%{opacity:0;transform:scale(1) rotate(-2deg)}}
+@keyframes ctrCycle{0%,16%{opacity:0;transform:scale(1.4) rotate(2deg)}22%{opacity:1;transform:scale(1) rotate(2deg)}90%{opacity:1;transform:scale(1) rotate(2deg)}97%,100%{opacity:0;transform:scale(1) rotate(2deg)}}
+@keyframes cycleBar{0%{transform:scaleX(0)}12%{transform:scaleX(1)}88%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+@keyframes cycleIn{0%{opacity:0;transform:scale(.3)}8%{opacity:1;transform:scale(1)}88%{opacity:1;transform:scale(1)}100%{opacity:0}}
+@keyframes dashFlow{to{background-position:24px 0}}
+@keyframes pulseC{0%,100%{box-shadow:0 0 0 0 rgba(106,168,124,.45)}55%{box-shadow:0 0 0 8px rgba(106,168,124,0)}}
+@keyframes pulseF{0%,100%{box-shadow:0 0 0 0 rgba(201,91,77,.45)}55%{box-shadow:0 0 0 8px rgba(201,91,77,0)}}
+@keyframes pulseD{0%,100%{box-shadow:0 0 0 0 rgba(156,134,201,.45)}55%{box-shadow:0 0 0 8px rgba(156,134,201,0)}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Visual + motion systems — same locked decisions, less text</span></div>
+<div class="dv-opts">
+
+<!-- ============ 2a RING OF CUSTODY ============ -->
+<div class="dv-opt" id="2a" style="width:600px">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Ring of custody — tier fills the ring, animated on load</div>
+<div class="dv-card" style="padding:22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.5;margin-bottom:20px">3 segments = tier (how many fill). Hue = state. Center dot = confirmation: <b style="color:#b5afa0">pulsing ● confirmed · hollow ○ automated only · ◑ contested</b>.</div>
+  <div style="display:flex;gap:36px;flex-wrap:wrap;margin-bottom:22px">
+    <div style="text-align:center">
+      <div style="position:relative;width:68px;height:68px;margin:0 auto">
+        <div style="position:absolute;inset:0;border-radius:50%;--p:100%;background:conic-gradient(from -90deg,#6aa87c var(--p),rgba(255,255,255,.08) 0);animation:ringFill 1.3s cubic-bezier(.2,.8,.2,1) both"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from -90deg,transparent 0 118deg,#1c1a16 118deg 120deg)"></div>
+        <div style="position:absolute;inset:7px;border-radius:50%;background:#1c1a16;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:#6aa87c;animation:pulseC 2.4s infinite"></span></div>
+      </div>
+      <div style="margin-top:9px;font-size:11px;font-weight:600;color:#6aa87c">clean</div>
+      <div style="font-size:8.5px;color:#8b8578;margin-top:2px">A · confirmed 84d</div>
+    </div>
+    <div style="text-align:center">
+      <div style="position:relative;width:68px;height:68px;margin:0 auto">
+        <div style="position:absolute;inset:0;border-radius:50%;--p:33%;background:conic-gradient(from -90deg,#6aa87c var(--p),rgba(255,255,255,.08) 0);animation:ringFill 1.3s cubic-bezier(.2,.8,.2,1) both"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from -90deg,transparent 0 118deg,#1c1a16 118deg 120deg)"></div>
+        <div style="position:absolute;inset:7px;border-radius:50%;background:#1c1a16;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid #8b8578;box-sizing:border-box"></span></div>
+      </div>
+      <div style="margin-top:9px;font-size:11px;font-weight:600;color:#6aa87c">clean</div>
+      <div style="font-size:8.5px;color:#8b8578;margin-top:2px">C · automated only</div>
+    </div>
+    <div style="text-align:center">
+      <div style="position:relative;width:68px;height:68px;margin:0 auto">
+        <div style="position:absolute;inset:0;border-radius:50%;--p:100%;background:conic-gradient(from -90deg,#c95b4d var(--p),rgba(255,255,255,.08) 0);animation:ringFill 1.3s cubic-bezier(.2,.8,.2,1) both"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from -90deg,transparent 0 118deg,#1c1a16 118deg 120deg)"></div>
+        <div style="position:absolute;inset:7px;border-radius:50%;background:#1c1a16;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid #c95b4d;box-sizing:border-box"></span></div>
+      </div>
+      <div style="margin-top:9px;font-size:11px;font-weight:600;color:#c95b4d">flagged</div>
+      <div style="font-size:8.5px;color:#8b8578;margin-top:2px">A · no human audit</div>
+    </div>
+    <div style="text-align:center">
+      <div style="position:relative;width:68px;height:68px;margin:0 auto">
+        <div style="position:absolute;inset:0;border-radius:50%;--p:66%;background:conic-gradient(from -90deg,#9c86c9 var(--p),rgba(255,255,255,.08) 0);animation:ringFill 1.3s cubic-bezier(.2,.8,.2,1) both"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from -90deg,transparent 0 118deg,#1c1a16 118deg 120deg)"></div>
+        <div style="position:absolute;inset:7px;border-radius:50%;background:#1c1a16;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:linear-gradient(90deg,#9c86c9 50%,transparent 50%);border:1.5px solid #9c86c9;box-sizing:border-box;animation:pulseD 2.4s infinite"></span></div>
+      </div>
+      <div style="margin-top:9px;font-size:11px;font-weight:600;color:#9c86c9">disputed</div>
+      <div style="font-size:8.5px;color:#8b8578;margin-top:2px">B · rebuttal on file</div>
+    </div>
+  </div>
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">IN A ROW — 16px</div>
+  <div style="border:1px solid rgba(255,255,255,.08);border-radius:4px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:11.5px"><span style="width:16px;height:16px;border-radius:50%;background:conic-gradient(from -90deg,#6aa87c 100%,rgba(255,255,255,.08) 0);display:inline-grid;place-items:center;flex:none"><span style="width:10px;height:10px;border-radius:50%;background:#1c1a16"></span></span><span style="color:#e8e4da;width:240px">mcp-server-postgres <span style="color:#8b8578">0.6.2</span></span><span style="color:#6aa87c;font-size:10.5px;font-weight:600">clean</span><span style="color:#8b8578;font-size:10px;margin-left:auto">A · confirmed</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:11.5px"><span style="width:16px;height:16px;border-radius:50%;background:conic-gradient(from -90deg,#6aa87c 33%,rgba(255,255,255,.08) 0);display:inline-grid;place-items:center;flex:none"><span style="width:10px;height:10px;border-radius:50%;background:#1c1a16"></span></span><span style="color:#e8e4da;width:240px">weather-mcp <span style="color:#8b8578">remote</span></span><span style="color:#6aa87c;font-size:10.5px;font-weight:600">clean</span><span style="color:#8b8578;font-size:10px;margin-left:auto">C · automated only</span></div>
+  </div>
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:10px"><b style="color:#6aa87c">+</b> instant silhouette, works at 16px, loads with motion &nbsp;<b style="color:#c95b4d">−</b> flirts with the "meter/dial" trope the brief bans — segments keep it discrete, but it's the riskiest read</div>
+</div>
+</div>
+
+<!-- ============ 2b STAMP SLAM ============ -->
+<div class="dv-opt" id="2b" style="width:600px">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Stamp slam — <a class="dv-oid" href="#1b">1b</a> with impact motion</div>
+<div class="dv-card" style="padding:22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.5;margin-bottom:26px">The verdict <b style="color:#b5afa0">lands</b>: stamp slams in, counter-stamp follows half a beat later. On the real page it plays once, on arrival from a blocked call — the moment the evidence hits the desk.</div>
+  <div style="display:flex;gap:56px;flex-wrap:wrap;margin-bottom:24px;padding:10px 0 16px">
+    <div style="position:relative;display:inline-block">
+      <div style="padding:14px 22px 16px;border:2px solid #6aa87c;box-shadow:inset 0 0 0 3px #1c1a16,inset 0 0 0 4px #6aa87c;transform:rotate(-2deg);animation:stampCycle 6s infinite">
+        <div style="font-size:21px;font-weight:600;letter-spacing:.24em;color:#6aa87c">CLEAN</div>
+        <div style="font-size:8.5px;letter-spacing:.09em;color:#8b8578;margin-top:6px">TIER A · DIGEST MATCH</div>
+      </div>
+      <div style="position:absolute;right:-16px;bottom:-13px;background:#141310;border:1px solid #6aa87c;padding:3px 9px;font-size:8.5px;letter-spacing:.08em;color:#6aa87c;transform:rotate(2deg);animation:ctrCycle 6s infinite">UNCONTESTED · 84 DAYS</div>
+    </div>
+    <div style="position:relative;display:inline-block">
+      <div style="padding:14px 22px 16px;border:2px solid #c95b4d;box-shadow:inset 0 0 0 3px #1c1a16,inset 0 0 0 4px #c95b4d;transform:rotate(-2deg);animation:stampCycle 6s .4s infinite;opacity:0">
+        <div style="font-size:21px;font-weight:600;letter-spacing:.24em;color:#c95b4d">FLAGGED</div>
+        <div style="font-size:8.5px;letter-spacing:.09em;color:#8b8578;margin-top:6px">TIER A · DIGEST MATCH</div>
+      </div>
+      <div style="position:absolute;right:-16px;bottom:-13px;background:#141310;border:1px dashed #8b8578;padding:3px 9px;font-size:8.5px;letter-spacing:.08em;color:#b5afa0;transform:rotate(2deg);animation:ctrCycle 6s .4s infinite;opacity:0">AUTOMATED · NO HUMAN AUDIT</div>
+    </div>
+  </div>
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:10px"><b style="color:#6aa87c">+</b> strongest identity + emotion; motion happens once, then it's a document again &nbsp;<b style="color:#c95b4d">−</b> table form still needs <a class="dv-oid" href="#1b">1b</a>/<a class="dv-oid" href="#1c">1c</a> compacts</div>
+</div>
+</div>
+
+<!-- ============ 2c CHAIN OF LINKAGE ============ -->
+<div class="dv-opt" id="2c" style="width:640px">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Linkage chain — tier drawn as the physical connection</div>
+<div class="dv-card" style="padding:22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.5;margin-bottom:22px">Tier stops being a letter: it's <b style="color:#b5afa0">how much of the bridge exists</b> between the reviewed blob and your install. Segments draw in; missing segments flow as dashes. Hue = state, right chip = confirmation.</div>
+
+  <div style="display:grid;gap:18px;margin-bottom:22px">
+    <div style="display:flex;align-items:center;gap:0">
+      <span style="flex:none;border:1px solid #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#b5afa0">REVIEWED BLOB<br><span style="color:#5c584e">walrus:0x91f4…be22</span></span>
+      <span style="width:30px;height:8px;background:#6aa87c;border-radius:4px;transform-origin:left;animation:cycleBar 6s infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;background:#6aa87c;border-radius:4px;transform-origin:left;animation:cycleBar 6s .25s infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;background:#6aa87c;border-radius:4px;transform-origin:left;animation:cycleBar 6s .5s infinite;margin:0 3px"></span>
+      <span style="flex:none;border:1px solid #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#b5afa0">YOUR INSTALL<br><span style="color:#6aa87c">sha256 match</span></span>
+      <span style="margin-left:14px;font-size:10.5px;color:#6aa87c;font-weight:600">clean · A</span>
+      <span style="margin-left:10px;font-size:9px;color:#8b8578;border:1px solid #3a372f;padding:2px 7px">confirmed 84d</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0">
+      <span style="flex:none;border:1px solid #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#b5afa0">REVIEWED BLOB<br><span style="color:#5c584e">walrus:0x2c7a…09d1</span></span>
+      <span style="width:30px;height:8px;background:#6aa87c;border-radius:4px;transform-origin:left;animation:cycleBar 6s infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;background:#6aa87c;border-radius:4px;transform-origin:left;animation:cycleBar 6s .25s infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;border:1.5px solid rgba(106,168,124,.55);border-radius:4px;box-sizing:border-box;transform-origin:left;animation:cycleBar 6s .5s infinite;margin:0 3px"></span>
+      <span style="flex:none;border:1px solid #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#b5afa0">YOUR INSTALL<br><span style="color:#c9a15a">pinned · digest unchecked</span></span>
+      <span style="margin-left:14px;font-size:10.5px;color:#6aa87c;font-weight:600">clean · B</span>
+      <span style="margin-left:10px;font-size:9px;color:#8b8578;border:1px solid #3a372f;padding:2px 7px">confirmed 31d</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0">
+      <span style="flex:none;border:1px solid #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#b5afa0">REVIEWED BLOB<br><span style="color:#5c584e">walrus:0x88e0…4c17</span></span>
+      <span style="width:30px;height:8px;background:repeating-linear-gradient(90deg,rgba(106,168,124,.6) 0 6px,transparent 6px 12px);animation:dashFlow 1.2s linear infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;background:repeating-linear-gradient(90deg,rgba(106,168,124,.35) 0 6px,transparent 6px 12px);animation:dashFlow 1.2s linear infinite;margin:0 3px"></span>
+      <span style="width:30px;height:8px;margin:0 3px;display:inline-grid;place-items:center;font-size:9px;color:#5c584e">✕</span>
+      <span style="flex:none;border:1px dashed #3a372f;background:#181713;padding:5px 10px;font-size:9px;line-height:1.5;color:#8b8578">YOUR INSTALL<br><span style="color:#5c584e">unpinned — nothing checked</span></span>
+      <span style="margin-left:14px;font-size:10.5px;color:rgba(106,168,124,.75);font-weight:500">clean · C</span>
+      <span style="margin-left:10px;font-size:9px;color:#c9a15a;border:1px dashed rgba(201,161,90,.5);padding:2px 7px">automated only</span>
+    </div>
+  </div>
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:10px"><b style="color:#6aa87c">+</b> tier finally <i>explains itself</i> — nobody needs a legend for a broken bridge &nbsp;<b style="color:#6aa87c">+</b> perfect hero for the verdict page top &nbsp;<b style="color:#c95b4d">−</b> too wide for tables; pairs with <a class="dv-oid" href="#1c">1c</a> one-liners there</div>
+</div>
+</div>
+
+<!-- ============ 2d CUSTODY TIMELINE ============ -->
+<div class="dv-opt" id="2d" style="width:640px">
+<div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Custody timeline — the verdict as a sequence of events</div>
+<div class="dv-card" style="padding:22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.5;margin-bottom:24px">Confirmation is time, so draw time: each custody event lands as a dot. The last dot is <b style="color:#b5afa0">live</b> (pulsing = still uncontested / still contested). A dispute is a violet event on the same line — appended, never erasing.</div>
+
+  <div style="margin-bottom:26px">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:10px"><span style="font-size:14px;font-weight:600;color:#6aa87c">clean</span><span style="font-size:9.5px;color:#8b8578">mcp-server-postgres 0.6.2 · tier A</span></div>
+    <div style="position:relative;height:2px;background:#2a2822;margin:14px 6px 42px">
+      <span style="position:absolute;left:0%;top:-4px;width:10px;height:10px;border-radius:50%;background:#b5afa0;animation:cycleIn 7s infinite"></span>
+      <span style="position:absolute;left:0%;top:12px;font-size:8.5px;color:#8b8578;white-space:nowrap;animation:cycleIn 7s infinite">blob stored</span>
+      <span style="position:absolute;left:30%;top:-4px;width:10px;height:10px;border-radius:50%;background:#b5afa0;animation:cycleIn 7s .4s infinite;opacity:0"></span>
+      <span style="position:absolute;left:30%;top:12px;font-size:8.5px;color:#8b8578;white-space:nowrap;transform:translateX(-40%);animation:cycleIn 7s .4s infinite;opacity:0">model reviewed · p7</span>
+      <span style="position:absolute;left:60%;top:-4px;width:10px;height:10px;border-radius:50%;background:#b5afa0;animation:cycleIn 7s .8s infinite;opacity:0"></span>
+      <span style="position:absolute;left:60%;top:12px;font-size:8.5px;color:#8b8578;white-space:nowrap;transform:translateX(-40%);animation:cycleIn 7s .8s infinite;opacity:0">digest matched</span>
+      <span style="position:absolute;right:0;top:-5px;width:12px;height:12px;border-radius:50%;background:#6aa87c;animation:cycleIn 7s 1.2s infinite,pulseC 2.4s 1.2s infinite;opacity:0"></span>
+      <span style="position:absolute;right:0;top:12px;font-size:8.5px;color:#6aa87c;white-space:nowrap;animation:cycleIn 7s 1.2s infinite;opacity:0">uncontested · 84d</span>
+    </div>
+  </div>
+
+  <div style="margin-bottom:8px">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:10px"><span style="font-size:14px;font-weight:600;color:#c95b4d">flagged</span><span style="font-size:9.5px;color:#8b8578">browserbase-mcp 2.1.0 · tier B</span><span style="font-size:9.5px;color:#9c86c9;margin-left:auto">→ disputed</span></div>
+    <div style="position:relative;height:2px;background:#2a2822;margin:14px 6px 42px">
+      <span style="position:absolute;left:0%;top:-4px;width:10px;height:10px;border-radius:50%;background:#b5afa0;animation:cycleIn 7s infinite"></span>
+      <span style="position:absolute;left:0%;top:12px;font-size:8.5px;color:#8b8578;white-space:nowrap;animation:cycleIn 7s infinite">blob stored</span>
+      <span style="position:absolute;left:26%;top:-4px;width:10px;height:10px;border-radius:50%;background:#c95b4d;animation:cycleIn 7s .4s infinite;opacity:0"></span>
+      <span style="position:absolute;left:26%;top:12px;font-size:8.5px;color:#c95b4d;white-space:nowrap;transform:translateX(-40%);animation:cycleIn 7s .4s infinite;opacity:0">finding · exfil L214</span>
+      <span style="position:absolute;left:55%;top:-4px;width:10px;height:10px;border-radius:50%;background:#9c86c9;animation:cycleIn 7s .8s infinite;opacity:0"></span>
+      <span style="position:absolute;left:55%;top:12px;font-size:8.5px;color:#9c86c9;white-space:nowrap;transform:translateX(-40%);animation:cycleIn 7s .8s infinite;opacity:0">rebuttal filed · agent 0x3e…</span>
+      <span style="position:absolute;left:55%;top:-24px;font-size:8.5px;color:#5c584e;white-space:nowrap;transform:translateX(-40%);animation:cycleIn 7s .8s infinite;opacity:0">World AgentKit ✓</span>
+      <span style="position:absolute;right:0;top:-5px;width:12px;height:12px;border-radius:50%;background:linear-gradient(90deg,#9c86c9 50%,transparent 50%);border:1.5px solid #9c86c9;box-sizing:border-box;animation:cycleIn 7s 1.2s infinite,pulseD 2.4s 1.2s infinite;opacity:0"></span>
+      <span style="position:absolute;right:0;top:12px;font-size:8.5px;color:#9c86c9;white-space:nowrap;animation:cycleIn 7s 1.2s infinite;opacity:0">under review · both stand</span>
+    </div>
+  </div>
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:10px"><b style="color:#6aa87c">+</b> corrections get equal, durable weight by construction — the product law, drawn &nbsp;<b style="color:#6aa87c">+</b> agent-filed disputes visible as first-class events &nbsp;<b style="color:#c95b4d">−</b> it's a provenance panel, not a badge; needs <a class="dv-oid" href="#1a">1a</a>/<a class="dv-oid" href="#1b">1b</a> compact for rows</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "<a class="dv-oid" href="#2b">2b</a> hero + <a class="dv-oid" href="#2c">2c</a> on the verdict page + <a class="dv-oid" href="#1c">1c</a> in tables" · "make <a class="dv-oid" href="#2a">2a</a> less dial-like" · "combine <a class="dv-oid" href="#2c">2c</a> and <a class="dv-oid" href="#2d">2d</a> into one custody panel"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Four verdict systems — state × tier × confirmation</span></div>
+
+<div style="max-width:960px;margin:0 0 30px;padding:18px 22px;background:#1c1a16;border:1px solid rgba(255,255,255,.09);border-radius:6px">
+  <div style="font-size:10px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">DECISIONS CARRIED INTO ALL FOUR — LOCKED FROM YOUR ANSWERS</div>
+  <div style="display:grid;grid-template-columns:150px 1fr;gap:7px 18px;font-size:11.5px;line-height:1.5">
+    <span style="color:#8b8578">hue ownership</span><span><b style="color:#e8e4da">State owns hue.</b> Tier + confirmation own form: border style, fill, weight, density. Color is never the sole carrier — the word is always printed.</span>
+    <span style="color:#8b8578">state hues</span><span><b style="color:#6aa87c">clean</b> · <b style="color:#c95b4d">flagged</b> · <b style="color:#9c86c9">disputed</b> · <b style="color:#c9a15a">stale</b> · <b style="color:#8b8578">unreviewable</b> · <b style="color:#8b8578">unknown</b> (grays)</span>
+    <span style="color:#8b8578">accent</span><span><b style="color:#7aa3cc">archival blue #7aa3cc</b> — links, focus, actions only. Never appears in a verdict, so accent and semantics can't be confused.</span>
+    <span style="color:#8b8578">type</span><span>IBM Plex Mono, structural — every artifact is a hash, path, or line number. <span style="font-family:'Source Serif 4',serif;font-size:13px">Source Serif 4 for long-form evidence prose.</span></span>
+    <span style="color:#8b8578">tier language</span><span>A <span style="color:#b5afa0">= installed digest matches reviewed blob</span> · B <span style="color:#b5afa0">= version pinned, digest unchecked</span> · C <span style="color:#b5afa0">= unpinned / remote, no local code</span></span>
+    <span style="color:#8b8578">copy law</span><span>The word is <b>reviewed</b> — never safe / trusted / verified / secure. Every verdict names its model + prompt version and that no human audited it.</span>
+  </div>
+  <div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.1);font-size:11px;color:#8b8578">Each option shows: anatomy → the pair that must not look alike (<span style="color:#b5afa0">clean·A·confirmed</span> vs <span style="color:#b5afa0">clean·C·unconfirmed</span>) → all six states compact → in a registry row → light theme.</div>
+</div>
+
+<div class="dv-opts">
+
+<!-- ============ 1a SPLIT CHIP ============ -->
+<div class="dv-opt" id="1a" style="width:620px">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Split chip — segmented, table-first</div>
+<div class="dv-card" style="padding:20px 22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.55;margin-bottom:16px">One chip, three segments: state (hue) │ tier (letter + <b style="color:#b5afa0">chip border style</b>: A solid · B dashed · C dotted) │ confirmation (○ automated only · ● uncontested · ◑ contested). Reads at 20px tall; sub-caption expands it.</div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">THE PAIR THAT MUST NOT LOOK ALIKE</div>
+  <div style="display:flex;gap:26px;flex-wrap:wrap;margin-bottom:18px">
+    <div>
+      <span style="display:inline-flex;align-items:stretch;border:1px solid rgba(106,168,124,.5);border-radius:3px;font-size:11px;line-height:22px">
+        <span style="background:rgba(106,168,124,.16);color:#6aa87c;padding:0 9px;font-weight:600;letter-spacing:.07em">CLEAN</span>
+        <span style="border-left:1px solid rgba(106,168,124,.5);color:#e8e4da;padding:0 8px;font-weight:600">A</span>
+        <span style="border-left:1px solid rgba(106,168,124,.5);color:#6aa87c;padding:0 8px">●</span>
+      </span>
+      <div style="font-size:9.5px;color:#8b8578;margin-top:5px">digest match · uncontested since 2026-05-02</div>
+    </div>
+    <div>
+      <span style="display:inline-flex;align-items:stretch;border:1px dotted rgba(106,168,124,.65);border-radius:3px;font-size:11px;line-height:22px">
+        <span style="background:rgba(106,168,124,.07);color:#6aa87c;padding:0 9px;font-weight:500;letter-spacing:.07em">CLEAN</span>
+        <span style="border-left:1px dotted rgba(106,168,124,.65);color:#8b8578;padding:0 8px">C</span>
+        <span style="border-left:1px dotted rgba(106,168,124,.65);color:#8b8578;padding:0 8px">○</span>
+      </span>
+      <div style="font-size:9.5px;color:#8b8578;margin-top:5px">no local code checked · automated only — no human audit</div>
+    </div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">ALL SIX STATES — COMPACT</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+    <span style="display:inline-flex;border:1px solid rgba(106,168,124,.5);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(106,168,124,.16);color:#6aa87c;padding:0 7px;font-weight:600">CLEAN</span><span style="border-left:1px solid rgba(106,168,124,.5);color:#e8e4da;padding:0 6px">A</span><span style="border-left:1px solid rgba(106,168,124,.5);color:#6aa87c;padding:0 6px">●</span></span>
+    <span style="display:inline-flex;border:1px solid rgba(201,91,77,.55);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(201,91,77,.18);color:#c95b4d;padding:0 7px;font-weight:600">FLAGGED</span><span style="border-left:1px solid rgba(201,91,77,.55);color:#e8e4da;padding:0 6px">A</span><span style="border-left:1px solid rgba(201,91,77,.55);color:#c95b4d;padding:0 6px">●</span></span>
+    <span style="display:inline-flex;border:1px dashed rgba(156,134,201,.55);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(156,134,201,.16);color:#9c86c9;padding:0 7px;font-weight:600">DISPUTED</span><span style="border-left:1px dashed rgba(156,134,201,.55);color:#e8e4da;padding:0 6px">B</span><span style="border-left:1px dashed rgba(156,134,201,.55);color:#9c86c9;padding:0 6px">◑</span></span>
+    <span style="display:inline-flex;border:1px dashed rgba(201,161,90,.55);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(201,161,90,.16);color:#c9a15a;padding:0 7px;font-weight:600">STALE</span><span style="border-left:1px dashed rgba(201,161,90,.55);color:#e8e4da;padding:0 6px">B</span><span style="border-left:1px dashed rgba(201,161,90,.55);color:#c9a15a;padding:0 6px">●</span></span>
+    <span style="display:inline-flex;border:1px dotted rgba(139,133,120,.7);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(139,133,120,.14);color:#8b8578;padding:0 7px;font-weight:600">UNREVIEWABLE</span><span style="border-left:1px dotted rgba(139,133,120,.7);color:#8b8578;padding:0 6px">C</span><span style="border-left:1px dotted rgba(139,133,120,.7);color:#8b8578;padding:0 6px">○</span></span>
+    <span style="display:inline-flex;border:1px dotted rgba(139,133,120,.5);border-radius:3px;font-size:10.5px;line-height:20px"><span style="color:#8b8578;padding:0 7px">UNKNOWN</span><span style="border-left:1px dotted rgba(139,133,120,.5);color:#5c584e;padding:0 6px">—</span><span style="border-left:1px dotted rgba(139,133,120,.5);color:#5c584e;padding:0 6px">—</span></span>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">IN A REGISTRY ROW</div>
+  <div style="border:1px solid rgba(255,255,255,.08);border-radius:4px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:11.5px"><span style="color:#e8e4da;width:250px">mcp-server-postgres <span style="color:#8b8578">0.6.2</span></span><span style="display:inline-flex;border:1px solid rgba(106,168,124,.5);border-radius:3px;font-size:10px;line-height:18px"><span style="background:rgba(106,168,124,.16);color:#6aa87c;padding:0 6px;font-weight:600">CLEAN</span><span style="border-left:1px solid rgba(106,168,124,.5);color:#e8e4da;padding:0 5px">A</span><span style="border-left:1px solid rgba(106,168,124,.5);color:#6aa87c;padding:0 5px">●</span></span><span style="color:#8b8578;font-size:10px;margin-left:auto">reviewed 84d ago</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:11.5px"><span style="color:#e8e4da;width:250px">stripe-mcp-tools <span style="color:#8b8578">1.0.4</span></span><span style="display:inline-flex;border:1px solid rgba(201,91,77,.55);border-radius:3px;font-size:10px;line-height:18px"><span style="background:rgba(201,91,77,.18);color:#c95b4d;padding:0 6px;font-weight:600">FLAGGED</span><span style="border-left:1px solid rgba(201,91,77,.55);color:#e8e4da;padding:0 5px">A</span><span style="border-left:1px solid rgba(201,91,77,.55);color:#c95b4d;padding:0 5px">○</span></span><span style="color:#8b8578;font-size:10px;margin-left:auto">reviewed 2d ago</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;font-size:11.5px"><span style="color:#e8e4da;width:250px">browserbase-mcp <span style="color:#8b8578">2.1.0</span></span><span style="display:inline-flex;border:1px dashed rgba(156,134,201,.55);border-radius:3px;font-size:10px;line-height:18px"><span style="background:rgba(156,134,201,.16);color:#9c86c9;padding:0 6px;font-weight:600">DISPUTED</span><span style="border-left:1px dashed rgba(156,134,201,.55);color:#e8e4da;padding:0 5px">B</span><span style="border-left:1px dashed rgba(156,134,201,.55);color:#9c86c9;padding:0 5px">◑</span></span><span style="color:#8b8578;font-size:10px;margin-left:auto">rebuttal on file</span></div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">LIGHT THEME</div>
+  <div style="background:#f5f2ea;border-radius:4px;padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+    <span style="display:inline-flex;border:1px solid rgba(46,112,71,.5);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(46,112,71,.1);color:#2e7047;padding:0 7px;font-weight:600">CLEAN</span><span style="border-left:1px solid rgba(46,112,71,.5);color:#22201a;padding:0 6px;font-weight:600">A</span><span style="border-left:1px solid rgba(46,112,71,.5);color:#2e7047;padding:0 6px">●</span></span>
+    <span style="display:inline-flex;border:1px dotted rgba(46,112,71,.6);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(46,112,71,.05);color:#2e7047;padding:0 7px;font-weight:500">CLEAN</span><span style="border-left:1px dotted rgba(46,112,71,.6);color:#6e6a5e;padding:0 6px">C</span><span style="border-left:1px dotted rgba(46,112,71,.6);color:#6e6a5e;padding:0 6px">○</span></span>
+    <span style="display:inline-flex;border:1px solid rgba(163,61,47,.55);border-radius:3px;font-size:10.5px;line-height:20px"><span style="background:rgba(163,61,47,.1);color:#a33d2f;padding:0 7px;font-weight:600">FLAGGED</span><span style="border-left:1px solid rgba(163,61,47,.55);color:#22201a;padding:0 6px;font-weight:600">A</span><span style="border-left:1px solid rgba(163,61,47,.55);color:#a33d2f;padding:0 6px">○</span></span>
+  </div>
+
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:12px"><b style="color:#6aa87c">+</b> densest option; survives 18px table rows; trivially a Tailwind component<br><b style="color:#c95b4d">−</b> border styles are subtle at small sizes; ○/●/◑ needs a legend once per page<br><b style="color:#c95b4d">−</b> least "dossier" — it's a chip system, could belong to any dev tool</div>
+</div>
+</div>
+
+<!-- ============ 1b STAMP + COUNTER-STAMP ============ -->
+<div class="dv-opt" id="1b" style="width:620px">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Stamp + counter-stamp — the dossier read</div>
+<div class="dv-card" style="padding:20px 22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.55;margin-bottom:16px">The verdict is a <b style="color:#b5afa0">stamp</b>: state word in ink, tier as the impression's <b style="color:#b5afa0">border weight</b> (A double-struck · B single · C dashed, barely pressed). Confirmation is a separate, smaller <b style="color:#b5afa0">counter-stamp</b> overlapping it — a second event in time, which is what it actually is.</div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">THE PAIR THAT MUST NOT LOOK ALIKE</div>
+  <div style="display:flex;gap:40px;flex-wrap:wrap;margin-bottom:22px;align-items:flex-start">
+    <div style="position:relative;display:inline-block;margin:0 10px 14px 0">
+      <div style="padding:13px 20px 15px;border:2px solid #6aa87c;box-shadow:inset 0 0 0 3px #1c1a16,inset 0 0 0 4px #6aa87c">
+        <div style="font-size:19px;font-weight:600;letter-spacing:.22em;color:#6aa87c">CLEAN</div>
+        <div style="font-size:8.5px;letter-spacing:.09em;color:#8b8578;margin-top:6px">TIER A · INSTALLED DIGEST MATCHES REVIEWED BLOB</div>
+      </div>
+      <div style="position:absolute;right:-14px;bottom:-11px;background:#141310;border:1px solid #6aa87c;padding:3px 9px;font-size:8.5px;letter-spacing:.08em;color:#6aa87c">UNCONTESTED · 84 DAYS</div>
+    </div>
+    <div style="position:relative;display:inline-block;margin:0 10px 14px 0">
+      <div style="padding:13px 20px 15px;border:2px dashed rgba(106,168,124,.6)">
+        <div style="font-size:19px;font-weight:500;letter-spacing:.22em;color:rgba(106,168,124,.75)">CLEAN</div>
+        <div style="font-size:8.5px;letter-spacing:.09em;color:#8b8578;margin-top:6px">TIER C · NO LOCAL CODE WAS CHECKED</div>
+      </div>
+      <div style="position:absolute;right:-14px;bottom:-11px;background:#141310;border:1px dashed #8b8578;padding:3px 9px;font-size:8.5px;letter-spacing:.08em;color:#8b8578">AUTOMATED ONLY · NO HUMAN AUDIT</div>
+    </div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">SIX STATES — MINI STAMPS + DISPUTED COUNTER-STAMP</div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px 22px;margin-bottom:20px;align-items:flex-start">
+    <div style="position:relative"><div style="padding:6px 12px;border:1.5px solid #6aa87c;box-shadow:inset 0 0 0 2px #1c1a16,inset 0 0 0 3px #6aa87c;font-size:11px;font-weight:600;letter-spacing:.16em;color:#6aa87c">CLEAN</div></div>
+    <div style="position:relative"><div style="padding:6px 12px;border:1.5px solid #c95b4d;box-shadow:inset 0 0 0 2px #1c1a16,inset 0 0 0 3px #c95b4d;font-size:11px;font-weight:600;letter-spacing:.16em;color:#c95b4d">FLAGGED</div></div>
+    <div style="position:relative;margin-right:16px"><div style="padding:6px 12px;border:1.5px solid #9c86c9;font-size:11px;font-weight:600;letter-spacing:.16em;color:#9c86c9">FLAGGED</div><div style="position:absolute;right:-16px;bottom:-8px;background:#141310;border:1px solid #9c86c9;padding:2px 6px;font-size:7.5px;letter-spacing:.08em;color:#9c86c9;transform:rotate(-4deg)">CONTESTED</div></div>
+    <div style="position:relative"><div style="padding:6px 12px;border:1.5px dashed #c9a15a;font-size:11px;font-weight:600;letter-spacing:.16em;color:#c9a15a">STALE</div></div>
+    <div style="position:relative"><div style="padding:6px 12px;border:1.5px dashed #8b8578;font-size:11px;font-weight:500;letter-spacing:.16em;color:#8b8578">UNREVIEWABLE</div></div>
+    <div style="position:relative"><div style="padding:6px 12px;border:1px dotted #5c584e;font-size:11px;font-weight:400;letter-spacing:.16em;color:#8b8578">UNKNOWN</div></div>
+  </div>
+  <div style="font-size:10px;color:#8b8578;margin:-8px 0 18px">disputed = the original stamp keeps its hue; a violet CONTESTED counter-stamp lands on it. The accusation is never repainted — it's answered.</div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">IN A REGISTRY ROW — STAMP COLLAPSES TO INKED WORD + EDGE</div>
+  <div style="border:1px solid rgba(255,255,255,.08);border-radius:4px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:11.5px"><span style="color:#e8e4da;width:250px">mcp-server-postgres <span style="color:#8b8578">0.6.2</span></span><span style="border:1.5px solid #6aa87c;box-shadow:inset 0 0 0 2px #1c1a16,inset 0 0 0 3px #6aa87c;color:#6aa87c;font-size:9.5px;font-weight:600;letter-spacing:.12em;padding:2px 8px">CLEAN · A</span><span style="color:#8b8578;font-size:10px;margin-left:auto">uncontested 84d</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;font-size:11.5px"><span style="color:#e8e4da;width:250px">weather-mcp <span style="color:#8b8578">— remote</span></span><span style="border:1.5px dashed rgba(106,168,124,.6);color:rgba(106,168,124,.75);font-size:9.5px;font-weight:500;letter-spacing:.12em;padding:2px 8px">CLEAN · C</span><span style="color:#8b8578;font-size:10px;margin-left:auto">automated only</span></div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">LIGHT THEME</div>
+  <div style="background:#f5f2ea;border-radius:4px;padding:16px 14px 18px;display:flex;gap:26px;flex-wrap:wrap;margin-bottom:16px">
+    <div style="position:relative;display:inline-block"><div style="padding:8px 14px;border:2px solid #2e7047;box-shadow:inset 0 0 0 2px #f5f2ea,inset 0 0 0 3px #2e7047"><div style="font-size:13px;font-weight:600;letter-spacing:.2em;color:#2e7047">CLEAN</div><div style="font-size:7.5px;letter-spacing:.08em;color:#6e6a5e;margin-top:3px">TIER A · DIGEST MATCH</div></div><div style="position:absolute;right:-12px;bottom:-9px;background:#f5f2ea;border:1px solid #2e7047;padding:2px 7px;font-size:7.5px;color:#2e7047">UNCONTESTED · 84D</div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:8px 14px;border:2px solid #a33d2f;box-shadow:inset 0 0 0 2px #f5f2ea,inset 0 0 0 3px #a33d2f"><div style="font-size:13px;font-weight:600;letter-spacing:.2em;color:#a33d2f">FLAGGED</div><div style="font-size:7.5px;letter-spacing:.08em;color:#6e6a5e;margin-top:3px">TIER A · DIGEST MATCH</div></div><div style="position:absolute;right:-12px;bottom:-9px;background:#f5f2ea;border:1px dashed #6e6a5e;padding:2px 7px;font-size:7.5px;color:#6e6a5e">NO HUMAN AUDIT</div></div>
+  </div>
+
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:12px"><b style="color:#6aa87c">+</b> owns the forensic-record identity; the counter-stamp makes confirmation a visible second event<br><b style="color:#6aa87c">+</b> double-strike / single / dashed reads as pressure = strength of linkage, at a glance<br><b style="color:#c95b4d">−</b> needs a designed compact form for tables (shown); overlap needs careful spacing in Tailwind</div>
+</div>
+</div>
+
+<!-- ============ 1c CUSTODY LEDGER ============ -->
+<div class="dv-opt" id="1c" style="width:620px">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Custody ledger — three labeled rows, pure typography</div>
+<div class="dv-card" style="padding:20px 22px">
+  <div style="font-size:11px;color:#8b8578;line-bottom:1.55;line-height:1.55;margin-bottom:16px">No badge at all: the verdict is a <b style="color:#b5afa0">three-row micro-record</b> — REVIEW / LINKAGE / STANDING — each dimension answered in words, with a 3-cell meter for tier. Maximum honesty, zero iconography. Collapses to a typographic one-liner.</div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">THE PAIR THAT MUST NOT LOOK ALIKE</div>
+  <div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:20px">
+    <div style="border:1px solid #3a372f;background:#181713;min-width:272px">
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px;border-bottom:1px solid #2a2822"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">REVIEW</span><span style="font-size:11.5px;color:#6aa87c;font-weight:600">clean</span><span style="font-size:9px;color:#5c584e;margin-left:auto">2026-05-02</span></div>
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px;border-bottom:1px solid #2a2822"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">LINKAGE</span><span style="display:inline-flex;gap:2px;align-self:center"><span style="width:7px;height:7px;background:#e8e4da"></span><span style="width:7px;height:7px;background:#e8e4da"></span><span style="width:7px;height:7px;background:#e8e4da"></span></span><span style="font-size:11px;color:#e8e4da;font-weight:600">A</span><span style="font-size:9.5px;color:#8b8578">digest match</span></div>
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">STANDING</span><span style="font-size:11px;color:#e8e4da">confirmed</span><span style="font-size:9.5px;color:#8b8578">uncontested 84d</span></div>
+    </div>
+    <div style="border:1px solid #3a372f;background:#181713;min-width:272px">
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px;border-bottom:1px solid #2a2822"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">REVIEW</span><span style="font-size:11.5px;color:#6aa87c;font-weight:600">clean</span><span style="font-size:9px;color:#5c584e;margin-left:auto">2026-07-19</span></div>
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px;border-bottom:1px solid #2a2822"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">LINKAGE</span><span style="display:inline-flex;gap:2px;align-self:center"><span style="width:7px;height:7px;background:#e8e4da"></span><span style="width:7px;height:7px;border:1px solid #5c584e;box-sizing:border-box"></span><span style="width:7px;height:7px;border:1px solid #5c584e;box-sizing:border-box"></span></span><span style="font-size:11px;color:#8b8578;font-weight:600">C</span><span style="font-size:9.5px;color:#8b8578">no local code checked</span></div>
+      <div style="display:flex;align-items:baseline;gap:10px;padding:7px 12px"><span style="width:70px;flex:none;font-size:8.5px;letter-spacing:.12em;color:#8b8578">STANDING</span><span style="font-size:11px;color:#c9a15a">unconfirmed</span><span style="font-size:9.5px;color:#8b8578">automated only — no human audit</span></div>
+    </div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">COLLAPSED ONE-LINERS — ALL SIX STATES</div>
+  <div style="border:1px solid rgba(255,255,255,.08);border-radius:4px;margin-bottom:18px;font-size:11px">
+    <div style="padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#6aa87c;font-weight:600">clean</span><span style="color:#5c584e"> · </span><span style="color:#e8e4da;font-weight:600">A</span> <span style="color:#8b8578">digest match</span><span style="color:#5c584e"> · </span><span style="color:#b5afa0">confirmed 84d</span></div>
+    <div style="padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#c95b4d;font-weight:600">flagged</span><span style="color:#5c584e"> · </span><span style="color:#e8e4da;font-weight:600">A</span> <span style="color:#8b8578">digest match</span><span style="color:#5c584e"> · </span><span style="color:#c9a15a">unconfirmed — automated only</span></div>
+    <div style="padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#9c86c9;font-weight:600">disputed</span><span style="color:#5c584e"> · </span><span style="color:#e8e4da;font-weight:600">B</span> <span style="color:#8b8578">pinned, digest unchecked</span><span style="color:#5c584e"> · </span><span style="color:#9c86c9">rebuttal on file</span></div>
+    <div style="padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#c9a15a;font-weight:600">stale</span><span style="color:#5c584e"> · </span><span style="color:#e8e4da;font-weight:600">B</span> <span style="color:#8b8578">reviewed 0.5.1, installed 0.6.2</span><span style="color:#5c584e"> · </span><span style="color:#b5afa0">confirmed for old version</span></div>
+    <div style="padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#8b8578;font-weight:600">unreviewable</span><span style="color:#5c584e"> · </span><span style="color:#8b8578;font-weight:600">C</span> <span style="color:#8b8578">closed source, remote endpoint</span><span style="color:#5c584e"> · </span><span style="color:#8b8578">—</span></div>
+    <div style="padding:6px 12px"><span style="color:#8b8578;font-weight:600">unknown</span><span style="color:#5c584e"> · </span><span style="color:#8b8578">not in the registry — nothing was reviewed</span></div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">LIGHT THEME</div>
+  <div style="background:#f5f2ea;border-radius:4px;padding:12px 14px;margin-bottom:16px;font-size:11px">
+    <div style="padding:3px 0"><span style="color:#2e7047;font-weight:600">clean</span><span style="color:#b8b2a4"> · </span><span style="color:#22201a;font-weight:600">A</span> <span style="color:#6e6a5e">digest match</span><span style="color:#b8b2a4"> · </span><span style="color:#4a463c">confirmed 84d</span></div>
+    <div style="padding:3px 0"><span style="color:#a33d2f;font-weight:600">flagged</span><span style="color:#b8b2a4"> · </span><span style="color:#22201a;font-weight:600">A</span> <span style="color:#6e6a5e">digest match</span><span style="color:#b8b2a4"> · </span><span style="color:#8a6a24">unconfirmed — automated only</span></div>
+  </div>
+
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:12px"><b style="color:#6aa87c">+</b> the most honest option — every dimension is a labeled sentence, nothing to decode<br><b style="color:#6aa87c">+</b> one-liner form is superb in tables and terminals (it IS the terminal format)<br><b style="color:#c95b4d">−</b> no instant silhouette; at a glance a clean and a flagged record share a shape until you read</div>
+</div>
+</div>
+
+<!-- ============ 1d COORDINATES ============ -->
+<div class="dv-opt" id="1d" style="width:620px">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Position glyph — the verdict plotted in its own space</div>
+<div class="dv-card" style="padding:20px 22px">
+  <div style="font-size:11px;color:#8b8578;line-height:1.55;margin-bottom:16px">A 3×3 plot: <b style="color:#b5afa0">rows = tier A/B/C</b> (top = strongest linkage), <b style="color:#b5afa0">columns = unconfirmed / confirmed / disputed</b>. The verdict is a filled cell in the state's hue. The empty cells are the point: you always see what the registry <i>could</i> know but doesn't.</div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:10px">THE PAIR THAT MUST NOT LOOK ALIKE</div>
+  <div style="display:flex;gap:44px;flex-wrap:wrap;margin-bottom:20px">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
+          <span style="border:1px solid #2f2c25"></span><span style="background:#6aa87c;box-shadow:0 0 0 1px #6aa87c"></span><span style="border:1px solid #2f2c25"></span>
+          <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
+          <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
+        </div>
+        <div style="display:flex;gap:2px;margin-top:3px;font-size:7px;color:#5c584e"><span style="width:18px;text-align:center">unc</span><span style="width:18px;text-align:center">cnf</span><span style="width:18px;text-align:center">dsp</span></div>
+      </div>
+      <div style="font-size:7px;color:#5c584e;line-height:20px">A<br>B<br>C</div>
+      <div style="font-size:10.5px;line-height:1.5;margin-left:4px"><span style="color:#6aa87c;font-weight:600">clean</span><br><span style="color:#b5afa0">A · confirmed</span><br><span style="color:#8b8578">top row, center — strong link, held up</span></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div>
+        <div style="display:grid;grid-template-columns:repeat(3,18px);grid-auto-rows:18px;gap:2px">
+          <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
+          <span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
+          <span style="background:rgba(106,168,124,.55);border:1px dashed #6aa87c;box-sizing:border-box"></span><span style="border:1px solid #2f2c25"></span><span style="border:1px solid #2f2c25"></span>
+        </div>
+        <div style="display:flex;gap:2px;margin-top:3px;font-size:7px;color:#5c584e"><span style="width:18px;text-align:center">unc</span><span style="width:18px;text-align:center">cnf</span><span style="width:18px;text-align:center">dsp</span></div>
+      </div>
+      <div style="font-size:7px;color:#5c584e;line-height:20px">A<br>B<br>C</div>
+      <div style="font-size:10.5px;line-height:1.5;margin-left:4px"><span style="color:#6aa87c;font-weight:600">clean</span><br><span style="color:#b5afa0">C · unconfirmed</span><br><span style="color:#8b8578">bottom-left corner — weakest cell in the grid</span></div>
+    </div>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">INLINE FORM — GLYPH + WORD, ALL SIX STATES</div>
+  <div style="display:flex;flex-wrap:wrap;gap:9px 16px;margin-bottom:18px;font-size:10.5px">
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="background:#6aa87c"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span></span><span style="color:#6aa87c;font-weight:600">clean</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="background:#c95b4d"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span></span><span style="color:#c95b4d;font-weight:600">flagged</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="background:#9c86c9"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span></span><span style="color:#9c86c9;font-weight:600">disputed</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="background:#c9a15a"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span></span><span style="color:#c9a15a;font-weight:600">stale</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="background:#8b8578"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span><span style="border:1px solid #33302a;box-sizing:border-box"></span></span><span style="color:#8b8578;font-weight:600">unreviewable</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span><span style="border:1px dotted #33302a;box-sizing:border-box"></span></span><span style="color:#8b8578;font-weight:600">unknown</span></span>
+  </div>
+
+  <div style="font-size:9px;letter-spacing:.14em;color:#8b8578;margin-bottom:8px">LIGHT THEME</div>
+  <div style="background:#f5f2ea;border-radius:4px;padding:12px 14px;display:flex;gap:18px;margin-bottom:16px;font-size:10.5px">
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="background:#2e7047"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span></span><span style="color:#2e7047;font-weight:600">clean</span></span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px"><span style="background:#a33d2f"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span><span style="border:1px solid #d5cfc0;box-sizing:border-box"></span></span><span style="color:#a33d2f;font-weight:600">flagged</span></span>
+  </div>
+
+  <div style="font-size:11px;line-height:1.6;color:#b5afa0;border-top:1px dashed rgba(255,255,255,.1);padding-top:12px"><b style="color:#6aa87c">+</b> the only option that shows the space of what isn't known — structurally anti-overclaim<br><b style="color:#6aa87c">+</b> position is learnable pre-attentively: corner = weak, top-center = strong<br><b style="color:#c95b4d">−</b> needs one legend per surface; disputed-as-column overlaps disputed-as-state (redundant axis)<br><b style="color:#c95b4d">−</b> most abstract; a mid-task developer may not care to learn it</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "build on <a class="dv-oid" href="#1b">1b</a>" · "<a class="dv-oid" href="#1b">1b</a> stamps but <a class="dv-oid" href="#1c">1c</a> ledger on the evidence page" · "compact form of <a class="dv-oid" href="#1b">1b</a> feels heavy — show alternatives"</p>
+</section>
+</x-dc>
+</body>
+</html>
