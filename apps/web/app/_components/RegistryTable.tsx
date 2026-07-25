@@ -43,8 +43,11 @@ export function RegistryTable({
 }) {
   return (
     <>
-      <Panel className="mt-4 overflow-x-auto">
-        <div className="min-w-[900px]">
+      <Panel className="mt-3 overflow-x-auto">
+        {/* Wide enough that STANDING never wraps — a wrapped cell doubles the
+            row height, and the row is specified at 32px (tokens §06). Below
+            this the panel scrolls sideways instead of growing downwards. */}
+        <div className="min-w-[1040px]">
           <CustodyHeader />
           {rows.map((row) => (
             <CustodyRow key={row.fingerprint ?? `${row.name}@${row.version}`} row={row} />
@@ -66,13 +69,14 @@ export function RegistryTable({
         </div>
       </Panel>
 
+      {/* The tier gloss that used to sit here is now the legend above the table
+          (TierLegend) — one wording for the three letters, where the reader
+          meets the column rather than after they have scrolled past it. */}
       <div className="mt-2.5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1 text-mini text-faint">
         <span>
           {rows.length} of {total} {COPY.browse.countSuffix}
           {query ? ` · matching “${query}”` : ''}
         </span>
-        <span aria-hidden="true">·</span>
-        <span>{COPY.browse.meterLegend}</span>
         <span aria-hidden="true">·</span>
         <span>{COPY.browse.rowsAreLinks}</span>
       </div>

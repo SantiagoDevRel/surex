@@ -13,20 +13,30 @@ const LINKS = [
   { href: '/submit', label: COPY.nav.submit, match: (p: string) => p.startsWith('/submit') },
 ];
 
+/**
+ * Two clusters, not one run of text.
+ *
+ * The tagline used to sit between the mark and the nav links, at the same size
+ * and nearly the same ink as `registry` and `submit a server` — so it read as a
+ * third destination. It is a description, so it belongs to the mark: same
+ * cluster, tied to it by a hairline, one step quieter (`text-faint`, no
+ * uppercase tracking). Everything you can go to now lives on the right.
+ */
 export function Chrome() {
   const pathname = usePathname() ?? '/';
 
   return (
-    <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line px-7 py-3.5">
+    <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line px-7 py-3.5">
       <Link
         href="/"
         className="border-2 border-ink px-2.5 py-[3px] text-body font-semibold tracking-[0.24em] text-ink no-underline"
       >
         {COPY.brand.name}
       </Link>
-      <span className="text-label tracking-[0.08em] text-ink-3">{COPY.brand.tagline}</span>
+      <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
+      <span className="text-mini text-faint">{COPY.brand.tagline}</span>
 
-      <nav className="flex items-center gap-4">
+      <nav className="ml-auto flex items-center gap-4">
         {LINKS.map((link) => {
           const active = link.match(pathname);
           return (
@@ -43,11 +53,9 @@ export function Chrome() {
             </Link>
           );
         })}
-      </nav>
-
-      <span className="ml-auto flex items-center gap-3">
+        <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
         <ThemeToggle />
-      </span>
+      </nav>
     </header>
   );
 }

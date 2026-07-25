@@ -102,6 +102,37 @@ test('every verdict disclosure element is present in the copy', () => {
   }
 });
 
+test('the tier legend states all three meanings, and is the only tier wording on the registry', () => {
+  const { tierLegendA, tierLegendB, tierLegendC, tierLegendLabel } = COPY.browse;
+
+  // Each letter says what it means, in the terms design/tokens.html §05 uses:
+  // A is the digest match, B is a version string only, C is nothing checked.
+  assert.match(tierLegendLabel, /TIER/);
+  assert.match(tierLegendA, /reviewed bytes are the installed bytes/i);
+  assert.match(tierLegendA, /digest/i);
+  assert.match(tierLegendB, /same version string/i);
+  assert.match(tierLegendB, /never compared|not compared/i);
+  assert.match(tierLegendC, /nothing was checked/i);
+  assert.match(tierLegendC, /not your code/i);
+
+  // C must not read as a weaker A. It is the absence of a check, and the sentence
+  // has to carry that or the whole tier column is decorative.
+  assert.ok(!/match/i.test(tierLegendC), 'tier C must not claim any kind of match');
+
+  // ONE wording per letter on this screen. The footer gloss that used to say
+  // "▮▮▮ A digest match · ▮▮ B pinned · ▮ C unpinned or remote" is gone; if it
+  // comes back, two vocabularies describe the same three cells again.
+  assert.equal(
+    COPY.browse.meterLegend,
+    undefined,
+    'the footer tier gloss is superseded by the legend above the table — do not reintroduce a second wording',
+  );
+  const browseTierStrings = Object.entries(COPY.browse)
+    .filter(([k]) => /^tierLegend[ABC]$/.test(k))
+    .map(([, v]) => v);
+  assert.equal(new Set(browseTierStrings).size, 3, 'the three tier sentences must be distinct');
+});
+
 test('the illustrative banner says the data is not real', () => {
   for (const body of [COPY.illustrative.fixtureBody, COPY.illustrative.mockBody]) {
     assert.match(body, /illustrative|placeholder/i);

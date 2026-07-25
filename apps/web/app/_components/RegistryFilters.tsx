@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+
+import { cn } from '@/lib/cn.ts';
 import { COPY } from '@/lib/copy.ts';
 import type { RegistryRow, RowStatus } from '@/lib/types.ts';
 
@@ -44,6 +47,39 @@ function href(query: RegistryQuery, patch: Partial<RegistryQuery>): string {
   return s ? `/?${s}` : '/';
 }
 
+/**
+ * A filter group: its label and its own chips, and nothing else.
+ *
+ * One flex container per group, because the alternative — one long wrapping row
+ * — lets the wrap fall between a label and the chips it names, which is how
+ * `TIER` ended up stranded at the end of the STATE row with `all A B C` on the
+ * line below. A label can no longer be separated from what it labels.
+ *
+ * `w-[44px]` on a leading label is the width of the longest of them at this
+ * size, so the chips of STATE and TIER start at the same x.
+ */
+function FilterGroup({
+  label,
+  lead,
+  children,
+}: {
+  label: string;
+  /** True when this group starts a row, and its label sets the chip column. */
+  lead?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2.5">
+      <span
+        className={cn('text-label tracking-[0.1em] text-faint', lead && 'w-[44px] shrink-0')}
+      >
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 export function RegistryFilters({
   query,
   rows,
@@ -55,8 +91,8 @@ export function RegistryFilters({
   const count = (status: RowStatus) => rows.filter((r) => r.status === status).length;
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2.5">
-      <form action="/" method="get" className="flex items-center gap-2">
+    <div className="mt-4 flex flex-col gap-2.5">
+      <form action="/" method="get" className="flex flex-wrap items-center gap-2">
         <label htmlFor="q" className="sr-only">
           {COPY.browse.searchLabel}
         </label>
@@ -78,40 +114,43 @@ export function RegistryFilters({
         </button>
       </form>
 
-      <span className="ml-1.5 text-label tracking-[0.1em] text-faint">
-        {COPY.browse.filterState}
-      </span>
-      <FilterChip href={href(query, { state: 'all' })} active={query.state === 'all'}>
-        {COPY.browse.all} {rows.length}
-      </FilterChip>
-      {STATES.map((state) => (
-        <FilterChip
-          key={state}
-          href={href(query, { state })}
-          active={query.state === state}
-          tone={STATE_TONE[state]}
-        >
-          {state} {count(state)}
+      <FilterGroup label={COPY.browse.filterState} lead>
+        <FilterChip href={href(query, { state: 'all' })} active={query.state === 'all'}>
+          {COPY.browse.all} {rows.length}
         </FilterChip>
-      ))}
+        {STATES.map((state) => (
+          <FilterChip
+            key={state}
+            href={href(query, { state })}
+            active={query.state === state}
+            tone={STATE_TONE[state]}
+          >
+            {state} {count(state)}
+          </FilterChip>
+        ))}
+      </FilterGroup>
 
-      <span className="ml-1.5 text-label tracking-[0.1em] text-faint">{COPY.browse.filterTier}</span>
-      {['all', 'A', 'B', 'C'].map((tier) => (
-        <FilterChip key={tier} href={href(query, { tier })} active={query.tier === tier}>
-          {tier}
-        </FilterChip>
-      ))}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+        <FilterGroup label={COPY.browse.filterTier} lead>
+          {['all', 'A', 'B', 'C'].map((tier) => (
+            <FilterChip key={tier} href={href(query, { tier })} active={query.tier === tier}>
+              {tier}
+            </FilterChip>
+          ))}
+        </FilterGroup>
 
-      <span className="ml-1.5 text-label tracking-[0.1em] text-faint">{COPY.browse.filterSort}</span>
-      <FilterChip href={href(query, { sort: 'state' })} active={query.sort === 'state'}>
-        {COPY.browse.sortByState}
-      </FilterChip>
-      <FilterChip href={href(query, { sort: 'name' })} active={query.sort === 'name'}>
-        {COPY.browse.sortByName}
-      </FilterChip>
-      <FilterChip href={href(query, { sort: 'recent' })} active={query.sort === 'recent'}>
-        {COPY.browse.sortByRecent}
-      </FilterChip>
+        <FilterGroup label={COPY.browse.filterSort}>
+          <FilterChip href={href(query, { sort: 'state' })} active={query.sort === 'state'}>
+            {COPY.browse.sortByState}
+          </FilterChip>
+          <FilterChip href={href(query, { sort: 'name' })} active={query.sort === 'name'}>
+            {COPY.browse.sortByName}
+          </FilterChip>
+          <FilterChip href={href(query, { sort: 'recent' })} active={query.sort === 'recent'}>
+            {COPY.browse.sortByRecent}
+          </FilterChip>
+        </FilterGroup>
+      </div>
     </div>
   );
 }

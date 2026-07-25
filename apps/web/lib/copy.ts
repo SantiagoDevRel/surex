@@ -78,8 +78,25 @@ export const COPY = {
     emptyBody:
       'That is a fact about this registry, not about the code. An entry is missing until someone submits the release and a review runs.',
     emptyAction: 'Submit a server for review',
-    meterLegend: 'tier meter: ▮▮▮ A digest match · ▮▮ B pinned · ▮ C unpinned or remote',
+    /**
+     * The tier legend. The TIER column is the most important thing in the table
+     * and the least self-explanatory, so the meanings sit at the top of the page
+     * rather than in a footnote.
+     *
+     * This is the ONLY wording for tiers on the registry screen — it replaced a
+     * one-line footer gloss ("▮▮▮ A digest match · ▮▮ B pinned · ▮ C unpinned or
+     * remote"), which is why the footer no longer carries one. Two vocabularies
+     * for the same three letters is worse than none. The sentences are the ones
+     * in design/tokens.html §05, where the linkage chain is specified; the chain
+     * on the verdict page and this legend say the same thing on purpose.
+     */
+    tierLegendLabel: 'TIER — HOW FAR THE LINKAGE REACHES',
+    tierLegendA: 'the reviewed bytes are the installed bytes (recorded digest matches yours)',
+    tierLegendB: 'same version string, but the bytes were never compared',
+    tierLegendC: 'nothing was checked; the verdict may be about code that is not your code',
     rowsAreLinks: 'each row links to the evidence behind its verdict',
+    /** Hover title on the REVIEWED cell, which shows a date, not a timestamp. */
+    reviewedAtTitle: 'recorded review time, UTC',
     countSuffix: 'shown',
   },
 
