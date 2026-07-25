@@ -203,6 +203,30 @@ test('the SDK path is unchanged when no publisher is configured', async () => {
   assert.deepEqual(w.publishers, []);
 });
 
+test('a publisher write never touches our Sui key', async () => {
+  // The point of the mode is that somebody else's wallet pays, so needing our key
+  // to do a keyless write is a deployment bug, not a detail: the first publisher
+  // run on the DGX died on a missing secrets file having never touched the
+  // network. A keypair that throws on use is how that stays fixed — anything that
+  // reads the address, even to log it, fails this test.
+  const bytes = new TextEncoder().encode('no key required\n');
+  const w = await createWalrusWriter({
+    keypair: {
+      toSuiAddress() {
+        throw new Error('the key was loaded for a write that does not spend');
+      },
+    },
+    client: { walrus: { systemState: async () => ({ committee: { n_shards: 1000 }, future_accounting: { length: 53 } }) } },
+    publishers: ['https://pub.example'],
+    fetchImpl: fakePublisher({ body: newlyCreatedFor(bytes), served: bytes }),
+  });
+
+  const p = await w.writeRecord(bytes, { ...WRITE });
+  assert.equal(p.registeredBy, 'publisher');
+  // And the getter still resolves on demand, for the paths that DO spend.
+  assert.throws(() => w.address, /key was loaded/);
+});
+
 test('bytes that come back different from what we published are refused', async () => {
   const bytes = new TextEncoder().encode('what we sent\n');
   const tampered = new TextEncoder().encode('what it served\n');

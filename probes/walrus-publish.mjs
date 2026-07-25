@@ -52,7 +52,9 @@ log('  publishers :', publishers.join(', '));
 log('  payload    :', PAYLOAD.length, 'B');
 
 const walrus = await createWalrusWriter({ log: (m) => log(m) });
-log('  our address:', walrus.address, '(unused on this path — recorded to make that visible)');
+// Deliberately NOT logging walrus.address: reading it loads the Sui key, and the
+// property this probe demonstrates is that publisher mode needs no key at all.
+log('  our Sui key:', 'not loaded — the publisher\'s wallet pays for this write');
 
 log('\n# 1. write');
 const started = Date.now();

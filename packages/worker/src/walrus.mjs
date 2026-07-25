@@ -206,9 +206,42 @@ export function recordBytes(body) {
 
 export async function createWalrusWriter(options = {}) {
   const fullnode = options.fullnode ?? SUI_FULLNODE;
-  const keypair = options.keypair ?? Ed25519Keypair.fromSecretKey(loadSuiSecret());
-  const address = keypair.toSuiAddress();
   const log = options.log ?? (() => {});
+
+  /**
+   * The key is loaded ON DEMAND, not at construction.
+   *
+   * Publisher mode does not need a Sui wallet at all — that is the point of it,
+   * the publisher's wallet pays — and a writer that demands a key before it will
+   * do a keyless write is a writer that cannot be deployed anywhere the key is
+   * not. Found the hard way: the first publisher run on the DGX died on a missing
+   * secrets file having never touched the network.
+   *
+   * The address assertion moves in here with it, so it still fires before any
+   * write that actually spends, and never for one that does not.
+   */
+  let signerCache = options.keypair ?? null;
+  let addressCache = null;
+  function signer() {
+    if (!signerCache) signerCache = Ed25519Keypair.fromSecretKey(loadSuiSecret());
+    return signerCache;
+  }
+  function addressOf() {
+    if (addressCache) return addressCache;
+    const resolved = signer().toSuiAddress();
+    if (
+      options.expectAddress !== false &&
+      EXPECTED_SUI_ADDRESS &&
+      resolved.toLowerCase() !== EXPECTED_SUI_ADDRESS
+    ) {
+      throw new Error(
+        `loaded Sui key is ${resolved}, expected ${EXPECTED_SUI_ADDRESS}. ` +
+          'Writing from an unfunded address stalls one transaction in; refusing.',
+      );
+    }
+    addressCache = resolved;
+    return addressCache;
+  }
 
   /** [] = the SDK write path. Non-empty = HTTP publisher mode. See the header. */
   const publishers = options.publishers ?? publishersFrom(options.env ?? process.env);
@@ -217,17 +250,6 @@ export async function createWalrusWriter(options = {}) {
   const publishTimeoutMs = options.publishTimeoutMs ?? 90_000;
   /** The readback is the point of the mode; turning it off has to be deliberate. */
   const verifyPublished = options.verifyPublished !== false;
-
-  if (
-    options.expectAddress !== false &&
-    EXPECTED_SUI_ADDRESS &&
-    address.toLowerCase() !== EXPECTED_SUI_ADDRESS
-  ) {
-    throw new Error(
-      `loaded Sui key is ${address}, expected ${EXPECTED_SUI_ADDRESS}. ` +
-        'Writing from an unfunded address stalls one transaction in; refusing.',
-    );
-  }
 
   const client =
     options.client ?? new SuiGrpcClient({ network: 'testnet', baseUrl: fullnode }).$extend(walrus());
@@ -240,7 +262,7 @@ export async function createWalrusWriter(options = {}) {
   }
 
   async function balances() {
-    const { balances: list } = await client.core.listBalances({ owner: address });
+    const { balances: list } = await client.core.listBalances({ owner: addressOf() });
     const of = (suffix) => BigInt(list.find((b) => b.coinType.endsWith(suffix))?.balance ?? 0n);
     return { sui: of('::sui::SUI'), wal: of('::wal::WAL'), raw: list };
   }
@@ -260,8 +282,8 @@ export async function createWalrusWriter(options = {}) {
 
   /** Unwrap the tagged union, surface the digest, wait for finality. */
   async function execute(transaction, label) {
-    transaction.setSenderIfNotSet(address);
-    const result = await keypair.signAndExecuteTransaction({ transaction, client });
+    transaction.setSenderIfNotSet(addressOf());
+    const result = await signer().signAndExecuteTransaction({ transaction, client });
     if (result.FailedTransaction) {
       throw new Error(
         `${label} failed (${result.FailedTransaction.digest}): ${result.FailedTransaction.status.error?.message}`,
@@ -290,7 +312,7 @@ export async function createWalrusWriter(options = {}) {
       target: `${exchangePackageId}::wal_exchange::exchange_all_for_wal`,
       arguments: [tx.object(exchangeId), payment],
     });
-    tx.transferObjects([wal], address);
+    tx.transferObjects([wal], addressOf());
     const digest = await execute(tx, 'exchange');
     const after = await balances();
     return { swapped: true, wal: after.wal, digest };
@@ -457,7 +479,7 @@ export async function createWalrusWriter(options = {}) {
     const flow = client.walrus.writeBlobFlow({ blob: payload });
     const encoded = await flow.encode();
     const registerTx = await execute(
-      flow.register({ epochs: term, owner: address, deletable: false }),
+      flow.register({ epochs: term, owner: addressOf(), deletable: false }),
       'register',
     );
     const uploaded = await flow.upload({ digest: registerTx });
@@ -524,7 +546,7 @@ export async function createWalrusWriter(options = {}) {
     const flow = client.walrus.writeFilesFlow({ files });
     const encoded = await flow.encode();
     const registerTx = await execute(
-      flow.register({ epochs: term, owner: address, deletable: false }),
+      flow.register({ epochs: term, owner: addressOf(), deletable: false }),
       'register',
     );
     const uploaded = await flow.upload({ digest: registerTx });
@@ -728,7 +750,15 @@ export async function createWalrusWriter(options = {}) {
   }
 
   return {
-    address,
+    /**
+     * A GETTER, because reading it loads the key. Publisher mode never needs one,
+     * so a caller that logs the address "for context" would turn a keyless write
+     * into a hard requirement for a key — which is precisely the bug this
+     * lazy-loading exists to prevent. Read it only where you mean to spend.
+     */
+    get address() {
+      return addressOf();
+    },
     client,
     systemState,
     balances,
