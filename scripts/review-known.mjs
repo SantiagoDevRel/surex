@@ -311,6 +311,14 @@ export function selectForReview(files, limits = REVIEW_LIMITS) {
   const hasSource = rest.some((f) => /^(src|lib)\//i.test(f.path));
 
   const rank = (f) => {
+    // Type declarations rank LAST, always, whatever directory they live in.
+    // `@monnet/mcp` sent the model 23 `.d.ts` files out of 24: the review read
+    // type signatures, found "behaviour the description does not account for" in
+    // a function signature, and produced a severity-3 flag against a real
+    // package. A declaration describes a shape; the behaviour is in the `.js`
+    // beside it. They stay eligible — a declared shape is context — but they
+    // never displace code.
+    if (/\.d\.(m?ts|cts)$/i.test(f.path)) return 9;
     if (/^(src|lib)\//i.test(f.path)) return 0;
     if (/^(index|server|main|cli)\.(m?js|cjs|ts)$/i.test(f.path)) return 1;
     // A dist/ bundle is the last thing worth spending budget on when real source

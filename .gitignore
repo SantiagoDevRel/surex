@@ -8,3 +8,10 @@ node_modules/
 .vercel
 .next/
 dist/
+
+# Agent-skill installer output (npx skills add) — tooling, not source.
+# Untracked and unignored, these get swept up by any `git add .` in a parallel lane.
+.agents/
+.claude/
+agent/
+skills-lock.json

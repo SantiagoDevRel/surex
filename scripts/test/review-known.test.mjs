@@ -173,3 +173,17 @@ test('integrity is verified against the downloaded bytes', async () => {
   assert.equal(none.checked, false);
   assert.equal(none.ok, false);
 });
+
+test('type declarations never displace real source in the prompt budget', () => {
+  // @monnet/mcp sent the model 23 .d.ts files out of 24 and got a severity-3 flag
+  // out of a function signature. Declarations describe shapes; behaviour is in
+  // the .js next to them, and that is what a review is about.
+  const decls = Array.from({ length: 20 }, (_, i) => src(`dist/tools/t${i}.d.ts`, 'export declare function f(): void;\n'.repeat(50)));
+  const real = [src('dist/index.js', 'const x = 1;\n'.repeat(300)), src('dist/client.js', 'const y = 2;\n'.repeat(300))];
+  const { kept } = selectForReview([...decls, ...real, src('package.json', '{}')]);
+  const paths = kept.map((f) => f.path);
+  assert.ok(paths.includes('dist/index.js'), 'the implementation must be in');
+  assert.ok(paths.includes('dist/client.js'));
+  assert.ok(paths.indexOf('dist/index.js') < paths.findIndex((p) => p.endsWith('.d.ts')),
+    'implementation ranks ahead of declarations');
+});

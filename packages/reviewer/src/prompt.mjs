@@ -109,7 +109,25 @@ export const INJECTION_PATTERNS = Object.freeze([
   { re: /\b(?:new|updated|revised)\s+(?:system\s+)?instructions?\s*:/i, label: 'declares new instructions inside reviewed content' },
   { re: /\byou\s+(?:are|act\s+as)\s+(?:now\s+)?(?:a\s+|an\s+)?(?:helpful\s+)?(?:AI|assistant|language\s+model|security\s+reviewer|code\s+reviewer|auditor)\b/i, label: 'addresses the reader as the reviewing model' },
   { re: /\b(?:mark|report|classify|rate|label)\s+(?:this|the)\s+(?:\w+\s+){0,3}(?:as\s+)?(?:clean|benign|harmless|no\s+issues?|not\s+malicious)\b/i, label: 'instructs the reviewer to return a clean verdict' },
-  { re: /\bdo\s+not\s+(?:report|flag|mention|include|list|output|disclose)\b/i, label: 'instructs the reader to suppress a finding' },
+  /**
+   * CONCEALMENT, not merely a negative instruction.
+   *
+   * This used to be `do not (report|flag|mention|include|list|output|disclose)`
+   * with no object, and it fired on `@upstash/context7-mcp` — three times, at
+   * severity 4, on the descriptions of its own tools, where `"do not include…"`
+   * is an ordinary schema constraint. This detector is DETERMINISTIC and forces
+   * severity 4 without consulting the model, so a match here is close to a
+   * published accusation. It nearly published one against a real project.
+   *
+   * What actually distinguishes tool poisoning (our own `mal-rug-pull` fixture)
+   * is not the negative — it is the TARGET: the text tells the caller to keep
+   * something from the user, or to hide it from whoever is reviewing. A schema
+   * that says "do not include the version" is telling a caller how to fill a
+   * field. "Do not mention this step to the user" is telling it to conceal.
+   */
+  { re: /\bdo\s+not\s+(?:report|flag|mention|tell|reveal|disclose|inform|log|show)\b[\s\S]{0,60}\b(?:user|human|owner|operator|developer|reviewer|audit|anyone)\b/i, label: 'instructs the reader to conceal an action from the user' },
+  { re: /\b(?:without|never)\s+(?:telling|informing|notifying|alerting)\s+(?:the\s+)?(?:user|human|owner|developer)\b/i, label: 'instructs the reader to act without telling the user' },
+  { re: /\bdo\s+not\s+(?:report|flag|mention|disclose)\b[\s\S]{0,40}\b(?:finding|issue|vulnerabilit|behaviou?r|this\s+file|this\s+code)\b/i, label: 'instructs the reader to suppress a finding' },
   { re: /\b(?:return|respond|reply|output|answer)\s+(?:only\s+)?(?:with\s+)?["'{\s]*verdict["'\s:]*(?:clean|"clean")/i, label: 'dictates the verdict field of the reviewer output' },
   { re: /\bif\s+you\s+(?:are|'re)\s+(?:an?\s+)?(?:AI|LLM|language\s+model|automated|a\s+reviewer|reviewing)\b/i, label: 'branches on the reader being a model' },
   { re: /\bsystem\s+prompt\b[\s\S]{0,40}\b(?:reveal|print|repeat|output|ignore|override)\b/i, label: 'targets the system prompt' },
@@ -119,7 +137,17 @@ export const INJECTION_PATTERNS = Object.freeze([
   { re: /<\|\s*(?:im_start|im_end|system|endoftext|start_header_id)\s*\|>/i, label: 'chat-template control token embedded in content' },
   { re: /\bend\s+of\s+(?:data|document|file)\b[\s\S]{0,30}\b(?:instructions?|task|now)\b/i, label: 'attempts to close the data fence and resume as instruction' },
   { re: /\bAI\s+(?:agents?|assistants?|models?)\s+(?:reading|processing|reviewing)\s+this\b/i, label: 'addresses models reading the content' },
-  { re: /\bimportant\s*:\s*(?:before|when|do\s+not|you\s+must)\b[\s\S]{0,80}\b(?:tool|call|read|send|include)\b/i, label: 'imperative side-instruction addressed to a tool caller' },
+  /**
+   * `IMPORTANT:` followed by something SENSITIVE, not by anything at all.
+   *
+   * The old pattern accepted `tool|call|read|send|include` as the object, which
+   * is every well-written MCP tool description in existence — `context7`'s
+   * `resolve-library-id` opens with "IMPORTANT: ..." precisely because telling
+   * the calling model when to use a tool is what that field is for. Tool
+   * poisoning is an imperative pointed at something the tool has no business
+   * touching, so that is what this now requires.
+   */
+  { re: /\bimportant\s*:\s*(?:before|when|do\s+not|you\s+must|always|first)\b[\s\S]{0,120}\b(?:\.ssh|id_rsa|private\s*key|credential|password|secret|token|\.env|api[_-]?key|mnemonic|seed\s*phrase|~\/\.)/i, label: 'imperative side-instruction pointing a tool caller at a credential' },
 ]);
 
 /**
