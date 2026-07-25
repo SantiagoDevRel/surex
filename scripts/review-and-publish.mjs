@@ -252,6 +252,16 @@ for (const r of reviewed) {
   const canonical = canonicalise(config, { hashLocalEntry: localEntryResolver(ROOT) });
   const fingerprint = fingerprintOf(canonical);
 
+  // Idempotent: if a verdict head already exists for this fingerprint, skip the
+  // whole server — including the Walrus write. Without this a re-run re-writes and
+  // RE-CHARGES for every blob (the SDK does not dedupe already-certified bytes,
+  // FRICTION-LOG S3), and the original fixture-mcp is already on chain from an
+  // earlier publish.
+  if (await existingKey(fingerprint, 'verdictHead')) {
+    log(`  · ${server.name.padEnd(20)} already on chain — skipped`);
+    continue;
+  }
+
   const state = result.verdict === 'flagged' ? 'flagged'
     : result.verdict === 'unreviewable' ? 'unreviewable' : 'clean';
 
