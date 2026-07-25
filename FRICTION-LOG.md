@@ -770,6 +770,28 @@ its passes, look for a leaked timer, not for a slow test.
 
 ---
 
+### V4 · A catch-all rewrite does not cover `/`, and the root HANGS instead of 404ing — **[VERIFIED]**
+**Severity: medium**, and nastier than a 500 because a hang looks like a network problem on the caller's side.
+
+- **Expected:** `"rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]` sends every path to the
+  function, root included. That is the documented pattern for putting one server behind a Vercel project,
+  and `/(.*)` matches the empty string.
+- **Happened:** every path reached the function and answered — `/healthz` 200, `/v1/stats` 200, `/nope` a
+  clean 404 from the app's own handler — but `GET /` never returned at all. Not a 404, not a 500: the
+  connection established, the request was sent, and nothing came back until curl gave up at 25s.
+- **How we found out:** runtime logs, which is the only place the answer is visible. Every other path logs
+  `[info/serverless]`; the root logs **`GET / 0 [info/static]`** — status 0, source *static*. Vercel resolves
+  the bare root against the static handler, finds no index file, and the request dies there. The function
+  module had even been loaded (its boot `console.log` appears in the same log line), so from the outside it
+  looks like the app hung.
+- **Repro:** an `api/index.mjs` function plus that single catch-all rewrite, then
+  `curl -v https://<deployment>/` → `Operation timed out ... 0 bytes received`, while `curl https://<deployment>/nope`
+  returns the app's 404 immediately.
+- **Fix:** an explicit `{ "source": "/", "destination": "/api/index" }` **before** the catch-all.
+- **What would have prevented it:** either make `/(.*)` genuinely include the root, or — much better — have
+  the static handler 404 when it has nothing to serve. A platform that hangs where it means "not found"
+  costs far more debugging time than the same condition reported as a status code.
+
 ## Next.js / Tailwind v4
 
 Found while building `apps/web` (the registry site) on **Next 15.5.21 · Tailwind 4.3.3 · React 19 ·
