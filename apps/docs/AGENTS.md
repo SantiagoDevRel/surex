@@ -111,8 +111,29 @@ sidebar. Deployed as its own Vercel project with Root Directory `apps/docs`.
 ```bash
 pnpm --filter @surex/docs dev      # http://localhost:4312
 pnpm --filter @surex/docs build    # + pagefind index via postbuild
-pnpm --filter @surex/docs test     # the copy law over every .mdx file
+pnpm --filter @surex/docs test     # the copy law + every mermaid diagram parses
 ```
+
+### Deploying
+
+**A push to `main` deploys it.** The Vercel project `surex-docs` (team `santiago-prod`) is connected
+to this repository with **Root Directory `apps/docs`**, like the API and the registry site, and is
+aliased to `surex-docs.vercel.app`.
+
+To deploy from the CLI instead, run it from the **repository root**, not from here — with a Root
+Directory set, `vercel deploy` resolves it relative to the working directory and looks for
+`apps/docs/apps/docs`:
+
+```bash
+cp apps/docs/.vercel/project.json .vercel/project.json   # link the root to surex-docs
+vercel deploy --prod --yes                                # from the repo root
+rm -rf .vercel                                            # unlink, so a later root deploy
+                                                          # cannot target the docs by accident
+```
+
+The `postbuild` step (`pagefind`) writes `public/_pagefind` after `next build`, and Vercel collects
+it because output collection happens after the whole build command. If search ever returns nothing
+on the deployed site, check that `/_pagefind/pagefind.js` is a 200 before looking anywhere else.
 
 ### Hard rules for this app
 

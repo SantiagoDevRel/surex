@@ -17,6 +17,7 @@ Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 |---|---|
 | **The registry** | **https://arkiv-surex.vercel.app** |
 | **The API** | **https://arkiv-surex-api.vercel.app** — [`/v1/registry`](https://arkiv-surex-api.vercel.app/v1/registry) · [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) · [`/v1/flagged`](https://arkiv-surex-api.vercel.app/v1/flagged) |
+| **The docs** | **https://surex-docs.vercel.app** — install it, read a verdict, dispute one. Machine-readable at [`/llms.txt`](https://surex-docs.vercel.app/llms.txt) |
 
 Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
 official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model
@@ -51,6 +52,7 @@ describes our own fixture; the *mechanism* is what is real. Arkiv is stood in fo
 | [`packages/fixture-mcp`](./packages/fixture-mcp) | the malicious fixture — the only thing SureX ever flags. [Why it is safe to run](./packages/fixture-mcp/SAFETY.md) |
 | [`probes/`](./probes) | the throwaway scripts that measured the enforcement surface, Walrus and Arkiv before any feature code was written |
 | [`demo/`](./demo) | the end-to-end run |
+| [`apps/docs`](./apps/docs) | the documentation site. Its reference tables are rendered from `packages/core`, so they cannot drift from the frozen contract |
 
 | Reference | |
 |---|---|
