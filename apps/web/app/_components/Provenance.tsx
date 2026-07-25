@@ -1,4 +1,5 @@
 import { COPY } from '@/lib/copy.ts';
+import { ensAppUrl, ensNameFor } from '@/lib/ens.ts';
 import { isoDate } from '@/lib/format.ts';
 import type { Entry } from '@/lib/types.ts';
 
@@ -16,13 +17,24 @@ import { Panel, PanelHeader, SectionLabel } from './Panel.tsx';
  * plausible.
  */
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({ label, value, href }: { label: string; value?: string | null; href?: string }) {
   return (
     <div className="flex items-baseline gap-3 border-b border-line-2 py-1.5">
       <span className="w-[110px] shrink-0 text-label uppercase tracking-[0.12em] text-faint">
         {label}
       </span>
-      <span className="break-all text-data text-ink-2">{value || COPY.verdict.provenanceUnknown}</span>
+      {value && href ? (
+        <a
+          className="break-all text-data text-ink-2 underline decoration-line underline-offset-2 hover:text-ink"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="break-all text-data text-ink-2">{value || COPY.verdict.provenanceUnknown}</span>
+      )}
     </div>
   );
 }
@@ -33,6 +45,12 @@ export function Provenance({ entry }: { entry: Entry }) {
   const promptValue = promptVersion
     ? `${promptVersion}${review?.agreementRuns ? ` · ${review.agreementRuns} passes` : ''}`
     : null;
+  /**
+   * `null` until a parent name is configured, and then the row is omitted
+   * entirely rather than rendered as "not recorded" — `apps/api/src/links.mjs`
+   * already sets the rule: a dead link that looks alive is worse than no link.
+   */
+  const ensName = ensNameFor(head.fingerprint);
   return (
     <Panel>
       <PanelHeader>
@@ -51,7 +69,17 @@ export function Provenance({ entry }: { entry: Entry }) {
         <Row label={COPY.verdict.provenanceIntegrity} value={head.integrity} />
         <Row label={COPY.verdict.provenanceIndex} value={head.arkivEntityKey} />
         <Row label="VERDICT BLOB" value={review?.blob?.blobId} />
+        {ensName ? (
+          <Row label={COPY.verdict.provenanceEns} value={ensName} href={ensAppUrl(ensName)} />
+        ) : null}
       </div>
+
+      {ensName ? (
+        <div className="border-t border-line px-5 py-2.5 text-row text-ink-2">
+          {COPY.verdict.ensNote}{' '}
+          <code className="whitespace-nowrap text-data text-ink">{COPY.verdict.ensExample}</code>
+        </div>
+      ) : null}
 
       <div className="border-t border-line px-5 py-2.5 text-row text-ink-2">
         {COPY.verdict.automatedDisclosure}
