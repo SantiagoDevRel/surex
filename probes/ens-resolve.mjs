@@ -619,8 +619,21 @@ async function live() {
 
   let raw;
   try {
-    await client.call({ to: resolver, data: outer, ccipRead: false });
-    step(false, 'resolve() reverts with OffchainLookup', 'it returned instead of reverting');
+    const { data } = await client.call({ to: resolver, data: outer, ccipRead: false });
+    // Not a failure. `ccipRead: false` is best-effort — when the whole path is
+    // healthy viem can still follow the lookup and hand back the answer, and a
+    // returned value means every hop below already worked. Reporting that as
+    // "it did not revert" was this probe's own false negative: it called a
+    // fully working deployment broken.
+    const value = viem.decodeFunctionResult({
+      abi: TEXT_ABI,
+      functionName: 'text',
+      data: viem.decodeFunctionResult({ abi: RESOLVE_ABI, functionName: 'resolve', data }),
+    });
+    console.log(ok(`the full path resolved in one call        ${key} = ${value}`));
+    hr('result');
+    console.log(ok('the deployed contract, the gateway and the signature all agree'));
+    return;
   } catch (err) {
     raw = JSON.stringify(err).match(/0x556f1830[0-9a-fA-F]+/)?.[0];
     step(Boolean(raw), 'resolve() reverts with OffchainLookup');

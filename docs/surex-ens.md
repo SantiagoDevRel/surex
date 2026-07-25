@@ -32,7 +32,7 @@ import { mainnet } from 'viem/chains';
 
 const client = createPublicClient({ chain: mainnet, transport: http() });
 await client.getEnsText({ name: 'sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth', key: 'surex:state' });
-// → 'flagged'   (once the gateway is deployed; today this returns null — §6)
+// → 'flagged'
 ```
 
 The client does the ERC-3668 dance itself. Nothing about SureX has to be integrated, and the
@@ -239,8 +239,8 @@ two literals are the same one.
 |---|---|
 | Network | **Ethereum mainnet.** Not a preference — `.eth` registration on Sepolia has been broken network-wide since early June 2026 (`FRICTION-LOG.md` E5, E6). |
 | Parent name | **`surex.eth`**, ours, expires 2027-07-25. It was available because a prior registration lapsed on 2024-07-21; the earlier claim that it belonged to `0x8FA4C314…` read a stale record on an expired name. |
-| Resolver | **`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`**, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`. |
-| Wildcard | **Verified live.** `getEnsResolver` on a subname that was never registered returns our resolver through the standard Universal Resolver, and `resolve()` reverts with a real `OffchainLookup`. |
+| Resolver | **`0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`**, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`. The first deployment, `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`, dropped the name from the callData and is superseded (E8). |
+| Wildcard | **Verified live, end to end.** `getEnsText` on a subname that was never registered returns the verdict: resolution → `OffchainLookup` → gateway → `resolveWithProof` → `ecrecover`. |
 | Gateway | **Not deployed.** `arkiv-surex.vercel.app/api/ens/` 404s until this branch ships, so `getEnsText` returns `null`. No further transactions are needed. |
 | ⚠️ Reading a `null` | A dead gateway is indistinguishable from an empty record client-side — viem swallows the failed fetch. Never read `null` as "no verdict". |
 

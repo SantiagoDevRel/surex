@@ -75,32 +75,28 @@ three places — here, in `apps/web/lib/ens.ts`, and asserted across both in
 | | |
 |---|---|
 | name | [`surex.eth`](https://app.ens.domains/surex.eth), expires 2027-07-25, not wrapped |
-| resolver | [`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559) |
+| resolver | [`0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`](https://etherscan.io/address/0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B) |
 | pinned signer | `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` |
 | name owner (`setResolver`) | `0xFE388539e3fffeA23ba4C5aa4c750cb90f369b2E` |
 | resolver owner (`setSigner`, `setUrls`) | `0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4` |
-| deploy cost | 0.0000805 ETH — 1,067,648 gas at 0.075 gwei |
+| deploy cost | 0.000072 ETH — 1,067,648 gas at 0.067 gwei |
 
-⚠️ **The deployed bytecode has a known bug and needs redeploying.** `resolve()` forwards `data`
-instead of `msg.data`, so the gateway receives the inner `text(bytes32,string)` call and no name.
-A node is a namehash and namehash is one-way, so the label — the only route to the fingerprint —
-cannot be recovered, and every lookup 400s. Fixed in source; the deployment predates the fix.
-`getEnsText` returns `null` rather than throwing, so this reads as an empty record. FRICTION-LOG E8.
-
-Check the current state with the probe that drives the deployed contract rather than a constructed
-request:
+**Verified live, end to end.** A stock viem client reads a verdict off a subname that was never
+registered:
 
 ```bash
-cd probes && node ens-resolve.mjs live --name sxf1-<40 hex>.surex.eth
+cd ../probes && node ens-resolve.mjs live --name sxf1-<40 hex>.surex.eth
+# ✓ the full path resolved in one call        surex:state = flagged
 ```
 
-**Verified on mainnet:** `getEnsResolver` on `sxf1-<40 hex>.surex.eth` — a subname that was never
-registered — returns the resolver above through the standard Universal Resolver, and `resolve()`
-reverts with a genuine `OffchainLookup`. Wildcard resolution works; the payload it carries does not.
+That walks wildcard resolution → `OffchainLookup` → gateway fetch → `resolveWithProof` → `ecrecover`,
+driving the DEPLOYED contract rather than a constructed request. Use this mode, not `getEnsText`, to
+check a deployment: `getEnsText` returns `null` on a failed CCIP fetch rather than throwing, so a
+broken seam is indistinguishable from an empty record.
 
-**The gateway is live and correct.** It signs real Arkiv data and its signature is accepted by the
-resolver — `probes/ens-resolve.mjs gateway --gateway https://arkiv-surex.vercel.app` is green. The
-break is entirely on the contract side.
+⚠️ **`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` was the first deployment and is superseded.** It forwarded
+`data` instead of `msg.data`, dropping the name the gateway needs — see `FRICTION-LOG.md` E8. Nothing
+should point at it.
 
 **Why mainnet and not a testnet:** `.eth` registration on Sepolia has been broken network-wide since
 early June 2026 — see `FRICTION-LOG.md` E5 and E6. It was not a preference.
@@ -166,7 +162,7 @@ On the web deployment (Vercel project `apps/web`):
 | `SUREX_ENS_TTL_SECONDS` | optional, default 300 |
 | `SUREX_ENS_CHAIN` | optional — only picks the explorer host for the UI link. Set `mainnet` for this deployment |
 
-For the live deployment those are `SUREX_ENS_RESOLVER_ADDRESS=0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`,
+For the live deployment those are `SUREX_ENS_RESOLVER_ADDRESS=0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`,
 `NEXT_PUBLIC_SUREX_ENS_PARENT=surex.eth`, `SUREX_ENS_CHAIN=mainnet`, and `SUREX_ENS_SIGNING_KEY` is the
 key for `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` — kept in `~/.secrets/surex-ens.env` and never
 in this repo.
@@ -191,7 +187,7 @@ reaches the contract, and there is nothing on the other end to answer. A status 
 ## Rotating the signer
 
 ```bash
-cast send 0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559 "setSigner(address)" <new signer> \
+cast send 0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B "setSigner(address)" <new signer> \
   --rpc-url https://ethereum-rpc.publicnode.com \
   --from 0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4 --interactive
 ```

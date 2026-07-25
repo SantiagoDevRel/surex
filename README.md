@@ -18,7 +18,7 @@ Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 | **The registry** | **https://arkiv-surex.vercel.app** |
 | **The API** | **https://arkiv-surex-api.vercel.app** — [`/v1/registry`](https://arkiv-surex-api.vercel.app/v1/registry) · [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) · [`/v1/flagged`](https://arkiv-surex-api.vercel.app/v1/flagged) |
 | **The docs** | **https://surex-docs.vercel.app** — install it, read a verdict, dispute one. Machine-readable at [`/llms.txt`](https://surex-docs.vercel.app/llms.txt) |
-| **The name** | **[`surex.eth`](https://app.ens.domains/surex.eth)** on Ethereum mainnet → resolver [`0xCb140fF3…`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559). Wildcard resolution is live: any `sxf1-<40 hex>.surex.eth` resolves to it. The CCIP-Read gateway is **not deployed yet**, so records read `null` — see [`contracts/`](./contracts) |
+| **The name** | **[`surex.eth`](https://app.ens.domains/surex.eth)** on Ethereum mainnet → resolver [`0x2BEaeC43…`](https://etherscan.io/address/0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B). Any `sxf1-<40 hex>.surex.eth` resolves — `getEnsText` returns the verdict over a signed CCIP-Read response, from a subname nobody registered. See [`contracts/`](./contracts) |
 
 Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
 official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model
@@ -51,7 +51,7 @@ describes our own fixture; the *mechanism* is what is real. Arkiv is stood in fo
 | [`packages/core`](./packages/core) | `SXF-1` fingerprint, the frozen `/v1` contract, the verdict decision, the copy law as executable rules, blob verification |
 | [`packages/plugin`](./packages/plugin) | the gate + the `surex` command. Zero dependencies, installable straight from this repo |
 | [`packages/fixture-mcp`](./packages/fixture-mcp) | the malicious fixture — the only thing SureX ever flags. [Why it is safe to run](./packages/fixture-mcp/SAFETY.md) |
-| [`contracts/`](./contracts) | the ENS offchain resolver — one wildcard resolver makes every entry readable as a name. **Deployed on Ethereum mainnet** and resolving; the CCIP gateway ships with the next web deploy |
+| [`contracts/`](./contracts) | the ENS offchain resolver — one wildcard resolver makes every entry readable as a name. **Live on Ethereum mainnet**, gateway included |
 | [`probes/`](./probes) | the throwaway scripts that measured the enforcement surface, Walrus, Arkiv and ENS before any feature code was written |
 | [`demo/`](./demo) | the end-to-end run |
 | [`apps/docs`](./apps/docs) | the documentation site. Its reference tables are rendered from `packages/core`, so they cannot drift from the frozen contract |
