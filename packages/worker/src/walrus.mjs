@@ -25,6 +25,36 @@
 // blob rather than per byte. `alreadyCertified` dedup is PUBLISHER behaviour, not
 // protocol — this SDK re-registers, re-certifies and RE-CHARGES for bytes already
 // certified (S3), so a re-run is not free and the seed checkpoints instead.
+//
+// ── PUBLISHER MODE (SUREX_WALRUS_PUBLISHER) ─────────────────────────────────
+// The SDK write path is not portable across uplinks. It uploads slivers directly
+// to all 101 committee members in parallel, and a residential connection does not
+// complete that: the same code, same wallet, minutes apart, succeeds in 32 s from
+// a European business line and fails 4/4 with NotEnoughBlobConfirmationsError from
+// the DGX (FRICTION-LOG S11 — balance, Node version, IPv6 and file descriptors
+// were each ruled out with their own test; do not re-derive it). The HTTP
+// publisher works from the same machine at the same moment.
+//
+// So: when SUREX_WALRUS_PUBLISHER is set the record goes over HTTP, and when it
+// is not the SDK path runs exactly as before. Three things this mode must be
+// honest about, because it changes what a record may CLAIM:
+//
+//  · The PUBLISHER's wallet registers the blob. `suiObjectId` and any digest are
+//    theirs, so "our wallet registered this" stops being true. Every pointer now
+//    carries `registeredBy: 'wallet' | 'publisher'` EXPLICITLY, on both paths —
+//    a reader must never infer custody from a missing field.
+//  · The publisher returns NO register/certify digests on a fresh write, and on a
+//    repeat it returns a certification event digest but no `suiObjectId`, no size
+//    and no encoding type. Thinner provenance is recorded as thinner, never
+//    padded out with a value we were not told.
+//  · The publisher DOES dedupe identical bytes for free, which the SDK does not
+//    (S3 has this backwards from what you would expect of a paid vs free path).
+//
+// The property the gate actually relies on — fetch the bytes back and recompute
+// the blob ID — is unaffected by who paid. Because a third party is now in the
+// middle of the write, this mode VERIFIES that property at write time by default
+// rather than assuming it: publish, read back from the aggregator, compare
+// digests, and refuse the pointer if they differ.
 
 import { createHash } from 'node:crypto';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
@@ -34,6 +64,95 @@ import { walrus, TESTNET_WALRUS_PACKAGE_CONFIG, WalrusFile } from '@mysten/walru
 import { SUI_FULLNODE, EXPECTED_SUI_ADDRESS, loadSuiSecret } from './config.mjs';
 
 export const DEFAULT_AGGREGATOR = 'https://aggregator.walrus-testnet.walrus.space';
+
+/**
+ * Both measured returning HTTP 200 from the DGX on 2026-07-25 — 14.5 s and 8.4 s
+ * for the same bytes (S11). Order is failover order.
+ */
+export const DEFAULT_PUBLISHERS = Object.freeze([
+  'https://publisher.walrus-testnet.walrus.space',
+  'https://walrus-testnet-publisher.nodes.guru',
+]);
+
+/**
+ * Resolve publisher mode from the environment.
+ *
+ * `SUREX_WALRUS_PUBLISHER` unset or empty → [] → the SDK path, unchanged.
+ * A truthy flag (`1` / `true` / `default`) → the two verified public publishers.
+ * Otherwise a comma-separated list of base URLs, tried in order.
+ *
+ * Returning a LIST rather than a boolean is deliberate: one publisher is a single
+ * point of failure for the only write path a residential box has.
+ */
+export function publishersFrom(env = process.env) {
+  const raw = String(env.SUREX_WALRUS_PUBLISHER ?? '').trim();
+  if (!raw) return [];
+  if (/^(1|true|yes|on|default)$/i.test(raw)) return [...DEFAULT_PUBLISHERS];
+  return raw
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+/**
+ * Normalise a publisher's PUT response into the fields a pointer may claim.
+ *
+ * Both shapes are VERIFIED against the live testnet publisher (2026-07-25), and
+ * they are not symmetric — which is the whole reason this is a named, tested
+ * function rather than three lines inline:
+ *
+ *   newlyCreated     → { blobObject: { id, blobId, size, encodingType,
+ *                        registeredEpoch, certifiedEpoch, deletable, storage } }
+ *   alreadyCertified → { blobId, event: { txDigest, eventSeq }, endEpoch }
+ *
+ * `alreadyCertified` carries NO object id, NO size and NO encoding type. Each is
+ * therefore null rather than guessed, and `outcome` is recorded so a reader knows
+ * WHY they are null instead of suspecting a bug.
+ *
+ * Note also that `newlyCreated.blobObject.certifiedEpoch` comes back **null** even
+ * though the publisher certified the blob before answering — so it is passed
+ * through as null and no surface may render a certified epoch from a publisher
+ * write.
+ */
+export function parsePublisherWrite(json) {
+  const fresh = json?.newlyCreated?.blobObject;
+  if (fresh?.blobId) {
+    return {
+      outcome: 'newlyCreated',
+      blobId: fresh.blobId,
+      suiObjectId: fresh.id ?? null,
+      certifyTx: null,
+      encodingType: normaliseEncodingType(fresh.encodingType),
+      certifiedEpoch: fresh.certifiedEpoch ?? null,
+      registeredEpoch: fresh.registeredEpoch ?? null,
+      endEpoch: fresh.storage?.endEpoch ?? null,
+      deletable: fresh.deletable ?? null,
+      reportedSize: typeof fresh.size === 'number' ? fresh.size : null,
+    };
+  }
+
+  const known = json?.alreadyCertified;
+  if (known?.blobId) {
+    return {
+      outcome: 'alreadyCertified',
+      blobId: known.blobId,
+      suiObjectId: null,
+      certifyTx: known.event?.txDigest ?? null,
+      encodingType: null,
+      certifiedEpoch: null,
+      registeredEpoch: null,
+      endEpoch: known.endEpoch ?? null,
+      deletable: null,
+      reportedSize: null,
+    };
+  }
+
+  // A 200 whose body we do not recognise is not a write. Saying so here is what
+  // stops an unrecognised shape becoming a record with an undefined blob id.
+  throw new Error(
+    `publisher answered 200 with a shape we do not recognise: ${JSON.stringify(json).slice(0, 300)}`,
+  );
+}
 
 export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -74,6 +193,15 @@ export function recordBytes(body) {
  * @property {'blob'|'quilt-patch'} addressing
  * @property {string=} patchId        quilt patch id, when addressing is quilt-patch
  * @property {string=} quiltBlobId    the containing quilt, when addressing is quilt-patch
+ * @property {'wallet'|'publisher'} registeredBy  WHOSE wallet registered the blob.
+ *   `wallet` = ours, and suiObjectId + both digests are ours to stand behind.
+ *   `publisher` = a public HTTP publisher's, so the object and any digest are
+ *   THEIRS. Always present on both paths — custody is never inferred from a
+ *   missing field.
+ * @property {string=} publisher          base URL, when registeredBy is publisher
+ * @property {'newlyCreated'|'alreadyCertified'=} publisherOutcome
+ * @property {boolean=} readbackVerified  the aggregator was asked for the bytes
+ *   back and they hashed to contentSha256, at write time
  */
 
 export async function createWalrusWriter(options = {}) {
@@ -81,6 +209,14 @@ export async function createWalrusWriter(options = {}) {
   const keypair = options.keypair ?? Ed25519Keypair.fromSecretKey(loadSuiSecret());
   const address = keypair.toSuiAddress();
   const log = options.log ?? (() => {});
+
+  /** [] = the SDK write path. Non-empty = HTTP publisher mode. See the header. */
+  const publishers = options.publishers ?? publishersFrom(options.env ?? process.env);
+  const aggregator = (options.aggregator ?? DEFAULT_AGGREGATOR).replace(/\/+$/, '');
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const publishTimeoutMs = options.publishTimeoutMs ?? 90_000;
+  /** The readback is the point of the mode; turning it off has to be deliberate. */
+  const verifyPublished = options.verifyPublished !== false;
 
   if (
     options.expectAddress !== false &&
@@ -161,6 +297,140 @@ export async function createWalrusWriter(options = {}) {
   }
 
   /**
+   * Fetch bytes back from the aggregator and hand them to the caller to judge.
+   *
+   * Separate from the write so the check is testable on its own, and so a
+   * verification failure reads as a verification failure rather than as a write
+   * that half-happened.
+   */
+  async function fetchPublished(blobId) {
+    const res = await fetchImpl(`${aggregator}/v1/blobs/${encodeURIComponent(blobId)}`);
+    if (!res.ok) throw new Error(`aggregator answered ${res.status} for blob ${blobId}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  /**
+   * PUT the bytes to a publisher, first one that answers wins.
+   *
+   * `permanent=true` mirrors the SDK path's `deletable: false` — the registry's
+   * evidence must not be quietly removable, including by us, and including by
+   * whoever's wallet paid for it.
+   *
+   * The timeout is cleared in a `finally` and not on the happy path alone: an
+   * un-cleared AbortController timer is what held a process open for 120 s after
+   * its work was done (FRICTION-LOG V3).
+   */
+  async function putToPublishers(payload, term, label) {
+    const failures = [];
+    for (const base of publishers) {
+      const url = `${base}/v1/blobs?epochs=${term}&permanent=true`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), publishTimeoutMs);
+      const startedAt = Date.now();
+      try {
+        const res = await fetchImpl(url, {
+          method: 'PUT',
+          body: payload,
+          headers: { 'content-type': 'application/octet-stream' },
+          signal: controller.signal,
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          // S2: an out-of-range `epochs` comes back as a 500 wrapping a raw Move
+          // abort, so the body is worth far more than the status here.
+          failures.push(`${base} → HTTP ${res.status} ${text.slice(0, 200)}`);
+          continue;
+        }
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          failures.push(`${base} → 200 with a body that is not JSON: ${text.slice(0, 200)}`);
+          continue;
+        }
+        const parsed = parsePublisherWrite(json);
+        log(
+          `  walrus publish ${label} via ${base} · ${parsed.outcome} · ${Date.now() - startedAt} ms`,
+        );
+        return { ...parsed, publisher: base };
+      } catch (err) {
+        const why = err?.name === 'AbortError' ? `no answer in ${publishTimeoutMs} ms` : (err?.message ?? String(err));
+        failures.push(`${base} → ${why}`);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw new Error(
+      `no publisher accepted ${label}: ${failures.join(' · ')}`,
+    );
+  }
+
+  /**
+   * The publisher write. Same contract as the SDK's writeRecord — an
+   * EvidencePointer — with custody stated rather than implied.
+   *
+   * @returns {Promise<EvidencePointer>}
+   */
+  async function writeRecordViaPublisher(payload, { term, shards, label }) {
+    const localSha = sha256Hex(payload);
+    const published = await putToPublishers(payload, term, label);
+
+    // The publisher tells us the size it stored. When it disagrees with what we
+    // sent, the pointer would bind this record to bytes that are not this
+    // record's — refuse rather than write it.
+    if (published.reportedSize !== null && published.reportedSize !== payload.length) {
+      throw new Error(
+        `publisher ${published.publisher} stored ${published.reportedSize} B for ${label}, we sent ${payload.length} B`,
+      );
+    }
+
+    if (verifyPublished) {
+      // The property the gate relies on, checked at write time because a third
+      // party is now in the middle of the write. A publisher that truncated,
+      // re-encoded or simply lied about the blob id fails HERE, once, rather than
+      // in the gate, later, against a record that already claims to be evidence.
+      const served = await fetchPublished(published.blobId);
+      const servedSha = sha256Hex(served);
+      if (servedSha !== localSha) {
+        throw new Error(
+          `blob ${published.blobId} serves ${servedSha}, we published ${localSha} — refusing the pointer`,
+        );
+      }
+      log(`    readback verified: aggregator serves the bytes we published`);
+    }
+
+    return {
+      blobId: published.blobId,
+      // Absent rather than null, so it drops out of the serialised record the
+      // same way the SDK path's optional fields do — and never our address: on
+      // this path the blob object belongs to the PUBLISHER's wallet.
+      suiObjectId: published.suiObjectId ?? undefined,
+      // The publisher reports neither digest on a fresh write. `alreadyCertified`
+      // reports the certification EVENT's digest, which is a real Sui transaction
+      // and is recorded as certifyTx — it is just not one we sent.
+      registerTx: undefined,
+      certifyTx: published.certifyTx ?? undefined,
+      encodingType: published.encodingType,
+      nShards: shards,
+      // Ours, computed from the bytes we sent. This is the field that binds the
+      // record to its Arkiv entity, and it is the one thing the publisher cannot
+      // influence — which is why the mode is sound despite the thinner custody.
+      contentSha256: localSha,
+      size: payload.length,
+      addressing: 'blob',
+      epochs: term,
+      digestFrom: 'written',
+      certifiedEpoch: published.certifiedEpoch,
+      deletable: published.deletable,
+      // ── custody, stated ──────────────────────────────────────────────────
+      registeredBy: 'publisher',
+      publisher: published.publisher,
+      publisherOutcome: published.outcome,
+      readbackVerified: verifyPublished,
+    };
+  }
+
+  /**
    * One standalone certified blob: owned, permanent, both digests captured.
    *
    * This is the write for anything whose per-record citability is the point — a
@@ -168,12 +438,20 @@ export async function createWalrusWriter(options = {}) {
    * NOT come through here; it goes into a quilt (writeQuiltOfRecords) because 50
    * standalone blobs is 100 Sui transactions for no citation anyone needs.
    *
+   * In publisher mode the same call writes over HTTP instead, because the SDK
+   * path cannot complete from a residential uplink (S11). The pointer says which
+   * path produced it.
+   *
    * @returns {Promise<EvidencePointer>}
    */
   async function writeRecord(bytes, { epochs, label = 'record' } = {}) {
     const payload = bytes instanceof Uint8Array ? bytes : recordBytes(bytes);
     const term = epochs ?? (await maxEpochs());
     const shards = await nShards();
+
+    if (publishers.length) {
+      return writeRecordViaPublisher(payload, { term, shards, label });
+    }
 
     log(`  walrus write ${label} (${payload.length} B, ${term} epochs)`);
     const flow = client.walrus.writeBlobFlow({ blob: payload });
@@ -200,6 +478,9 @@ export async function createWalrusWriter(options = {}) {
       digestFrom: 'written',
       certifiedEpoch: blob.blobObject?.certified_epoch ?? null,
       deletable: blob.blobObject?.deletable ?? null,
+      // Stated on BOTH paths so custody is read, never inferred from which
+      // fields happen to be present.
+      registeredBy: 'wallet',
     };
   }
 
@@ -335,6 +616,9 @@ export async function createWalrusWriter(options = {}) {
         // must never have to guess whether a digest describes the bytes we sent or
         // the bytes something gave back.
         digestFrom: 'written',
+        // Quilts are SDK-only. There is no publisher endpoint that writes one, so
+        // this path is not portable to a residential uplink — writeRecord is.
+        registeredBy: 'wallet',
       });
     }
 
@@ -437,6 +721,7 @@ export async function createWalrusWriter(options = {}) {
         addressing: 'quilt-patch',
         epochs: quilt.epochs,
         digestFrom,
+        registeredBy: 'wallet',
       });
     }
     return { patches, read };
@@ -455,7 +740,10 @@ export async function createWalrusWriter(options = {}) {
     writeQuiltOfRecords,
     readQuiltPatches,
     mapCertifiedQuilt,
+    fetchPublished,
     sha256Hex,
     recordBytes,
+    /** [] when the SDK path is in use. Callers log which write they are about to do. */
+    publishers,
   };
 }
