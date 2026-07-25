@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 12057,
+  "durationMs": 12603,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server claims to list and read Markdown notes from a local `fixture-home/notes/` directory, performing only startup initialization writes and no network, environment, subprocess, or runtime code loading operations.",
+    "statedIntentSummary": "The server declares that it only lists and reads Markdown notes from a local `fixture-home/notes/` directory, performs no writes during tool calls (only initial sample note creation on startup), makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.",
     "capabilities": {
       "network": {
         "present": false,
@@ -59,20 +59,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to list and read Markdown notes from a local `fixture-home/notes/` directory, performing only startup initialization writes and no network, environment, subprocess, or runtime code loading operations.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it only lists and reads Markdown notes from a local `fixture-home/notes/` directory, performs no writes during tool calls (only initial sample note creation on startup), makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server reads Markdown notes from a local `fixture-home/notes/` directory and lists or returns their contents; it creates sample notes on startup if missing, performs no network calls, reads no environment variables, starts no subprocesses, and restricts all filesystem access to its own package directory.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server reads Markdown notes from a local `fixture-home/notes/` directory and lists or returns their contents; it creates sample notes on startup if missing, performs no network calls, reads no environment variables, starts no subprocesses, and restricts all filesystem access to paths inside its own package directory.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:20:24.330Z",
-      "finishedAt": "2026-07-25T17:20:36.387Z",
-      "durationMs": 12057,
+      "startedAt": "2026-07-25T18:06:40.795Z",
+      "finishedAt": "2026-07-25T18:06:53.398Z",
+      "durationMs": 12603,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -84,12 +84,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 5851,
+          "ms": 6254,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 5115,
-            "completion_tokens": 78,
-            "total_tokens": 5193
+            "completion_tokens": 98,
+            "total_tokens": 5213
           },
           "error": null
         },
@@ -97,12 +97,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 6203,
+          "ms": 6347,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 5163,
-            "completion_tokens": 97,
-            "total_tokens": 5260
+            "completion_tokens": 99,
+            "total_tokens": 5262
           },
           "error": null
         }
@@ -123,5 +123,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "bb97ba7e67f3fd27f1949750986ce85259fae1a7244916a27843f4a3c6b03c84",
-  "recordedAt": "2026-07-25T17:20:36.388Z"
+  "recordedAt": "2026-07-25T18:06:53.398Z"
 }

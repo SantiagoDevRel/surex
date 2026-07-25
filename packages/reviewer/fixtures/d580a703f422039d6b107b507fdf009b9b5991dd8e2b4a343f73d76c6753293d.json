@@ -6,7 +6,7 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 13523,
+  "durationMs": 13481,
   "value": {
     "verdict": "clean",
     "reason": null,
@@ -53,14 +53,14 @@
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides unit conversion functionality (length, mass, duration, data, temperature) via two tools: convert_unit and list_units. It claims to perform pure computation with no side effects, no file/network access, no environment reading, and no subprocess execution.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides unit conversion between measurement families (length, mass, duration, data, temperature) via two tools: convert_unit and list_units. It claims to perform pure computation with no side effects, no file/network access, no environment reading, and no subprocess execution.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:20:54.081Z",
-      "finishedAt": "2026-07-25T17:21:07.604Z",
-      "durationMs": 13523,
+      "startedAt": "2026-07-25T18:07:10.484Z",
+      "finishedAt": "2026-07-25T18:07:23.965Z",
+      "durationMs": 13481,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -72,12 +72,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 6874,
+          "ms": 6795,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5852,
+            "prompt_tokens": 5840,
             "completion_tokens": 91,
-            "total_tokens": 5943
+            "total_tokens": 5931
           },
           "error": null
         },
@@ -85,12 +85,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 6646,
+          "ms": 6681,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5900,
-            "completion_tokens": 90,
-            "total_tokens": 5990
+            "prompt_tokens": 5888,
+            "completion_tokens": 92,
+            "total_tokens": 5980
           },
           "error": null
         }
@@ -111,5 +111,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "d580a703f422039d6b107b507fdf009b9b5991dd8e2b4a343f73d76c6753293d",
-  "recordedAt": "2026-07-25T17:21:07.605Z"
+  "recordedAt": "2026-07-25T18:07:23.966Z"
 }

@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 16958,
+  "durationMs": 16266,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares it provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all SQL being fixed SELECTs and no caller-supplied queries; the only write occurs at startup if the database is missing, and it explicitly states it reads no other files, makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.",
+    "statedIntentSummary": "The server claims to provide read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all paths validated to stay within the package directory and no runtime code loading or external communication.",
     "capabilities": {
       "network": {
         "present": false,
@@ -57,7 +57,7 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares it provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all SQL being fixed SELECTs and no caller-supplied queries; the only write occurs at startup if the database is missing, and it explicitly states it reads no other files, makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to provide read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all paths validated to stay within the package directory and no runtime code loading or external communication.\"\n}",
         "error": null
       },
       {
@@ -68,9 +68,9 @@
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:20:36.803Z",
-      "finishedAt": "2026-07-25T17:20:53.761Z",
-      "durationMs": 16958,
+      "startedAt": "2026-07-25T18:06:53.815Z",
+      "finishedAt": "2026-07-25T18:07:10.081Z",
+      "durationMs": 16266,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -82,12 +82,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 8629,
+          "ms": 7924,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7393,
-            "completion_tokens": 129,
-            "total_tokens": 7522
+            "prompt_tokens": 7389,
+            "completion_tokens": 90,
+            "total_tokens": 7479
           },
           "error": null
         },
@@ -95,12 +95,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 8324,
+          "ms": 8335,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7441,
+            "prompt_tokens": 7437,
             "completion_tokens": 111,
-            "total_tokens": 7552
+            "total_tokens": 7548
           },
           "error": null
         }
@@ -121,5 +121,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "3d5ea081967277cb617868b097320e34a254176de0bcdb3496822b08c8f3c23d",
-  "recordedAt": "2026-07-25T17:20:53.762Z"
+  "recordedAt": "2026-07-25T18:07:10.082Z"
 }

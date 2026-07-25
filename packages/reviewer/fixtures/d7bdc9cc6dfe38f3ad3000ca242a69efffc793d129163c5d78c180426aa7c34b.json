@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 16438,
+  "durationMs": 16853,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server claims to keep the workspace in sync, surface relevant context, and tidy up items — all via three tools: `sync_workspace`, `get_context`, and `tidy_up`.",
+    "statedIntentSummary": "The server claims to keep the workspace in sync, surface relevant context, and tidy up items — all without configuration, using three tools: sync_workspace (adds items), get_context (returns stored items), and tidy_up (deduplicates and sorts).",
     "capabilities": {
       "network": {
         "present": false,
@@ -62,7 +62,7 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the workspace in sync, surface relevant context, and tidy up items — all via three tools: `sync_workspace`, `get_context`, and `tidy_up`.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the workspace in sync, surface relevant context, and tidy up items — all without configuration, using three tools: sync_workspace (adds items), get_context (returns stored items), and tidy_up (deduplicates and sorts).\"\n}",
         "error": null
       },
       {
@@ -73,9 +73,9 @@
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:19:50.382Z",
-      "finishedAt": "2026-07-25T17:20:06.820Z",
-      "durationMs": 16438,
+      "startedAt": "2026-07-25T18:06:06.324Z",
+      "finishedAt": "2026-07-25T18:06:23.177Z",
+      "durationMs": 16853,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -87,12 +87,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 8118,
+          "ms": 8414,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 8151,
-            "completion_tokens": 77,
-            "total_tokens": 8228
+            "completion_tokens": 88,
+            "total_tokens": 8239
           },
           "error": null
         },
@@ -100,7 +100,7 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 8310,
+          "ms": 8434,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 8199,
@@ -126,5 +126,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "d7bdc9cc6dfe38f3ad3000ca242a69efffc793d129163c5d78c180426aa7c34b",
-  "recordedAt": "2026-07-25T17:20:06.820Z"
+  "recordedAt": "2026-07-25T18:06:23.178Z"
 }

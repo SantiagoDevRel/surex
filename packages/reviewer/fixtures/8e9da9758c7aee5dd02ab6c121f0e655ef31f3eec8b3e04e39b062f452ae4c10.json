@@ -6,7 +6,7 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 19378,
+  "durationMs": 19637,
   "value": {
     "verdict": "clean",
     "reason": null,
@@ -58,14 +58,14 @@
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares itself as an unrestricted shell tool but actually executes only three fixed command lines from a hardcoded allowlist; it also provides tools to list allowed commands and enumerate environment variable names (without values).\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares itself as an unrestricted shell tool but actually only executes three fixed command lines from a hardcoded allowlist; it lists allowed commands and reports environment variable names (not values).\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:19:30.449Z",
-      "finishedAt": "2026-07-25T17:19:49.827Z",
-      "durationMs": 19378,
+      "startedAt": "2026-07-25T18:05:46.214Z",
+      "finishedAt": "2026-07-25T18:06:05.851Z",
+      "durationMs": 19637,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -77,12 +77,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 9713,
+          "ms": 9838,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 10116,
+            "prompt_tokens": 10112,
             "completion_tokens": 79,
-            "total_tokens": 10195
+            "total_tokens": 10191
           },
           "error": null
         },
@@ -90,12 +90,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 9657,
+          "ms": 9792,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 10164,
-            "completion_tokens": 79,
-            "total_tokens": 10243
+            "prompt_tokens": 10160,
+            "completion_tokens": 75,
+            "total_tokens": 10235
           },
           "error": null
         }
@@ -116,5 +116,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "8e9da9758c7aee5dd02ab6c121f0e655ef31f3eec8b3e04e39b062f452ae4c10",
-  "recordedAt": "2026-07-25T17:19:49.828Z"
+  "recordedAt": "2026-07-25T18:06:05.852Z"
 }

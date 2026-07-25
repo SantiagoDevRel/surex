@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 16557,
+  "durationMs": 16908,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares that it runs git commands via execFile with pinned argument arrays against a self-created fixture repository, explicitly stating it starts child processes, validates arguments against an allowlist, uses explicit git paths to avoid searching for repositories, and does not read environment variables itself (though the child process inherits the parent's environment).",
+    "statedIntentSummary": "The server declares that it runs git commands via execFile with pinned argument arrays against a self-created fixture repository, explicitly stating it does not read environment variables itself (though the child process inherits them), uses no shell, enforces strict argv validation, and only reads/writes within its own package directory.",
     "capabilities": {
       "network": {
         "present": false,
@@ -60,20 +60,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it runs git commands via execFile with pinned argument arrays against a self-created fixture repository, explicitly stating it starts child processes, validates arguments against an allowlist, uses explicit git paths to avoid searching for repositories, and does not read environment variables itself (though the child process inherits the parent's environment).\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it runs git commands via execFile with pinned argument arrays against a self-created fixture repository, explicitly stating it does not read environment variables itself (though the child process inherits them), uses no shell, enforces strict argv validation, and only reads/writes within its own package directory.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes two tools that run pinned git commands via execFile in a self-contained fixture repository, explicitly declaring its use of child processes, argument validation, and environment inheritance.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes two tools that run pinned git commands against a self-contained repository created at startup, explicitly declaring it uses execFile with an argument array (no shell), enforces strict argv validation, and documents environment inheritance and command-line overrides.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:20:07.379Z",
-      "finishedAt": "2026-07-25T17:20:23.936Z",
-      "durationMs": 16557,
+      "startedAt": "2026-07-25T18:06:23.474Z",
+      "finishedAt": "2026-07-25T18:06:40.382Z",
+      "durationMs": 16908,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -85,12 +85,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 8546,
+          "ms": 8590,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7929,
-            "completion_tokens": 103,
-            "total_tokens": 8032
+            "prompt_tokens": 7925,
+            "completion_tokens": 98,
+            "total_tokens": 8023
           },
           "error": null
         },
@@ -98,12 +98,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 8005,
+          "ms": 8314,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7977,
-            "completion_tokens": 73,
-            "total_tokens": 8050
+            "prompt_tokens": 7973,
+            "completion_tokens": 86,
+            "total_tokens": 8059
           },
           "error": null
         }
@@ -124,5 +124,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "22574ab2166715b1054f43a41e9e9e83ec78685abd9970d5013d72c5e9925739",
-  "recordedAt": "2026-07-25T17:20:23.937Z"
+  "recordedAt": "2026-07-25T18:06:40.383Z"
 }

@@ -6,7 +6,7 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 22902,
+  "durationMs": 23370,
   "value": {
     "verdict": "clean",
     "reason": null,
@@ -66,14 +66,14 @@
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares its tool list dynamically from tools.config.json at startup, with all tool behaviors confined to a closed set of three implemented in the source and guarded against path traversal; it also includes a disclosure tool describing the config source.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares tools dynamically from a local JSON config file at startup, with the tool list not present in source code; it implements three fixed behaviours (static text, listing notes, counting lines) and one static disclosure tool, all confined to its own package directory with strict validation.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:19:06.940Z",
-      "finishedAt": "2026-07-25T17:19:29.842Z",
-      "durationMs": 22902,
+      "startedAt": "2026-07-25T18:05:22.396Z",
+      "finishedAt": "2026-07-25T18:05:45.766Z",
+      "durationMs": 23370,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -85,12 +85,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 11544,
+          "ms": 11627,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 11989,
+            "prompt_tokens": 11997,
             "completion_tokens": 95,
-            "total_tokens": 12084
+            "total_tokens": 12092
           },
           "error": null
         },
@@ -98,12 +98,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 11352,
+          "ms": 11736,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 12037,
-            "completion_tokens": 84,
-            "total_tokens": 12121
+            "prompt_tokens": 12045,
+            "completion_tokens": 94,
+            "total_tokens": 12139
           },
           "error": null
         }
@@ -124,5 +124,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "0150ff8afdf328c8d924da9c5f28b8cbb89014909688f5cfe40802e106364407",
-  "recordedAt": "2026-07-25T17:19:29.843Z"
+  "recordedAt": "2026-07-25T18:05:45.767Z"
 }

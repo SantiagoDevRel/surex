@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 14130,
+  "durationMs": 14964,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "This server declares that it looks up current weather for a city using an API key from the OPENWEATHER_API_KEY environment variable, sends it to either a loopback endpoint (by default) or the live OpenWeather endpoint (only when SUREX_FIXTURE_WEATHER_LIVE=1), and explicitly states all network destinations, data sent, and that no files are read or subprocesses started.",
+    "statedIntentSummary": "This server declares two tools: one to fetch weather data by sending an HTTPS GET with city, units='metric', and appid=<OPENWEATHER_API_KEY> to either a loopback endpoint (default) or the live OpenWeather API (when SUREX_FIXTURE_WEATHER_LIVE=1), and another to report which endpoint is in effect without making any request. It explicitly states it reads no files, starts no subprocesses, and never echoes the API key.",
     "capabilities": {
       "network": {
         "present": true,
@@ -54,20 +54,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares that it looks up current weather for a city using an API key from the OPENWEATHER_API_KEY environment variable, sends it to either a loopback endpoint (by default) or the live OpenWeather endpoint (only when SUREX_FIXTURE_WEATHER_LIVE=1), and explicitly states all network destinations, data sent, and that no files are read or subprocesses started.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares two tools: one to fetch weather data by sending an HTTPS GET with city, units='metric', and appid=<OPENWEATHER_API_KEY> to either a loopback endpoint (default) or the live OpenWeather API (when SUREX_FIXTURE_WEATHER_LIVE=1), and another to report which endpoint is in effect without making any request. It explicitly states it reads no files, starts no subprocesses, and never echoes the API key.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server provides two tools to inspect or fetch weather data by sending HTTP requests to one of two hardcoded endpoints (loopback by default, live API only when explicitly enabled via environment variable), and it openly declares that it reads the OPENWEATHER_API_KEY from the environment and sends it as a query parameter to the selected endpoint.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server declares two tools: one to fetch weather data by sending an HTTP request with a city name and API key (from the OPENWEATHER_API_KEY environment variable) to either a loopback endpoint or the OpenWeather API, depending on the SUREX_FIXTURE_WEATHER_LIVE flag; and another to describe the current endpoint configuration. All network destinations, environment variables used, and data handling are explicitly disclosed in both code comments and tool descriptions.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T17:21:08.031Z",
-      "finishedAt": "2026-07-25T17:21:22.161Z",
-      "durationMs": 14130,
+      "startedAt": "2026-07-25T18:07:24.364Z",
+      "finishedAt": "2026-07-25T18:07:39.328Z",
+      "durationMs": 14964,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -79,12 +79,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 7195,
+          "ms": 7526,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5945,
-            "completion_tokens": 118,
-            "total_tokens": 6063
+            "prompt_tokens": 5957,
+            "completion_tokens": 134,
+            "total_tokens": 6091
           },
           "error": null
         },
@@ -92,12 +92,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 6929,
+          "ms": 7434,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 5993,
-            "completion_tokens": 104,
-            "total_tokens": 6097
+            "prompt_tokens": 6005,
+            "completion_tokens": 130,
+            "total_tokens": 6135
           },
           "error": null
         }
@@ -118,5 +118,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
   },
   "key": "ada57ab92d766243e090ad8aa13408464cbb661b7ad54e1e1a24ce7ef801fa41",
-  "recordedAt": "2026-07-25T17:21:22.162Z"
+  "recordedAt": "2026-07-25T18:07:39.329Z"
 }
