@@ -6,13 +6,13 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 15679,
+  "durationMs": 16281,
   "value": {
     "verdict": "clean",
     "reason": null,
     "severity": 0,
     "findings": [],
-    "statedIntentSummary": "The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlists and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.",
+    "statedIntentSummary": "The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlist validation and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.",
     "capabilities": {
       "network": {
         "present": false,
@@ -60,20 +60,20 @@
       {
         "variant": "a",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlists and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlist validation and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.\"\n}",
         "error": null
       },
       {
         "variant": "b",
         "ok": true,
-        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes two tools that run pinned git commands against a self-contained repository created at startup, explicitly declaring its use of execFile with argument validation and environment inheritance.\"\n}",
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server exposes tools to list recent commits from a self-contained, pre-seeded git repository and to check the git version; it explicitly declares that it spawns a child process with pinned arguments via execFile, enforces strict argument validation, uses only its own repository directory, and overrides all relevant git configuration on the command line.\"\n}",
         "error": null
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:03:51.120Z",
-      "finishedAt": "2026-07-25T14:04:06.799Z",
-      "durationMs": 15679,
+      "startedAt": "2026-07-25T14:18:59.606Z",
+      "finishedAt": "2026-07-25T14:19:15.887Z",
+      "durationMs": 16281,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -85,12 +85,12 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 8001,
+          "ms": 8014,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7711,
-            "completion_tokens": 88,
-            "total_tokens": 7799
+            "prompt_tokens": 7715,
+            "completion_tokens": 89,
+            "total_tokens": 7804
           },
           "error": null
         },
@@ -98,12 +98,12 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 7672,
+          "ms": 8264,
           "attempts": 1,
           "usage": {
-            "prompt_tokens": 7749,
-            "completion_tokens": 71,
-            "total_tokens": 7820
+            "prompt_tokens": 7753,
+            "completion_tokens": 104,
+            "total_tokens": 7857
           },
           "error": null
         }
@@ -119,5 +119,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "48b5216ad5ba382779aa17d8b10e13b457d44bae6d2df9466762caf3fb7b6b13",
-  "recordedAt": "2026-07-25T14:04:06.799Z"
+  "recordedAt": "2026-07-25T14:19:15.887Z"
 }

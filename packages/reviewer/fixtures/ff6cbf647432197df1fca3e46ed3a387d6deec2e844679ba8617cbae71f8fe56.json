@@ -6,7 +6,7 @@
     "label": "dgx",
     "fingerprint": "0c07ff9a6b7e"
   },
-  "durationMs": 18665,
+  "durationMs": 15220,
   "value": {
     "verdict": "clean",
     "reason": null,
@@ -68,9 +68,9 @@
       }
     ],
     "run": {
-      "startedAt": "2026-07-25T14:04:20.320Z",
-      "finishedAt": "2026-07-25T14:04:38.985Z",
-      "durationMs": 18665,
+      "startedAt": "2026-07-25T14:19:28.444Z",
+      "finishedAt": "2026-07-25T14:19:43.664Z",
+      "durationMs": 15220,
       "endpoint": {
         "label": "dgx",
         "fingerprint": "0c07ff9a6b7e"
@@ -82,7 +82,7 @@
           "variant": "a",
           "ok": true,
           "parsed": true,
-          "ms": 9700,
+          "ms": 7646,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 7175,
@@ -95,7 +95,7 @@
           "variant": "b",
           "ok": true,
           "parsed": true,
-          "ms": 8961,
+          "ms": 7570,
           "attempts": 1,
           "usage": {
             "prompt_tokens": 7213,
@@ -116,5 +116,5 @@
     "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
   },
   "key": "ff6cbf647432197df1fca3e46ed3a387d6deec2e844679ba8617cbae71f8fe56",
-  "recordedAt": "2026-07-25T14:04:38.986Z"
+  "recordedAt": "2026-07-25T14:19:43.665Z"
 }
