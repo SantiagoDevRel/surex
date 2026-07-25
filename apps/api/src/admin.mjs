@@ -105,8 +105,24 @@ export function clientKey(c) {
  * failure, because "the button did nothing and said OK" is the worst outcome for
  * a recovery control.
  */
+/**
+ * `<base>/v1/chat/completions`, whether or not the caller's base URL already ends
+ * in `/v1`.
+ *
+ * The reviewer package appends `/chat/completions` (so its base URL includes
+ * `/v1`) and the admin route appended `/v1/chat/completions` (so its base URL did
+ * not). Same env var, two conventions, and one of them yields
+ * `/v1/v1/chat/completions` and a 404 — the kind of thing that fails once, in
+ * production, at the worst moment. Both now normalise.
+ */
+export function chatCompletionsUrl(baseUrl) {
+  const trimmed = String(baseUrl ?? '').replace(/\/+$/, '');
+  const root = trimmed.replace(/\/v1$/, '');
+  return `${root}/v1/chat/completions`;
+}
+
 export async function loadModel({ baseUrl, model, timeoutMs = DEFAULT_LOAD_TIMEOUT_MS, fetchImpl = fetch } = {}) {
-  const url = `${String(baseUrl).replace(/\/+$/, '')}/v1/chat/completions`;
+  const url = chatCompletionsUrl(baseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const t0 = Date.now();

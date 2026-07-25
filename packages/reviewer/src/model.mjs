@@ -221,7 +221,11 @@ export async function callModel({
     return fail('not_configured', `${REVIEWER_ENV.baseUrl} is not set — the reviewer endpoint is unknown`, startedAt, now, 0);
   }
 
-  const url = `${config.baseUrl}/chat/completions`;
+  // Tolerant of a base URL with or without `/v1`: the admin route and this
+  // module disagreed about the convention, and one of them produced
+  // /v1/v1/chat/completions. Same env var, so it must not matter which form is set.
+  const root = String(config.baseUrl).replace(/\/+$/, '').replace(/\/v1$/, '');
+  const url = `${root}/v1/chat/completions`;
   const budget = maxTokens ?? config.maxTokens ?? DEFAULT_MAX_TOKENS;
   const payload = {
     model: config.modelId,
