@@ -1,0 +1,13 @@
+{
+  "name": "surex",
+  "version": "0.1.0",
+  "description": "Looks up every MCP server before your agent calls one of its tools. Reviewed and clean: nothing happens. Flagged: the call stops, you see the finding and the file and the line, and one command lets you proceed anyway.",
+  "author": {
+    "name": "SureX",
+    "url": "https://github.com/SantiagoDevRel/surex"
+  },
+  "homepage": "https://github.com/SantiagoDevRel/surex",
+  "repository": "https://github.com/SantiagoDevRel/surex",
+  "license": "MIT",
+  "keywords": ["mcp", "security", "hooks", "registry", "review"]
+}

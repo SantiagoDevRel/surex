@@ -1,0 +1,26 @@
+{
+  "name": "@surex/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The registry: browse, verdict, dispute, submit.",
+  "scripts": {
+    "dev": "next dev -p 4311",
+    "build": "next build",
+    "start": "next start -p 4311",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@surex/core": "workspace:*",
+    "next": "^15.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+// The `surex` command.
+//
+// Executables in a plugin's bin/ join the PATH while the plugin is enabled, so
+// this is a real terminal command with no separate global install. That matters
+// because the override command is printed in every block message: the escape
+// hatch has to be a copy-paste away, or the gate gets uninstalled the first
+// time it is wrong.
+
+import { canonicalise, fingerprintOf, decide, tierSentence, capabilityLine,
+         loadEvidence, verificationLine, SEVERITY_LABEL, CLEAN_MEANS } from '../lib/core/index.mjs';
+import { discoverServers } from '../lib/config.mjs';
+import { findLocalIntegrity, integrityNote } from '../lib/integrity.mjs';
+import { apiBase, fetchVerdict } from '../lib/registry.mjs';
+import { addOverride, dataDir, paths, readCache, readLog, readOverrides, removeOverride } from '../lib/store.mjs';
+
+const NO_COLOR = process.env.NO_COLOR || !process.stdout.isTTY;
+const c = (code, s) => (NO_COLOR ? s : `\x1b[${code}m${s}\x1b[0m`);
+const dim = (s) => c('2', s);
+const bold = (s) => c('1', s);
+const red = (s) => c('31', s);
+const green = (s) => c('32', s);
+const yellow = (s) => c('33', s);
+const violet = (s) => c('35', s);
+
+const stateColour = { clean: green, flagged: red, disputed: violet, stale: yellow };
+const paint = (state, s) => (stateColour[state] ?? dim)(s);
+
+const [, , command, ...rest] = process.argv;
+const flags = new Set(rest.filter((a) => a.startsWith('--')));
+const args = rest.filter((a) => !a.startsWith('--'));
+
+function usage() {
+  console.log(`
+${bold('surex')} — what is known about the MCP servers your agent can call
+
+  ${bold('surex list')}                  every configured server, its fingerprint and its verdict
+  ${bold('surex why')} <fingerprint>     the full case: finding, capability surface, provenance,
+                              and the evidence fetched from Walrus and checked
+  ${bold('surex allow')} <fingerprint>   proceed anyway, at your own risk. ${dim('--once')} = this session only
+  ${bold('surex revoke')} <fingerprint>  undo an allow
+  ${bold('surex status')}                where state lives, what is cached, what the gate has been doing
+
+${dim(`Reviews are automated and no human audits them. A verdict describes the version that
+was reviewed — not necessarily the copy installed on this machine. Every verdict says
+which of those two it can actually speak to.`)}
+`);
+}
+
+async function headFor(fingerprint) {
+  try {
+    const { head } = await fetchVerdict(fingerprint, { timeoutMs: 8000 });
+    return { head, error: null };
+  } catch (err) {
+    return { head: null, error: err.message };
+  }
+}
+
+async function cmdList() {
+  const { servers, sources } = discoverServers(process.cwd());
+  if (!servers.length) {
+    console.log('No MCP servers found in any configuration scope for this directory.');
+    return;
+  }
+  console.log(`\n${bold(`${servers.length} MCP server(s)`)} ${dim(`· registry ${apiBase()}`)}\n`);
+
+  for (const server of servers) {
+    let canonical;
+    try {
+      canonical = canonicalise(server.def);
+    } catch (err) {
+      console.log(`  ${server.name.padEnd(22)} ${dim(`could not be read from its config (${err.message})`)}`);
+      continue;
+    }
+    const fp = fingerprintOf(canonical);
+    const { head, error } = await headFor(fp);
+    const state = head?.state ?? 'unknown';
+    const label = error ? dim('registry unreachable') : paint(state, state);
+    const pkg = canonical.transport === 'stdio'
+      ? `${canonical.package.name}${canonical.package.version !== 'unpinned' ? `@${canonical.package.version}` : ''}`
+      : `${canonical.host}${canonical.path}`;
+    console.log(
+      `  ${bold(server.name.padEnd(22))} ${label.padEnd(state.length > 8 ? 26 : 20)} ` +
+        `${dim(pkg)}\n    ${dim(`${fp}  ·  ${server.scope} scope`)}`,
+    );
+  }
+  console.log(`\n${dim(`scopes read: ${sources.map((s) => s.scope).join(', ') || 'none'}`)}\n`);
+}
+
+async function cmdWhy(fingerprint) {
+  if (!fingerprint) return usage();
+  const { head, error } = await headFor(fingerprint);
+  if (error) {
+    console.log(`\nCould not reach the registry: ${error}\n${dim(`tried ${apiBase()}`)}\n`);
+    return;
+  }
+  if (!head || head.state === 'unknown') {
+    console.log(`\n${dim(fingerprint)}\n\n  Not in the registry. Nothing has been reviewed for this install configuration.\n`);
+    return;
+  }
+
+  console.log(`\n${bold(head.name ?? fingerprint)}   ${paint(head.state, head.state.toUpperCase())}  ${dim(`tier ${head.tier}`)}`);
+  console.log(dim(fingerprint));
+  console.log(`\n  ${tierSentence(head.tier)}`);
+
+  if (head.topFinding) {
+    const f = head.topFinding;
+    console.log(
+      `\n  ${bold(`Finding (${SEVERITY_LABEL[f.severity] ?? '?'})`)}: ${f.description}` +
+        (f.file ? `\n    ${dim(`${f.file}${f.line ? `:${f.line}` : ''}`)}` : ''),
+    );
+  }
+  if (head.capabilities) {
+    console.log(`\n  This code can reach: ${capabilityLine(head.capabilities)}`);
+    for (const [name, cap] of Object.entries(head.capabilities)) {
+      if (!cap?.present || !cap.evidence?.length) continue;
+      console.log(dim(`    ${name}: ${cap.evidence.slice(0, 3).join(', ')}`));
+    }
+  }
+  if (head.state === 'clean') console.log(`\n  ${dim(CLEAN_MEANS)}`);
+
+  console.log(
+    `\n  ${bold('Provenance')}\n` +
+      `    reviewed commit  ${head.reviewedCommit ?? dim('unknown')}\n` +
+      `    reviewed at      ${head.reviewedAt ?? dim('unknown')}\n` +
+      `    model            ${head.modelId ?? dim('unknown')}  ${dim(`prompt ${head.promptVersion ?? '?'}`)}\n` +
+      `    ${yellow('no human audited this')}`,
+  );
+
+  // The evidence, actually fetched and actually checked.
+  if (head.evidence?.blobId) {
+    console.log(`\n  ${bold('Evidence')}  ${dim(head.evidence.blobId)}`);
+    const loaded = await loadEvidence(head.evidence, { timeoutMs: 8000 });
+    if (!loaded.ok) {
+      console.log(`    ${yellow(`could not be fetched from Walrus: ${loaded.error}`)}`);
+    } else {
+      console.log(`    fetched from ${dim(loaded.servedBy)} · ${verificationLine(loaded.verification)}`);
+      for (const check of loaded.verification.checks) {
+        const mark = { passed: green('✓'), failed: red('✗'), asserted: yellow('~'), unavailable: dim('?') }[check.status];
+        console.log(`      ${mark} ${check.name}: ${dim(check.detail)}`);
+      }
+      if (head.evidence.registerTx) {
+        console.log(dim(`    sui register ${head.evidence.registerTx}`));
+        console.log(dim(`    sui certify  ${head.evidence.certifyTx ?? '—'}`));
+      }
+      if (loaded.body?.findings?.length > 1) {
+        console.log(`\n    ${dim(`${loaded.body.findings.length} findings in the record:`)}`);
+        for (const f of loaded.body.findings.slice(0, 8)) {
+          console.log(dim(`      [${SEVERITY_LABEL[f.severity] ?? '?'}] ${f.file ?? '?'}:${f.line ?? '?'} — ${f.description}`));
+        }
+      }
+    }
+  }
+
+  if (head.illustrative) {
+    console.log(`\n  ${yellow('This entry is ILLUSTRATIVE demo data. It does not describe a real review.')}`);
+  }
+  console.log(`\n  ${dim(`decision: ${decide(head)}`)}\n`);
+}
+
+function cmdAllow(fingerprint) {
+  if (!fingerprint) return usage();
+  const once = flags.has('--once');
+  const sessionId = process.env.CLAUDE_SESSION_ID ?? 'cli';
+  addOverride(fingerprint, { once, sessionId });
+  console.log(
+    `\n  ${fingerprint}\n  will now be allowed ${once ? 'for this session' : 'on this machine'}.\n\n` +
+      `  ${yellow('The risk is yours.')} SureX had a finding against this server and will stop enforcing it.\n` +
+      `  ${dim(`undo with: surex revoke ${fingerprint}`)}\n` +
+      `  ${dim(`stored in ${paths.overrides()} — this is local and is reported nowhere.`)}\n`,
+  );
+}
+
+function cmdRevoke(fingerprint) {
+  if (!fingerprint) return usage();
+  const removed = removeOverride(fingerprint);
+  console.log(removed ? `\n  removed the override for ${fingerprint}\n` : `\n  no override was set for ${fingerprint}\n`);
+}
+
+function cmdStatus() {
+  const cache = readCache();
+  const overrides = readOverrides();
+  const log = readLog(500);
+  const entries = Object.values(cache.entries ?? {});
+  const byState = {};
+  for (const e of entries) byState[e.head?.state ?? 'unknown'] = (byState[e.head?.state ?? 'unknown'] ?? 0) + 1;
+
+  // Registry hit rate: the number failure-modes §3.1 says should be first and
+  // currently is nowhere. A gate that recognises almost nothing looks exactly
+  // like a gate that is working.
+  const lookups = log.filter((l) => ['allow', 'warn', 'block'].includes(l.decision));
+  const identified = lookups.filter((l) => l.fingerprint);
+  const known = identified.filter((l) => l.state && l.state !== 'unknown');
+  const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '—');
+
+  console.log(`
+  ${bold('registry')}   ${apiBase()}
+  ${bold('state in')}   ${dataDir()}   ${dim(process.env.CLAUDE_PLUGIN_DATA ? '(CLAUDE_PLUGIN_DATA)' : '(fallback — not running under the plugin)')}
+
+  ${bold('cache')}      ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}${
+    Object.keys(byState).length ? `  ${dim(Object.entries(byState).map(([k, v]) => `${k} ${v}`).join(' · '))}` : ''
+  }
+  ${bold('overrides')}  ${overrides.always.length} standing${
+    Object.keys(overrides.sessions ?? {}).length ? `, ${Object.keys(overrides.sessions).length} session-scoped` : ''
+  }
+
+  ${bold('last ' + lookups.length + ' lookups')}
+    identified from config   ${identified.length}/${lookups.length}  ${dim(pct(identified.length, lookups.length))}
+    resolved to an entry     ${known.length}/${identified.length}  ${dim(pct(known.length, identified.length))}   ${dim('← registry hit rate')}
+    blocked                  ${log.filter((l) => l.decision === 'block').length}
+    overridden               ${log.filter((l) => l.decision === 'override').length}
+`);
+}
+
+function cmdCheck(name) {
+  const { servers } = discoverServers(process.cwd());
+  const hits = name ? servers.filter((s) => s.name === name) : servers;
+  for (const server of hits) {
+    const canonical = canonicalise(server.def);
+    const fp = fingerprintOf(canonical);
+    console.log(`\n  ${bold(server.name)}  ${dim(`${server.scope} scope`)}`);
+    console.log(`  ${fp}`);
+    console.log(dim(`  ${JSON.stringify(canonical)}`));
+    if (canonical.transport === 'stdio' && canonical.package.version !== 'unpinned') {
+      const local = findLocalIntegrity(canonical.package.name, canonical.package.version, { cwd: process.cwd() });
+      console.log(dim(`  ${integrityNote(local)}${local.source ? ` — ${local.source}` : ''}`));
+    }
+  }
+  console.log('');
+}
+
+switch (command) {
+  case 'list': await cmdList(); break;
+  case 'why': await cmdWhy(args[0]); break;
+  case 'allow': cmdAllow(args[0]); break;
+  case 'revoke': case 'deny': cmdRevoke(args[0]); break;
+  case 'status': cmdStatus(); break;
+  case 'check': cmdCheck(args[0]); break;
+  default: usage();
+}

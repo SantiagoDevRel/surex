@@ -1,3 +1,7 @@
+// AUTO-GENERATED — do not edit.
+// Vendored from packages/core/src by scripts/sync-core.mjs, because the plugin
+// runs on a user's machine with nothing installed. Edit the original and re-run
+// `pnpm sync:core`.
 // SXF-1 — the install-config fingerprint.
 //
 // Normative, and versioned on purpose: a change to canonicalisation changes

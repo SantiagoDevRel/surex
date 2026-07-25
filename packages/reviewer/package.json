@@ -1,0 +1,13 @@
+{
+  "name": "@surex/reviewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One OpenAI-compatible call to the DGX, schema-validated out, plus a deterministic capability scan that is NOT the model.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@surex/core": "workspace:*"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "surex",
+  "owner": {
+    "name": "SantiagoDevRel",
+    "url": "https://github.com/SantiagoDevRel"
+  },
+  "metadata": {
+    "description": "SureX — a trust registry for MCP servers, and a gate that reads it.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "surex",
+      "source": "./packages/plugin",
+      "description": "Looks up every MCP server before your agent calls one of its tools. Flagged servers are blocked with the evidence and a one-command override.",
+      "version": "0.1.0"
+    }
+  ]
+}

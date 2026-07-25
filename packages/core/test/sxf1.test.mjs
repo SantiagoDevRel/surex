@@ -106,6 +106,45 @@ test('uvx accepts pip-style pins', () => {
   assert.deepEqual(c.package, { name: 'mcp-server-git', version: '0.6.2' });
 });
 
+test('THE PORTABILITY TEST: the same server on Windows and macOS is ONE entry', () => {
+  // Found by running the gate against a real machine, not by writing a test
+  // first. Every MCP server in a Windows config is `cmd /c npx <pkg>`; the same
+  // server on macOS is `npx <pkg>`. Without unwrapping, the two hash
+  // differently AND the Windows form loses the package name entirely — the gate
+  // would look like it worked while recognising nothing (failure-modes §3.1).
+  const windows = { command: 'cmd', args: ['/c', 'npx', '@playwright/mcp@1.2.3'] };
+  const macos = { command: 'npx', args: ['@playwright/mcp@1.2.3'] };
+  assert.equal(fingerprint(windows), fingerprint(macos));
+  assert.deepEqual(canonicalise(windows).package, { name: '@playwright/mcp', version: '1.2.3' });
+});
+
+test('sh -c with a single quoted string unwraps too', () => {
+  const viaSh = { command: '/bin/sh', args: ['-c', 'npx -y @acme/mcp@2.0.0 --read-only'] };
+  const direct = { command: 'npx', args: ['-y', '@acme/mcp@2.0.0', '--read-only'] };
+  assert.equal(fingerprint(viaSh), fingerprint(direct));
+});
+
+test('a proxy shim resolves to the endpoint behind it, not the shim', () => {
+  // `npx mcp-remote <url>` is a remote server wearing a stdio costume.
+  // Fingerprinting the shim would file every remote server under one entry.
+  const viaProxy = canonicalise({ command: 'cmd', args: ['/c', 'npx', 'mcp-remote', 'https://mcp.vercel.com'] });
+  assert.equal(viaProxy.transport, 'http');
+  assert.equal(viaProxy.host, 'mcp.vercel.com');
+  assert.equal(
+    fingerprint({ command: 'npx', args: ['mcp-remote', 'https://mcp.vercel.com'] }),
+    fingerprint({ type: 'http', url: 'https://mcp.vercel.com' }),
+  );
+  // A proxy with no visible URL must NOT become a wrong remote entry.
+  assert.equal(canonicalise({ command: 'npx', args: ['mcp-remote'] }).transport, 'stdio');
+});
+
+test('unwrapping is bounded and never loses a non-wrapper command', () => {
+  const plain = { command: 'node', args: ['./server.js'] };
+  assert.equal(canonicalise(plain).runner, 'node');
+  // `cmd` with no /c is not a wrapper invocation; leave it alone.
+  assert.equal(canonicalise({ command: 'cmd', args: ['something'] }).runner, 'other:cmd');
+});
+
 test('a remote server identifies an endpoint, and is always tier C', () => {
   const c = canonicalise({ type: 'http', url: 'https://MCP.Stripe.com:443/v1/?x=1' });
   assert.deepEqual(c, { v: 'SXF-1', transport: 'http', host: 'mcp.stripe.com', path: '/v1' });

@@ -310,6 +310,30 @@ and **`prompt_id`** (stable per user turn, distinct from `session_id`). `effort`
 - **Takeaway for anyone building on this:** the practical limit on a block message is *comprehension*, not
   bytes. Keep it short and structured. The documented cap is the wrong thing to design against.
 
+### C6 · An MCP server config is not portable across platforms, and nothing normalises it — **[VERIFIED]**
+**Severity: medium**, and it silently breaks anything that treats a server definition as an identity.
+
+- **Expected:** that the same MCP server, configured the same way, looks the same in `~/.claude.json` on
+  Windows and on macOS.
+- **Happened:** it does not. On Windows every stdio server is written as
+  `{"command": "cmd", "args": ["/c", "npx", "@playwright/mcp@latest"]}`; the identical server on macOS is
+  `{"command": "npx", "args": ["@playwright/mcp@latest"]}`. The package name is not in the same position,
+  and a naive reader of `command` sees `cmd` and learns nothing at all.
+- **How we found out:** ran our fingerprinter over this machine's real configuration. Every Windows-added
+  server produced `runner: "other:cmd", package: {name: "", version: "unpinned"}` — the package identity
+  gone entirely. A Windows user and a macOS user running the same server would never have matched.
+- **Also in the same family:** `npx mcp-remote <url>` is a *remote* server wearing a stdio costume. Read
+  literally, every remote server behind that shim collapses onto one identity — the shim's.
+- **What would have prevented it:** a documented canonical form for a server definition, or a helper in the
+  MCP spec/SDK that returns one. Every tool that wants to reason about "which server is this" — a registry,
+  an allowlist, a lockfile, a policy engine — is re-deriving this and will get it wrong in the same way.
+
+**A second finding from the same run, worth more than the bug.** Across 15 real MCP servers in three config
+scopes on a working developer's machine, **not one was version-pinned** — the ecosystem convention is
+`npx -y pkg@latest`. Any scheme that ties a security claim to a reviewed *version* is, in the ecosystem as
+it exists today, describing code that is not the code about to run. We grade that as Tier C and say so on
+every verdict rather than let it read as a pass.
+
 ### C5 · `session_id` stability across `/clear` and `/compact` is undocumented
 `/branch` is documented to produce a new session id. `/clear`, `/compact` and `/resume` are not described
 either way. Any hook implementing "approve once per conversation" depends on this, and it is not guessable.
@@ -339,3 +363,50 @@ guarding a behaviour every stateful hook has to reverse-engineer.
 - **World** — W1 is a real, reproducible bug with a root cause and a suggested patch. Lead the booth conversation with it.
 - Beta tracks (Selfie Check / Identity Check) grade **testing documentation covering both developer and user feedback** as a required deliverable. If we touch either, the user-side half has to be written too — it is not optional.
 - Keep the repro scripts. "Here is the failing case" beats a paragraph.
+
+---
+
+## MCP SDK
+
+Building `packages/fixture-mcp` (the malicious fixture) against `@modelcontextprotocol/sdk@1.29.0`, Node 22.22.3.
+
+### M1 · To ship tool descriptions that intentionally diverge from behaviour, you need the low-level `Server`, not `McpServer`
+
+**What we expected.** The SDK's headline API, `McpServer.registerTool(name, { description, inputSchema }, handler)`, would let us hand-author a tool description that lies about what the handler does — the whole premise of the fixture.
+
+**What happened.** It can, but it is built around *honest* tools: `inputSchema` is a Zod raw shape, the framework derives the advertised JSON Schema from it, and the mental model couples the declared surface to the implementation. For a fixture whose declared metadata must be arbitrary hand-written JSON (a plain JSON Schema, description free-text, deliberately unrelated to the code), the clean primitive is the **low-level `Server`** from `@modelcontextprotocol/sdk/server/index.js` with `setRequestHandler(ListToolsRequestSchema, …)` and `setRequestHandler(CallToolRequestSchema, …)` returning the tool list you author by hand. It also drops the Zod dependency entirely.
+
+**How we found out.** Read `dist/esm/server/{index,mcp}.js` exports and confirmed the low-level handler API against the installed build (`ListToolsRequestSchema.shape.method.value === 'tools/list'`). Not a bug — an API-selection gotcha.
+
+**What would have prevented it.** One line in the server README: *"use the low-level `Server` when you need full control over the raw tool metadata (or want no Zod)."* Not observed there; the docs lead with `McpServer`.
+
+### M2 · A stray non-JSON line on the server's stdout did **not** break the stdio handshake — correcting a common assumption — **[VERIFIED, reproduced]**
+
+**What we expected.** MCP stdio framing is newline-delimited JSON-RPC on stdout, so a stray `console.log(...)` in the server (e.g. a startup banner) would corrupt the stream and make the client's `initialize` fail. We designed the fixture to print status to **stderr** on that assumption.
+
+**What happened.** On `@modelcontextprotocol/sdk@1.29.0`, a server that prints a plain-text line to stdout *before* `server.connect(new StdioServerTransport())` still completes the client handshake — the probe client reported `connected OK`, not a parse failure. The SDK's client-side read buffer tolerated the leading non-JSON line rather than treating it as fatal. (Scope: tested for a line emitted around startup/connect; a line interleaved *between* JSON-RPC messages mid-session was not tested and may differ.)
+
+**How we found out.** Minimal repro, run from inside the repo so the SDK resolves:
+
+```js
+// _probe-bad-server.mjs
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+console.log('STRAY STDOUT LINE');                       // the supposed bug
+const s = new Server({name:'bad',version:'1'},{capabilities:{tools:{}}});
+s.setRequestHandler(ListToolsRequestSchema, async () => ({tools:[]}));
+await s.connect(new StdioServerTransport());
+```
+```js
+// _probe-client.mjs — spawns the above, attempts the MCP initialize handshake
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+const t = new StdioClientTransport({ command: process.execPath, args: [process.argv[2]] });
+const c = new Client({name:'probe',version:'1'});
+try { await c.connect(t); console.log('RESULT: connected OK'); await c.close(); }
+catch (e) { console.log('RESULT: FAILED ->', e.message); }
+```
+`node _probe-client.mjs "$(pwd)/_probe-bad-server.mjs"` → `RESULT: connected OK`.
+
+**What would have prevented it.** Nothing to fix in our code — this *corrects our own assumption*. The fixture still routes status to stderr as good hygiene (and because interleaved mid-session output is untested), but the belief "any stdout noise breaks a stdio MCP server" is not true for this SDK version around the handshake. Worth knowing before spending time hunting a non-existent corruption bug.

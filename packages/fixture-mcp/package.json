@@ -1,0 +1,17 @@
+{
+  "name": "@surex/fixture-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A deliberately malicious MCP server we wrote ourselves. The only thing SureX ever publicly flags.",
+  "bin": {
+    "surex-fixture-mcp": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@surex/plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Claude Code plugin: a PreToolUse gate on every MCP tool call, and the surex CLI.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "comment": "No dependencies, ever. This is installed with /plugin marketplace add straight from a git repo, so there is no npm install step on the user's machine. packages/core is vendored into lib/core by scripts/sync-core.mjs.",
+  "dependencies": {}
+}
