@@ -1,6 +1,6 @@
 import { getRegistry } from '@/lib/api.ts';
 import { COPY } from '@/lib/copy.ts';
-import { statusRank } from '@/lib/format.ts';
+import { DEFAULT_STATE, matchesState, statusRank } from '@/lib/format.ts';
 import type { RegistryRow } from '@/lib/types.ts';
 
 import { Banner } from './_components/Banner.tsx';
@@ -30,7 +30,10 @@ function one(value: string | string[] | undefined, fallback: string): string {
 function filterRows(rows: RegistryRow[], query: RegistryQuery): RegistryRow[] {
   const needle = query.q.trim().toLowerCase();
   const filtered = rows.filter((row) => {
-    if (query.state !== 'all' && row.status !== query.state) return false;
+    // `matchesState` owns which states a view contains — including the default
+    // one, which is a filter and therefore something a test has to be able to
+    // pin. Nothing is dropped here that RegistryFilters does not announce.
+    if (!matchesState(row.status, query.state)) return false;
     if (query.tier !== 'all' && row.tier !== query.tier) return false;
     if (!needle) return true;
     return (
@@ -58,7 +61,11 @@ export default async function BrowsePage({
   const sp = await searchParams;
   const query: RegistryQuery = {
     q: one(sp.q, ''),
-    state: one(sp.state, 'all'),
+    // The default is the decided view, not `all`. A registry whose honest answer
+    // for most third-party packages is "we could not read this" buries its
+    // verdicts under those answers otherwise. The rows left out are counted and
+    // linked immediately under the filters — see HiddenNotice.
+    state: one(sp.state, DEFAULT_STATE),
     tier: one(sp.tier, 'all'),
     sort: one(sp.sort, 'state'),
   };

@@ -46,8 +46,19 @@ export function RegistryTable({
       <Panel className="mt-3 overflow-x-auto">
         {/* Wide enough that STANDING never wraps — a wrapped cell doubles the
             row height, and the row is specified at 32px (tokens §06). Below
-            this the panel scrolls sideways instead of growing downwards. */}
-        <div className="min-w-[1040px]">
+            this the panel scrolls sideways instead of growing downwards.
+
+            THE NUMBER IS ARITHMETIC, NOT TASTE, so it has to move when a column
+            does. The five fixed cells in CustodyRow's COL (236+104+66+148+132),
+            five 10px gaps and 16px of padding either side come to 768px; the
+            remainder is STANDING, which is the only flexible cell. This was
+            1040 when REVIEWED was 104px wide — 724 fixed + 316 for STANDING.
+            REVIEWED then grew to 148px for the timestamp and this number did
+            not follow it, which quietly cut STANDING to 272px at the narrow end
+            and put the longest standing line plus the `illustrative` marker back
+            over the edge the min-width exists to keep it inside. 768 + 316 =
+            1084 restores exactly the slack the row was designed with. */}
+        <div className="min-w-[1084px]">
           <CustodyHeader />
           {rows.map((row) => (
             <CustodyRow key={row.fingerprint ?? `${row.name}@${row.version}`} row={row} />

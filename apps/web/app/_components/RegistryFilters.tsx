@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/cn.ts';
 import { COPY } from '@/lib/copy.ts';
+import { DEFAULT_STATE, hiddenFromDefault, isDecided } from '@/lib/format.ts';
 import type { RegistryRow, RowStatus } from '@/lib/types.ts';
 
 import { FilterChip } from './Chip.tsx';
@@ -36,15 +38,59 @@ const STATES: RowStatus[] = [
   'running',
 ];
 
+/**
+ * A URL for the query, with the defaults left out.
+ *
+ * `state` is omitted at `DEFAULT_STATE`, not at `all` — the bare `/` is the
+ * default view, so `?state=all` has to be written down. Getting this backwards
+ * would make "show all" produce a link back to the filtered list.
+ */
 function href(query: RegistryQuery, patch: Partial<RegistryQuery>): string {
   const next = { ...query, ...patch };
   const params = new URLSearchParams();
   if (next.q) params.set('q', next.q);
-  if (next.state !== 'all') params.set('state', next.state);
+  if (next.state !== DEFAULT_STATE) params.set('state', next.state);
   if (next.tier !== 'all') params.set('tier', next.tier);
   if (next.sort !== 'state') params.set('sort', next.sort);
   const s = params.toString();
   return s ? `/?${s}` : '/';
+}
+
+/**
+ * What the default view is not showing, said out loud, with the way back.
+ *
+ * Renders ONLY while the default view is the active one. Every other state
+ * filter is something the reader clicked, and its chip is already lit — a second
+ * announcement there would be noise. This one exists because the default filters
+ * without being asked, and a filter nobody asked for has to declare itself or it
+ * is just a shorter list with no explanation.
+ *
+ * The breakdown is per state (`25 unreviewable`, and `· 3 unknown` beside it if
+ * there are any) rather than one lump, because "held back" covers three
+ * different facts and the reader deserves to know which one applies.
+ */
+function HiddenNotice({ query, rows }: { query: RegistryQuery; rows: RegistryRow[] }) {
+  const groups = hiddenFromDefault(rows);
+  if (query.state !== DEFAULT_STATE || groups.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-mini text-faint">
+      <span className="border border-dashed border-line px-1.5 text-nano uppercase text-ink-3">
+        {COPY.browse.hiddenTag}
+      </span>
+      <span className="text-ink-2">
+        {groups.map((g) => `${g.count} ${g.status}`).join(' · ')} {COPY.browse.hiddenSuffix}
+      </span>
+      <span aria-hidden="true">·</span>
+      <Link
+        href={href(query, { state: 'all' })}
+        className="text-accent underline underline-offset-2"
+      >
+        {COPY.browse.hiddenShowAll} {rows.length}
+      </Link>
+      <p className="basis-full">{COPY.browse.hiddenWhy}</p>
+    </div>
+  );
 }
 
 /**
@@ -103,7 +149,12 @@ export function RegistryFilters({
           placeholder={COPY.browse.searchPlaceholder}
           className="w-[280px] rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
         />
-        {query.state !== 'all' ? <input type="hidden" name="state" value={query.state} /> : null}
+        {/* The active view has to survive a search, so it rides along as a hidden
+            field whenever it is not the default one — including `all`, which is
+            now a choice rather than the absence of one. */}
+        {query.state !== DEFAULT_STATE ? (
+          <input type="hidden" name="state" value={query.state} />
+        ) : null}
         {query.tier !== 'all' ? <input type="hidden" name="tier" value={query.tier} /> : null}
         {query.sort !== 'state' ? <input type="hidden" name="sort" value={query.sort} /> : null}
         <button
@@ -115,6 +166,15 @@ export function RegistryFilters({
       </form>
 
       <FilterGroup label={COPY.browse.filterState} lead>
+        {/* The default view and the whole registry, adjacent and both counted, so
+            the difference between them is arithmetic the reader can do at a
+            glance rather than a claim they have to take. */}
+        <FilterChip
+          href={href(query, { state: DEFAULT_STATE })}
+          active={query.state === DEFAULT_STATE}
+        >
+          {COPY.browse.viewDecided} {rows.filter((r) => isDecided(r.status)).length}
+        </FilterChip>
         <FilterChip href={href(query, { state: 'all' })} active={query.state === 'all'}>
           {COPY.browse.all} {rows.length}
         </FilterChip>
@@ -129,6 +189,8 @@ export function RegistryFilters({
           </FilterChip>
         ))}
       </FilterGroup>
+
+      <HiddenNotice query={query} rows={rows} />
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
         <FilterGroup label={COPY.browse.filterTier} lead>

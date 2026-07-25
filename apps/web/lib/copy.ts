@@ -73,6 +73,33 @@ export const COPY = {
     filterState: 'STATE',
     filterTier: 'TIER',
     filterSort: 'SORT',
+
+    /**
+     * THE DEFAULT LIST IS FILTERED, AND IT SAYS SO ON THE PAGE.
+     *
+     * The default view is the entries where a review reached a verdict. It has to
+     * be: a registry whose honest answer for most third-party packages is "we
+     * could not read this, and here is why" ends up with those entries
+     * outnumbering the verdicts several to one, and a reader who opens the list
+     * and meets a screen of `unreviewable` learns nothing about the reviews.
+     *
+     * But hiding a real answer is exactly the move this product exists to refuse,
+     * so the filter is announced rather than applied quietly: the count of what is
+     * held back is printed, broken down by state, next to a link that brings it
+     * all back in one click. `hiddenWhy` is there so the reader knows the entries
+     * still exist rather than inferring that they were dropped — an `unreviewable`
+     * is a published answer, not a gap in the record.
+     *
+     * No number lives in any of these strings. Every count on this line is counted
+     * off the rows the page actually received.
+     */
+    viewDecided: 'with a verdict',
+    hiddenTag: 'FILTERED',
+    hiddenSuffix: 'not in this list',
+    hiddenShowAll: 'show all',
+    hiddenWhy:
+      'By default this list shows the entries where a review reached a verdict. Nothing is removed from the registry — an entry we could not review is a published answer about source that could not be read, and it keeps its own page.',
+
     sortByState: 'by state',
     sortByName: 'name',
     sortByRecent: 'recent',
@@ -128,7 +155,11 @@ export const COPY = {
       'whether the code it read is the code you will run. A, B or C — it says nothing about whether the review found anything.',
     axesIndependent:
       'They move independently. A clean verdict at tier C is a real review of a real package, of a version your machine may not resolve to. A flagged verdict at tier A is a finding in exactly the bytes you have.',
-    /** Hover title on the REVIEWED cell, which shows a date, not a timestamp. */
+    /**
+     * Hover title on the REVIEWED cell. The cell itself is now truncated to the
+     * minute (`2026-07-25 14:31Z`); the title carries the timestamp as recorded,
+     * seconds and all, so nothing is rounded away without somewhere to read it.
+     */
     reviewedAtTitle: 'recorded review time, UTC',
     countSuffix: 'shown',
   },
@@ -458,6 +489,102 @@ export const COPY = {
       'Some servers legitimately need broad access. A shell-execution server is flagged and stays flagged; the finding simply remains visible.',
     windowNote:
       'Maintainer window: a verdict reads unconfirmed — maintainer notified — for 72 hours before confirmation can begin. Protection is never delayed; only the wording changes.',
+  },
+
+  /**
+   * The live loader on /submit — what the pipeline is doing, while it does it.
+   *
+   * A review is minutes, and the screen used to say "queued" and then nothing.
+   * Every string here describes a step the backend REPORTED; there is no copy in
+   * this block for a step that might be happening, because the loader has no way
+   * to know that and neither does this file.
+   *
+   * The two `…Absent` strings are load-bearing. A field the API did not send
+   * renders as one of them — never as a plausible-looking value.
+   */
+  pipeline: {
+    label: 'WHAT THE REGISTRY IS DOING',
+    /**
+     * One per stage of `GET /v1/submissions/:id`. Functional, not narrated: each
+     * says what the machine is doing, in the vocabulary the verdict will use.
+     */
+    stage: {
+      resolving: 'resolving the release to a commit',
+      licence: 'reading the licence',
+      fetching: 'fetching the source at that commit',
+      starting: 'starting the reviewer',
+      reviewing: 'the model is reading the source',
+      walrus: 'writing the record to Walrus',
+      arkiv: 'writing the entity to Arkiv',
+      done: 'finished',
+    },
+    queuedLabel: 'QUEUED',
+    queuedBody:
+      'Accepted and waiting for the reviewer. Nothing has been read yet, and nothing is asserted until the run completes.',
+    queuePosition: 'position in queue',
+    runningLabel: 'RUNNING',
+    doneLabel: 'RUN COMPLETE',
+    doneBody:
+      'The run finished and its records are linked below. What it concluded is on the entry page — a completed run is not a clean result.',
+    failedLabel: 'THE RUN STOPPED',
+    failedBody:
+      'It did not finish. Nothing partial is published: an entry appears only when a record is written, so a stopped run leaves the registry as it was.',
+    interruptedLabel: 'INTERRUPTED',
+    interruptedBody:
+      'The process died mid-run, so it may have written some of what it intended. Whatever landed is linked below; anything not linked did not happen.',
+    unknownIdLabel: 'NO SUCH SUBMISSION',
+    unknownIdBody:
+      'The registry has no record of this id. That is an answer about the registry, not a failed request — the submission above is the one to trust.',
+    notBuiltLabel: 'NOTHING TO REPORT ON',
+    notBuiltBody:
+      'This deployment has no writer, so it has no runs to report progress for.',
+    lostLabel: 'STOPPED WATCHING',
+    lostBody:
+      'The registry stopped answering, so this page has no idea what the run is doing now. Nothing about the run itself changed — reload to pick the watch back up.',
+
+    /** The reading panel's source line and its meta label. */
+    readingLabel: 'reading',
+    readingSource: 'the submitted source, on the DGX',
+
+    /** The two-reading split. Only ever rendered when the backend said so. */
+    disagreeLabel: 'THE TWO READINGS DISAGREE',
+    disagreeBody:
+      'The reviewer takes two paraphrased readings of the same source. These two did not land in the same place, so a second pair is running to break the tie. A tie that does not break is published as no-agreement, which is a review with no verdict rather than a verdict of clean.',
+    readingOne: 'reading·1',
+    readingTwo: 'reading·2',
+    rerunThree: 're-read·3',
+    rerunFour: 're-read·4',
+    /** What a reading card says when the run reported a split but not its sides. */
+    readingAbsent: 'not reported',
+
+    /** The write receipts. Built only from an id the pipeline actually sent. */
+    blobLabel: 'blob',
+    entityLabel: 'entity',
+    sha256Label: 'sha256',
+    txLabel: 'tx',
+    stampWalrus: 'on walrus',
+    stampArkiv: 'on arkiv',
+    openBlob: 'Open the blob on the Walrus aggregator',
+    openEntity: 'Open the entity on the Arkiv explorer',
+    entryAction: 'Read the entry',
+
+    /** Provenance of the run, named while it runs rather than after. */
+    modelLabel: 'MODEL',
+    promptLabel: 'PROMPT',
+    passesLabel: 'PASSES',
+    elapsedLabel: 'ELAPSED',
+    startedLabel: 'STARTED',
+    /**
+     * `reviewerIdentity()` reads the model name from the same env var the
+     * reviewer itself reads, so an unset one is a real fact about the deployment.
+     * Saying so beats naming a model nobody configured.
+     */
+    modelAbsent: 'the deployment did not name a model',
+    /** The density is stage-derived, not counted. Said plainly, beside it. */
+    stepOf: 'step',
+    unitsOf: 'of',
+    nothingReported:
+      'The run has not reported a stage yet.',
   },
 
   banners: {

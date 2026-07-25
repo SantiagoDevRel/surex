@@ -16,7 +16,7 @@ pnpm --filter @surex/web test     # the copy law, over every string
 
 | Route | Screen | Live API | Fixture fallback |
 |---|---|---|---|
-| `/` | registry list | `GET /v1/flagged` + `GET /v1/stats` | full 11-row fixture registry |
+| `/` | registry list | `GET /v1/registry?limit=200` + `GET /v1/stats`, falling back to `GET /v1/flagged` against an API that predates the route | full 11-row fixture registry |
 | `/r/<fingerprint>` | one verdict, in full | `GET /v1/entry/<fp>` | 5 fixture entries (flagged · clean · disputed · stale · unreviewable) |
 | `/d/<fingerprint>` | the dispute | the `dispute` record on `GET /v1/entry/<fp>` | one fixture dispute, `under_review` |
 | `/submit` | maintainer submission | `POST /v1/submissions` — **real call**, no fixture | — |
@@ -24,6 +24,32 @@ pnpm --filter @surex/web test     # the copy law, over every string
 Every route is `force-dynamic`. Prerendering would freeze whichever answer happened to be available at
 build time — including the fixture fallback — and bake an illustrative banner into a page that could have
 been live.
+
+### The registry's default view is FILTERED — and it says so
+
+`/` with no query shows the entries where a review **reached a verdict**: `clean`, `flagged`, `disputed`
+and `stale`. Everything else — `unreviewable`, `unknown`, `running` — is one click away and never removed.
+
+Why: on 2026-07-25 the live registry held 34 verdict heads and **25 of them were `unreviewable`**, almost
+all a licence gate refusing to store source we may not redistribute (FRICTION-LOG R2). Those are real
+answers and they stay published, but at three-to-one they bury every verdict on the screen the registry
+exists to show.
+
+The whole mechanism is in `lib/format.ts` — `DEFAULT_STATE`, `isDecided()`, `matchesState()`,
+`hiddenFromDefault()` — and pinned by `test/registry-view.test.mjs`. Two properties make it a display
+decision rather than concealment, and both are tested:
+
+- **Nothing worse than `clean` is ever held back.** `isDecided()` is `statusRank(s) <= statusRank('clean')`,
+  derived from the sort order rather than written out again, so `stale` — which ranks *worse* than clean —
+  cannot be dropped by someone tidying a list of state names.
+- **The count of what is held back is on the screen, broken down by state, next to the way back.**
+  `HiddenNotice` in `RegistryFilters.tsx` renders `FILTERED · 25 unreviewable not in this list · show all 34`
+  and only while the default view is the active one; every other filter is something the reader clicked and
+  its chip is already lit. The table footer says `9 of 34 shown` underneath.
+
+It is done entirely in the web layer. `GET /v1/registry` still returns every state and its default response
+is unchanged, because the plugin's gate reads that API (`packages/plugin/lib/registry.mjs`) and a registry
+that answers differently depending on who asks is not a registry.
 
 ### The three answers, kept distinct
 

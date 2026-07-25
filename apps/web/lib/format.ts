@@ -50,6 +50,23 @@ export function isoMinute(
   return { date: iso.slice(0, 10), time: `${iso.slice(11, 16)}Z` };
 }
 
+/**
+ * `104000` → `1m 44s`. `null` for anything that is not a duration.
+ *
+ * Whole seconds, and minutes once there are any: this renders a REPORTED
+ * `durationMs` beside a run that takes minutes, and sub-second precision on a
+ * number that arrives every ~1.8 s would be precision the page does not have.
+ * A run that has not reported one gets no value here, not a zero — `0s` reads as
+ * "it just started", which is a different claim from "nobody said".
+ */
+export function humanDuration(ms: number | undefined | null): string | null {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return null;
+  const total = Math.round(ms / 1000);
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 /** `stripe-mcp-tools@1.0.4` → `{ name, version }`. Scoped names keep their `@`. */
 export function splitName(name: string | undefined): { name: string; version: string } {
   if (!name) return { name: 'unnamed entry', version: '' };
@@ -103,4 +120,69 @@ export function statusRank(status: RowStatus): number {
   ];
   const i = order.indexOf(status);
   return i === -1 ? order.length : i;
+}
+
+/* ------------------------------------------------ what the default view is --*/
+
+/**
+ * The value of `?state=` that means "the default view". Not a `RowStatus`, on
+ * purpose: it is a view, and a view that shares a name with a state would make
+ * `?state=clean` and the default indistinguishable in a URL somebody pasted.
+ */
+export const DEFAULT_STATE = 'decided';
+
+/**
+ * Is this a state where a review reached a verdict about the code?
+ *
+ * Derived from `statusRank` rather than written out as a second list, so the two
+ * cannot drift. The rank is worst-news-first, and `clean` is the boundary:
+ * everything at or above it is a verdict somebody reached, everything below it
+ * is a reason no verdict exists — `unreviewable` says why the source could not
+ * be read, `unknown` says nobody has looked, `running` says a pass is in flight.
+ *
+ * `stale` is IN, and that is not a detail. It ranks *worse* than `clean`, so
+ * dropping it from the default list would hide an entry this very sort order
+ * calls worse news than one it shows. A filter that does that is concealment
+ * whatever its label says. It is also the set `normaliseStats()` already counts
+ * as `reviewed` (lib/api.ts, REVIEWED_STATES) — one definition, two readers.
+ */
+export function isDecided(status: RowStatus): boolean {
+  return statusRank(status) <= statusRank('clean');
+}
+
+/** Does a row belong in the view `state` names? The one place that decides. */
+export function matchesState(status: RowStatus, state: string): boolean {
+  if (state === 'all') return true;
+  if (state === DEFAULT_STATE) return isDecided(status);
+  return status === state;
+}
+
+export interface StateCount {
+  status: RowStatus;
+  count: number;
+}
+
+/**
+ * What the default view is holding back, by state, worst news first.
+ *
+ * This exists so the screen can PRINT the number it is not showing. A filtered
+ * list that does not say how much it filtered is a list that lies by omission,
+ * and this registry's whole claim is that an entry it cannot review is still an
+ * answer it publishes. States with nothing in them are omitted rather than
+ * rendered as a zero — "0 running" is noise, not disclosure.
+ */
+export function hiddenFromDefault(rows: readonly { status: RowStatus }[]): StateCount[] {
+  const counts = new Map<RowStatus, number>();
+  for (const row of rows) {
+    if (isDecided(row.status)) continue;
+    counts.set(row.status, (counts.get(row.status) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => statusRank(a.status) - statusRank(b.status));
+}
+
+/** How many rows the default view leaves out. Never derived by subtraction. */
+export function hiddenCount(rows: readonly { status: RowStatus }[]): number {
+  return rows.filter((row) => !isDecided(row.status)).length;
 }
