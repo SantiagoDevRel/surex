@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<style id="surex-responsive">
+@media (max-width: 880px){
+  .r-grid{grid-template-columns:1fr !important}
+  .r-wide{min-width:0 !important}
+  .r-arrow{display:none !important}
+  .r-pad{padding-left:16px !important;padding-right:16px !important}
+  body{overflow-x:hidden}
+  h1{font-size:29px !important;line-height:1.14 !important}
+  h2{font-size:21px !important}
+  table{font-size:12.5px !important}
+}
+@media (max-width: 560px){
+  h1{font-size:25px !important}
+  .r-pad{padding-left:13px !important;padding-right:13px !important}
+}
+@media (max-width: 880px){
+  html,body{overflow-x:hidden !important;max-width:100% !important}
+  .r-wide{overflow:hidden !important}
+}
+</style>
 </head>
 <body>
 <div style="position:sticky;top:0;z-index:99999;background:#B45309;color:#fff;font:500 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:10px 16px;text-align:center;letter-spacing:.02em">DESIGN PROTOTYPE &mdash; not a running service. Every number, verdict and record on this page is illustrative placeholder content. Nothing here is a real review of a real MCP server. <a href="./index.html" style="color:#fff;text-decoration:underline">Read the explainer</a></div>
@@ -58,7 +78,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
 <!-- ================= LANDING ================= -->
 <sc-if value="{{ isLanding }}" hint-placeholder-val="{{ true }}">
 <div data-screen-label="landing" style="max-width:1120px;margin:0 auto;padding:56px 28px 80px">
-  <div style="display:grid;grid-template-columns:1fr 1.1fr;gap:44px;align-items:center">
+  <div class="r-grid" style="display:grid;grid-template-columns:1fr 1.1fr;gap:44px;align-items:center">
     <div>
       <div style="font-size:9px;letter-spacing:.22em;color:var(--ink3)">A REVIEW IN THE PATH · WALRUS × ARKIV × WORLD</div>
       <div style="font-size:31px;font-weight:600;line-height:1.25;margin-top:14px">Your agent runs code<br>nobody checked.</div>
@@ -95,7 +115,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:64px">
+  <div class="r-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:64px">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px">
       <div style="font-size:9px;letter-spacing:.16em;color:var(--ink3)">01 · SOURCE, PINNED</div>
       <div style="font-size:12px;line-height:1.65;color:var(--ink2);margin-top:10px">A release's source is stored as a content-addressed blob on Walrus (Sui). The review is about <b style="color:var(--ink)">those bytes</b>, permanently retrievable, not a moving repo.</div>
@@ -232,7 +252,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
       <span style="font-size:13px;font-weight:600">Credential exfiltration during initialization</span>
       <span style="margin-left:auto;font-size:10.5px;color:var(--accent)">src/init.ts:214</span>
     </div>
-    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:0">
+    <div class="r-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:0">
       <div style="padding:16px 20px;border-right:1px solid var(--line)">
         <div style="font-family:'Source Serif 4',serif;font-size:15px;line-height:1.6;color:var(--ink2)">On startup — before the first tool call completes — the server reads every environment variable matching <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink)">STRIPE_*</span> and <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink)">AWS_*</span> and posts them to a hardcoded Slack webhook. The package name imitates the official Stripe tooling; the maintainer account is 11 days old.</div>
         <div style="font-size:10.5px;color:var(--ink3);margin-top:12px;line-height:1.6"><b style="color:var(--ink2)">Could this be wrong?</b> Yes. This is a model's reading of the code, not a human's. If you believe it misreads the code, <span onClick="{{ goDispute }}" style="color:var(--accent);cursor:pointer">contest it with evidence</span> — the rebuttal will be shown beside it, with equal weight.</div>
@@ -250,7 +270,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
   </sc-if>
 
   <sc-if value="{{ isVD }}" hint-placeholder-val="{{ false }}">
-  <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+  <div class="r-grid" style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
     <div style="border:1px solid var(--flagged-l);border-radius:6px;background:var(--panel);padding:16px 20px">
       <div style="display:flex;align-items:center;gap:10px"><span style="font-size:9px;letter-spacing:.18em;color:var(--ink3)">THE ACCUSATION</span><span style="background:var(--flagged);color:var(--bg);font-size:9.5px;font-weight:600;padding:1px 8px">HIGH</span><span style="margin-left:auto;font-size:9.5px;color:var(--faint)">automated · 2026-07-09</span></div>
       <div style="font-size:13px;font-weight:600;margin-top:10px">Session tokens forwarded to a third-party relay</div>
@@ -290,7 +310,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
 
   <div style="margin-top:22px;border:1px solid var(--line);border-radius:6px;background:var(--panel)">
     <div style="padding:13px 20px;border-bottom:1px solid var(--line)"><span style="font-size:9px;letter-spacing:.18em;color:var(--ink3)">PROVENANCE — WHAT WAS REVIEWED, WHEN, BY WHAT</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 30px;padding:6px 20px 12px">
+    <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 30px;padding:6px 20px 12px">
       <div style="display:flex;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line2)"><span style="width:110px;flex:none;font-size:9px;letter-spacing:.12em;color:var(--faint)">COMMIT</span><span style="font-size:11.5px;color:var(--ink2)">{{ vCommit }}</span></div>
       <div style="display:flex;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line2)"><span style="width:110px;flex:none;font-size:9px;letter-spacing:.12em;color:var(--faint)">REVIEWED</span><span style="font-size:11.5px;color:var(--ink2)">{{ vDate }}</span></div>
       <div style="display:flex;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line2)"><span style="width:110px;flex:none;font-size:9px;letter-spacing:.12em;color:var(--faint)">SOURCE BLOB</span><span style="font-size:11.5px;color:var(--ink2)">{{ vBlob }}</span></div>
@@ -302,7 +322,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
   </div>
 
   <sc-if value="{{ vShowOverride }}" hint-placeholder-val="{{ false }}">
-  <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+  <div class="r-grid" style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
     <div style="border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:16px 20px">
       <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3)">DISAGREE WITH THIS VERDICT?</div>
       <div style="font-size:11.5px;line-height:1.6;color:var(--ink2);margin-top:8px">Anyone with standing can contest it — the maintainer, a user, or <b style="color:var(--ink)">an agent that depends on this server</b>. Rebuttals are stored as blobs and shown beside the accusation with equal weight.</div>
@@ -505,7 +525,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
   <div style="margin-top:18px;border:1px solid var(--disputed-l);background:var(--disputed-t);border-radius:4px;padding:10px 14px;font-size:11px;color:var(--ink2);animation:fadeUp .3s both"><b style="color:var(--disputed)">UNDER REVIEW</b> — a fresh model pass (different prompt lineage, p8) is reading the contested path, and the maintainer response window is open until 2026-07-28 09:00 UTC. Both claims stand until then; neither is hidden.</div>
   </sc-if>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+  <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
     <div style="border:1px solid var(--flagged-l);border-radius:6px;background:var(--panel);padding:16px 20px">
       <div style="display:flex;align-items:center;gap:10px"><span style="font-size:9px;letter-spacing:.18em;color:var(--ink3)">THE ACCUSATION</span><span style="background:var(--flagged);color:var(--bg);font-size:9.5px;font-weight:600;padding:1px 8px">HIGH</span><span style="margin-left:auto;font-size:9.5px;color:var(--faint)">automated · 2026-07-09</span></div>
       <div style="font-size:13.5px;font-weight:600;margin-top:10px">Session tokens forwarded to a third-party relay</div>
@@ -531,7 +551,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
   <div style="margin-top:32px">
     <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3)">FILE A DISPUTE — TWO KINDS OF STANDING, ONE BAR TO CLEAR</div>
     <div style="font-size:11px;color:var(--ink2);margin-top:6px;max-width:76ch;line-height:1.6">A wrongly-flagged server hurts humans who wrote it and agents that depend on it. Both can defend it here — the requirements differ, the weight of the rebuttal does not.</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+    <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
       <div style="border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:16px 20px">
         <div style="display:flex;align-items:center;gap:10px"><span style="width:22px;height:22px;border-radius:50%;border:2px solid var(--ink2);display:inline-grid;place-items:center;font-size:10px">⬤</span><span style="font-size:12.5px;font-weight:600">You are a person</span><span style="margin-left:auto;font-size:9px;color:var(--faint);letter-spacing:.1em">WORLD ID</span></div>
         <div style="display:grid;gap:7px;margin-top:12px;font-size:11px;color:var(--ink2);line-height:1.5">
@@ -568,7 +588,7 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
       <sc-for list="{{ sChips }}" as="c" hint-placeholder-count="2"><span onClick="{{ c.click }}" style="{{ c.style }}">{{ c.label }}</span></sc-for>
     </span>
   </div>
-  <div style="display:grid;grid-template-columns:250px 1fr;gap:26px;margin-top:24px;align-items:start">
+  <div class="r-grid" style="display:grid;grid-template-columns:250px 1fr;gap:26px;margin-top:24px;align-items:start">
     <div style="border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:6px 0">
       <div style="display:flex;gap:11px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--line2)"><span style="font-size:10px;color:var(--clean)">✓</span><div><div style="font-size:11px;color:var(--ink2)">Unique human</div><div style="font-size:9px;color:var(--faint);margin-top:2px">World ID · personhood proven</div></div></div>
       <div style="display:flex;gap:11px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--line2)"><span style="font-size:10px;color:var(--clean)">✓</span><div><div style="font-size:11px;color:var(--ink2)">Repo control</div><div style="font-size:9px;color:var(--faint);margin-top:2px">.well-known/surex.txt found</div></div></div>
@@ -598,12 +618,12 @@ input{font-family:inherit;outline:none}input::placeholder{color:var(--faint)}
             <span style="font-size:12px;color:var(--ink)">SQL built by string interpolation can read tables outside the declared scope</span>
             <span style="margin-left:auto;font-size:10.5px;color:var(--accent)">src/query.ts:77</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;margin-top:16px">
+          <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;margin-top:16px">
             <div style="font-size:11px;line-height:1.7;color:var(--ink2)"><b style="color:var(--ink)">What this is</b><br>· automated — no human read your code<br>· about blob walrus:0x5b02…91cd, commit 4c81f9e2 only<br>· already on the public index (written 14:09 UTC)</div>
             <div style="font-size:11px;line-height:1.7;color:var(--ink2)"><b style="color:var(--ink)">What it is not</b><br>· not "malicious" — the verdict says what the code <i>can do</i><br>· not final — rebuttals show with equal weight, forever<br>· not a takedown — nothing is delisted or deleted</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px">
+        <div class="r-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px">
           <div style="border:1px solid var(--accent);border-radius:6px;background:var(--accent-t);padding:14px 16px;cursor:pointer"><div style="font-size:11.5px;font-weight:600;color:var(--accent)">Answer it — file a rebuttal</div><div style="font-size:10px;color:var(--ink3);margin-top:5px;line-height:1.5">If the model misread the path, say so with file + line. Shown beside the finding, same size, same permanence.</div></div>
           <div style="border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:14px 16px;cursor:pointer"><div style="font-size:11.5px;font-weight:600;color:var(--ink)">Fix it — resubmit a release</div><div style="font-size:10px;color:var(--ink3);margin-top:5px;line-height:1.5">A new release gets a fresh review. If clean, this verdict is superseded — it stays readable, marked as answered by v2.3.1.</div></div>
           <div style="border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:14px 16px;cursor:pointer"><div style="font-size:11.5px;font-weight:600;color:var(--ink)">Leave it — it may be intended</div><div style="font-size:10px;color:var(--ink3);margin-top:5px;line-height:1.5">Some servers legitimately need broad access (shell-exec-mcp is flagged and confirmed). The finding simply stays visible.</div></div>

@@ -2,25 +2,10 @@
 <title>SureX &mdash; Architecture Plate</title>
 <style>
   :root {
-    --ground:      #E7E8E6;
-    --sheet:       #F4F5F3;
-    --ink:         #14181C;
-    --graphite:    #5C6670;
-    --hairline:    #C3C7C4;
-    --accent:      #1F4FA8;
-    --accent-soft: #1F4FA81A;
-    --ok:          #2F7A55;
-    --warn:        #96620F;
-    --stop:        #B93317;
-    --plate-fill:  #FBFBFA;
-    color-scheme: light dark;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground:#0F1317; --sheet:#151A1F; --ink:#DDE3E6; --graphite:#8A959E;
-      --hairline:#2C343B; --accent:#6E9BEE; --accent-soft:#6E9BEE1F;
-      --ok:#5FBE8C; --warn:#DCA23F; --stop:#F0705A; --plate-fill:#11161A;
-    }
+    --ground:#0F1317; --sheet:#151A1F; --ink:#DDE3E6; --graphite:#8A959E;
+    --hairline:#2C343B; --accent:#6E9BEE; --accent-soft:#6E9BEE1F;
+    --ok:#5FBE8C; --warn:#DCA23F; --stop:#F0705A; --plate-fill:#11161A;
+    color-scheme: dark light;
   }
   :root[data-theme="light"] {
     --ground:#E7E8E6; --sheet:#F4F5F3; --ink:#14181C; --graphite:#5C6670;
@@ -127,6 +112,22 @@
     color: var(--graphite); display: block; margin-bottom: 4px;
   }
   .tbval { font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 880px) {
+    html, body { overflow-x: hidden; max-width: 100%; }
+    body { padding: 0 0 48px; }
+    .sheet { border-left: none; border-right: none; }
+    .pad { padding: 20px 16px; }
+    .masthead { gap: 18px; }
+    .stampset { align-items: flex-start; }
+    .grid2 { grid-template-columns: 1fr; gap: 26px; }
+    .bandhead { gap: 6px 12px; }
+    .tempo { font-size: 10.5px; }
+    .rule { padding-left: 14px; }
+    table { font-size: 12.5px; }
+    th, td { padding: 8px 10px 8px 0; }
+    .tbcell { border-right: none; border-bottom: 1px solid var(--hairline); }
+  }
 </style>
 
 <div class="sheet">
