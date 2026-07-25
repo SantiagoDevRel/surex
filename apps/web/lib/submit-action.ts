@@ -25,7 +25,13 @@ import { WORLD_ACTIONS } from './world.ts';
 export type SubmitOutcome =
   | { kind: 'idle' }
   | { kind: 'missing' }
-  | { kind: 'accepted'; detail?: string }
+  /**
+   * `submissionId` is what the live loader watches. Optional, and it stays
+   * optional: an API that queues a run without naming it still accepted the
+   * submission, and the form must say so rather than treating a missing id as a
+   * failure. With no id there is nothing to poll and no loader is mounted.
+   */
+  | { kind: 'accepted'; detail?: string; submissionId?: string }
   | { kind: 'notBuilt'; detail?: string; identityChecked: boolean }
   | { kind: 'refused'; code?: string; message?: string; detail?: string; status: number }
   | { kind: 'unreachable'; detail: string };
@@ -99,13 +105,24 @@ export async function submitRelease(
 
     const body = (await res.json().catch(() => null)) as
       | {
+          submissionId?: string;
           error?: { code?: string; message?: string; detail?: string; built?: boolean; identity?: { checked?: boolean } };
           illustrative?: boolean;
         }
       | null;
 
     if (res.status === 202 || res.ok) {
-      return { kind: 'accepted', detail: body?.illustrative ? COPY.illustrative.mockBody : undefined };
+      // Validated to the shape `GET /v1/submissions/:id` accepts, so a junk value
+      // cannot become a polling loop against a URL that can only ever 400.
+      const submissionId =
+        typeof body?.submissionId === 'string' && /^[A-Za-z0-9_-]{4,64}$/.test(body.submissionId)
+          ? body.submissionId
+          : undefined;
+      return {
+        kind: 'accepted',
+        detail: body?.illustrative ? COPY.illustrative.mockBody : undefined,
+        submissionId,
+      };
     }
     if (res.status === 501) {
       return {

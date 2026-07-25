@@ -21,6 +21,7 @@
 
 import { ROUTES, parseVerdictHead, unknownHead, isFingerprint } from '@surex/core';
 
+import { apiBase } from './api-base.ts';
 import { COPY } from './copy.ts';
 import {
   fixtureDispute,
@@ -39,13 +40,8 @@ import type {
   VerdictHead,
 } from './types.ts';
 
-/** Dev default matches the port the API lane runs on. */
-const DEFAULT_BASE = 'http://localhost:4310';
-
-export function apiBase(): string {
-  const raw = process.env.NEXT_PUBLIC_SUREX_API?.trim();
-  return (raw && raw.length ? raw : DEFAULT_BASE).replace(/\/+$/, '');
-}
+/** Lives in `api-base.ts` so the browser can import it without `@surex/core`. */
+export { apiBase } from './api-base.ts';
 
 /**
  * More generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on purpose: that

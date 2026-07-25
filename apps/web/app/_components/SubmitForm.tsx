@@ -16,6 +16,7 @@ import { submitRelease, type SubmitOutcome } from '@/lib/submit-action.ts';
 import { Banner, type BannerTone } from './Banner.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
 import { RepoInspection } from './RepoInspection.tsx';
+import { SubmissionMonitor } from './SubmissionMonitor.tsx';
 import { WorldIdProof } from './WorldIdProof.tsx';
 
 const INITIAL: SubmitOutcome = { kind: 'idle' };
@@ -225,6 +226,19 @@ export function SubmitForm() {
       <p className="mt-3 max-w-[80ch] text-meta text-ink-3">{COPY.submit.worldIdNote}</p>
 
       <Outcome outcome={outcome} />
+
+      {/*
+        The loader appears only for a submission the registry named. `accepted`
+        without an id is still an acceptance — the banner above says so — but
+        there is nothing to watch, and a loader with no id to poll would be
+        animating an idea rather than a run.
+
+        Keyed on the id so a second submission starts a fresh watch instead of
+        the previous one's state leaking into it.
+      */}
+      {outcome.kind === 'accepted' && outcome.submissionId ? (
+        <SubmissionMonitor key={outcome.submissionId} id={outcome.submissionId} />
+      ) : null}
     </Panel>
   );
 }
