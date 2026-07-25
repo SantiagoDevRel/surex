@@ -49,7 +49,7 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | **Reviewer calibration** | **built and measured** — `scripts/calibrate.mjs` scores every fixture against the ground truth its own specification recorded *before* any review ran, and exits non-zero on a regression. It is the precondition for reviewing anyone else's code: §7 carries the numbers. |
 | The registry, live | **85 entries** · 10 clean · 7 flagged · 10 unreviewable(licence) · 58 unknown. Every clean and every flag is one of our own fixtures; the 58 unknowns are real servers nobody has reviewed yet — `scripts/review-known.mjs` is the pass that changes that. |
-| **ENS** offchain resolver + CCIP-Read gateway | **deployed on Ethereum mainnet; wildcard verified; gateway pending.** `surex.eth` is ours (expires 2027-07-25) and its resolver is `SureXOffchainResolver` at `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`. **Wildcard resolution is proven live**: `getEnsResolver('sxf1-<40 hex>.surex.eth')` — a subname that was never registered — returns our contract through the standard Universal Resolver, and `resolve()` reverts with a real `OffchainLookup` carrying the gateway URL. What is **not** live is the gateway itself: `arkiv-surex.vercel.app/api/ens/` 404s until this branch deploys, so `getEnsText` returns `null`. ⚠️ A missing gateway is indistinguishable from an empty record client-side — viem swallows the failed fetch. No further transactions are needed; the route going live is sufficient. This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
+| **ENS** offchain resolver + CCIP-Read gateway | **name and gateway live; the deployed resolver has a known bug and needs redeploying.** [`surex.eth`](https://app.ens.domains/surex.eth) is ours on Ethereum mainnet (expires 2027-07-25), pointed at `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`, and the CCIP gateway is deployed and signing real Arkiv data — `probes/ens-resolve.mjs gateway --gateway https://arkiv-surex.vercel.app` is green. **But `resolve()` forwards `data` instead of `msg.data`, so the gateway gets a namehash it cannot reverse and 400s every lookup** — `getEnsText` returns `null`, which reads as an empty record rather than a failure. Fixed in source and pinned by two tests; the fix needs a redeploy and one `setResolver`. Run `probes/ens-resolve.mjs live` for the current state. This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
 
 **Total: 520 tests green** (`pnpm test`), plus 66 in the web app including the copy-law
 walk and the ENS record walk.
@@ -259,7 +259,7 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
 
 **ENS** — measured while building `contracts/` and `apps/web/app/api/ens/`, on
 `@adraffy/ens-normalize@1.11.1`, `viem@2.55.8`, `ethers@6.13.5`, `solc@0.8.28`. Probe:
-`node probes/ens-resolve.mjs <labels|contract|mock|gateway|sepolia>`. Write-ups in `FRICTION-LOG.md` E1–E7.
+`node probes/ens-resolve.mjs <labels|contract|mock|gateway|live|sepolia>`. Write-ups in `FRICTION-LOG.md` E1–E8.
 
 - ❌ **`sxf1_<64 hex>` is not a legal ENS label.** ENSIP-15 rejects a mid-label underscore —
   `underscore allowed only at start`. Our own published identifier cannot be used as a subname as
@@ -315,6 +315,16 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
   registration date and an expiry that are not real, and makes `getEnsAddress` return the address. This
   cost an hour of chasing a migration that never happened. Trust `registry.owner()` and the account's
   transaction list, not the app. (E7)
+- ❌ **`resolve()` must forward `msg.data`, not `data`.** `data` alone is the inner
+  `text(bytes32,string)` call and a node is a namehash — one-way, so a gateway holding only that
+  cannot recover the label, and the label is the only route to the fingerprint. The first mainnet
+  deployment got this wrong and every lookup 400'd. The ENS reference encodes
+  `IResolverService.resolve(name, data)` for the same reason. (E8)
+- ⚠️ **A test that BUILDS the gateway request proves nothing about the seam.** Both halves passed
+  against the same assumption and disagreed with reality. At least one test must take the bytes the
+  contract actually emits and feed them to the gateway: `probes/ens-resolve.mjs live` does exactly
+  that and names the failing hop, and `test_offchainCallDataCarriesTheName` pins it in Foundry by
+  decoding the callData rather than only checking its selector. (E8)
 - ⚠️ **Foundry cannot be installed behind a locked-down egress policy** — `foundry.paradigm.xyz` 403s at
   CONNECT and there is no npm-distributed `forge`. `probes/ens-resolve.mjs contract` compiles the
   resolver with solc-js and runs it on an in-process EVM instead; `forge test` remains canonical. (E4)

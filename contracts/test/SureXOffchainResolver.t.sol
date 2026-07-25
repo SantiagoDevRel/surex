@@ -189,20 +189,67 @@ contract SureXOffchainResolverTest is Test {
     /* ---------------------------------------------------------------- resolve */
 
     function test_resolveRevertsWithOffchainLookup() public {
-        bytes memory name = hex"057375726578036574680000"; // irrelevant to the revert
+        bytes memory name = hex"057375726578036574680000";
         bytes memory data = _textCall();
+
+        // The gateway is sent the WHOLE resolve(name, data) call, not `data`.
+        bytes memory expected = abi.encodeWithSelector(SureXOffchainResolver.resolve.selector, name, data);
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 SureXOffchainResolver.OffchainLookup.selector,
                 address(resolver),
                 urls,
-                data,
+                expected,
                 SureXOffchainResolver.resolveWithProof.selector,
-                data
+                expected
             )
         );
         resolver.resolve(name, data);
+    }
+
+    /**
+     * The regression test for the bug the first deployment shipped.
+     *
+     * `resolve()` used to forward `data` alone — the inner `text(bytes32,string)`
+     * call. A node is a namehash and namehash is one-way, so a gateway holding
+     * only that cannot recover the label, and the label is the only route to the
+     * fingerprint. Every lookup 400'd against a gateway that was itself correct.
+     *
+     * Asserting the selector is not enough: the failure mode is a DROPPED NAME,
+     * so this decodes the callData and checks the name survives the round trip.
+     */
+    function test_offchainCallDataCarriesTheName() public {
+        bytes memory name = hex"057375726578036574680000";
+        bytes memory data = _textCall();
+
+        try resolver.resolve(name, data) {
+            revert("resolve() must revert with OffchainLookup");
+        } catch (bytes memory err) {
+            assertEq(bytes4(err), SureXOffchainResolver.OffchainLookup.selector, "wrong error");
+
+            (, , bytes memory callData, , bytes memory extraData) =
+                abi.decode(_stripSelector(err), (address, string[], bytes, bytes4, bytes));
+
+            assertEq(bytes4(callData), SureXOffchainResolver.resolve.selector, "callData must be a resolve() call");
+
+            (bytes memory gotName, bytes memory gotData) =
+                abi.decode(_stripSelector(callData), (bytes, bytes));
+            assertEq(gotName, name, "the NAME must reach the gateway - it is the whole lookup key");
+            assertEq(gotData, data, "the inner call must reach the gateway too");
+
+            // resolveWithProof rebuilds the digest over these bytes; if extraData
+            // and callData ever differ, every verification fails with no clue why.
+            assertEq(extraData, callData, "extraData must equal callData");
+        }
+    }
+
+    function _stripSelector(bytes memory payload) internal pure returns (bytes memory out) {
+        require(payload.length >= 4, "too short");
+        out = new bytes(payload.length - 4);
+        for (uint256 i = 0; i < out.length; i++) {
+            out[i] = payload[i + 4];
+        }
     }
 
     /* -------------------------------------------------------------- ERC-165 --*/

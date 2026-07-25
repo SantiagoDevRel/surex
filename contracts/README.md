@@ -81,14 +81,26 @@ three places — here, in `apps/web/lib/ens.ts`, and asserted across both in
 | resolver owner (`setSigner`, `setUrls`) | `0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4` |
 | deploy cost | 0.0000805 ETH — 1,067,648 gas at 0.075 gwei |
 
+⚠️ **The deployed bytecode has a known bug and needs redeploying.** `resolve()` forwards `data`
+instead of `msg.data`, so the gateway receives the inner `text(bytes32,string)` call and no name.
+A node is a namehash and namehash is one-way, so the label — the only route to the fingerprint —
+cannot be recovered, and every lookup 400s. Fixed in source; the deployment predates the fix.
+`getEnsText` returns `null` rather than throwing, so this reads as an empty record. FRICTION-LOG E8.
+
+Check the current state with the probe that drives the deployed contract rather than a constructed
+request:
+
+```bash
+cd probes && node ens-resolve.mjs live --name sxf1-<40 hex>.surex.eth
+```
+
 **Verified on mainnet:** `getEnsResolver` on `sxf1-<40 hex>.surex.eth` — a subname that was never
 registered — returns the resolver above through the standard Universal Resolver, and `resolve()`
-reverts with a genuine `OffchainLookup` carrying the gateway URL. Wildcard resolution works.
+reverts with a genuine `OffchainLookup`. Wildcard resolution works; the payload it carries does not.
 
-**Not yet live:** the gateway. `arkiv-surex.vercel.app/api/ens/` returns 404 until this branch is
-deployed, so `getEnsText` yields `null`. ⚠️ A dead gateway is indistinguishable from an empty record
-— viem swallows the failed fetch rather than throwing. No further transactions are required; the
-route answering is sufficient.
+**The gateway is live and correct.** It signs real Arkiv data and its signature is accepted by the
+resolver — `probes/ens-resolve.mjs gateway --gateway https://arkiv-surex.vercel.app` is green. The
+break is entirely on the contract side.
 
 **Why mainnet and not a testnet:** `.eth` registration on Sepolia has been broken network-wide since
 early June 2026 — see `FRICTION-LOG.md` E5 and E6. It was not a preference.

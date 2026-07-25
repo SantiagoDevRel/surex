@@ -758,6 +758,52 @@ hour-long wrong path, chasing a migration that had not happened.
 
 ---
 
+### E8 · Our own bug, recorded because the SHAPE is general: both halves tested, the seam untested — **[VERIFIED, caught on mainnet]**
+**Severity: it shipped to mainnet and every lookup failed.** Not a sponsor issue. Logged because the
+way it hid is the interesting part, and it will happen to someone else.
+
+- **Expected:** 17 Foundry tests, 6/6 `resolveWithProof` cases on an in-process EVM, a gateway probe
+  green against production, and a cross-language golden digest vector pinned in three files. By any
+  reasonable reading, covered.
+- **Happened:** `getEnsText` returned `null` for every record against a correctly deployed resolver
+  and a correctly configured gateway.
+- **The bug:** one line. `resolve(bytes name, bytes data)` forwarded `data` to the gateway and
+  discarded `name`:
+
+  ```solidity
+  name; // ENSIP-10 passes the name to the gateway, not to this function.
+  revert OffchainLookup(address(this), _urls, data, this.resolveWithProof.selector, data);
+  ```
+
+  `data` alone is the inner `text(bytes32 node, string key)` call, and a node is a **namehash**.
+  Namehash is one-way. A gateway holding only that cannot recover the label, and the label is the
+  only route to the fingerprint. The comment states the opposite of the truth: ENSIP-10 passes the
+  name *to this function*, and forwarding it on is this function's entire job. The ENS reference
+  resolver encodes `IResolverService.resolve(name, data)` for exactly this reason. Fix is `msg.data`
+  in both positions.
+- **Why nothing caught it — the part worth keeping.** Every test **built** the gateway request in the
+  shape the gateway parses. Nothing ever took what the **contract emits** and fed it to the gateway.
+  Both halves were verified against the same assumption rather than against each other, so the suite
+  agreed with itself and disagreed with reality. The probe mode that covered this was even *named*
+  `gateway` — the half that was fine.
+- **What made it hard to see:** `getEnsText` returns `null` on a failed CCIP fetch rather than
+  throwing, so a broken seam is indistinguishable from an empty record. The one signal that would
+  have exposed it — the gateway's own `400 invalid_calldata`, naming selector `0x59d1d43c` — is
+  swallowed by the client and never reaches the caller.
+- **Repro / the fix that sticks:** `node probes/ens-resolve.mjs live --name <name>`. It never
+  constructs a request: it reads the real `OffchainLookup` off chain, asserts `callData` is a
+  `resolve(bytes,bytes)` call **and that the name survives the round trip**, then fetches the gateway
+  with the contract's own bytes and hands the answer back to `resolveWithProof`. Against the first
+  deployment it prints the failing hop in two seconds. `test_offchainCallDataCarriesTheName` pins the
+  same invariant in Foundry — decoding the callData rather than only checking the selector, because
+  the failure mode is a dropped argument, not a wrong function.
+- **The general rule:** when two components are written in different languages against a shared wire
+  format, a test that constructs the message proves only that you can construct it. At least one test
+  must take the bytes **one side actually produces** and feed them to the other. A golden vector pins
+  the format; only a round trip pins the integration.
+
+---
+
 ## Claude Code (not a sponsor, but the enforcement surface — worth sending upstream)
 
 > Probes: `probes/hook/` — a minimal zero-dependency stdio MCP server plus a hook script, driven by
