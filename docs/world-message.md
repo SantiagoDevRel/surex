@@ -1,47 +1,47 @@
-# Message to send World (AgentBook registration — NonExistentRoot)
+# Message to send World (AgentBook registration — NonExistentRoot, now resolved)
 
-Short, copy-pasteable. Paste into the World hackathon Discord / to the DevRel. Everything in it is verified
-against live on-chain reads and the docs.
-
----
-
-**AgentBook `register()` reverts `NonExistentRoot()` — World App proof root not on World Chain**
-
-Hi — building on AgentKit for the Agents track (ETHGlobal Lisbon). Our agent-side integration works: we recover
-the signer, call `createAgentBookVerifier().lookupHuman()` against the canonical AgentBook on World Chain (480),
-and gate correctly. The blocker is **registration**.
-
-`npx @worldcoin/agentkit-cli register <addr>`:
-- The World App / World ID verify step **succeeds** — real Orb scan, valid nullifier, full ZK proof.
-- The on-chain `register()` then **reverts with `0xddae3b71`**, which the CLI can't decode (`… not found on the
-  provided ABI`). It's `NonExistentRoot()` — decoded via `keccak256("NonExistentRoot()")[:4]`.
-
-We chased it down on-chain (World Chain 480):
-- `AgentBook(0xA23aB2712eA7BBa896930544C7d6636a96b944dA).worldIdRouter()` → `0x17B354dD…A278` (matches your docs).
-- `router.routeFor(1)` → group-1 identity manager `0xdFCa0A882…009E`.
-- its `latestRoot()` = `12796…349` (sealed 2026-07-25 13:20 UTC, **static**).
-- the **proof's root** = `13007…511`, and `checkValidRoot(proofRoot)` **reverts** — the root the World App proof
-  is built against is not in World Chain's bridged tree.
-- **Not transient:** a retry produced the identical proof root and `latestRoot` on World Chain didn't move.
-
-So it reads like the **State Bridge hasn't propagated the current identity root to World Chain's bridged World
-ID**, while World App keeps anchoring proofs against the newer (unbridged) root. Registration can't land until
-the bridge catches up.
-
-**Questions for you:**
-1. Is there a known root-propagation delay / a status page for the World Chain State Bridge we should watch?
-2. Is there a way to obtain a proof against a root already bridged to World Chain (or a testnet AgentBook path)
-   so we can complete registration for the demo?
-3. Is this expected right now, or is our flow doing something wrong? (Our `lookupHuman` + gating all work; it's
-   only `register` that reverts.)
-
-Two small DX things while we're here: (a) the CLI's failure hint lists "the World ID is not Orb-verified" as a
-likely cause — it was a valid Orb ID, so that hint sent us the wrong way; (b) `agentkit-cli` reverts with a raw
-`0xddae3b71` — decoding `NonExistentRoot` and saying "proof root not yet on World Chain" would have saved hours.
-
-Happy to share the exact addresses/roots and repro. Thanks!
+Short, copy-pasteable. Paste into the World hackathon Discord / to the DevRel. This is now **DX feedback about
+a transient failure we recovered from**, not a help request — the registration eventually landed. Everything in
+it is verified against live on-chain reads.
 
 ---
 
-*(Backing detail + the full W1–W14 findings are in `docs/WORLD-FEEDBACK.md`. Submitted the docs-gap piece
-through World's docs feedback channel too.)*
+**Heads-up + DX feedback: AgentBook `register()` reverts `NonExistentRoot()` while the World Chain root hasn't
+bridged yet (recovered, but it cost hours)**
+
+Hi — building on AgentKit for the Agents track (ETHGlobal Lisbon). Reporting a rough edge that blocked us for a
+few hours and then cleared on its own, in case it helps other teams and the docs.
+
+**What happened:** `npx @worldcoin/agentkit-cli register <addr>` completed the World App / World ID verify step
+fine (valid Orb proof), but the on-chain `register()` then **reverted with `0xddae3b71` = `NonExistentRoot()`**.
+The CLI couldn't decode it (`… not found on the provided ABI`), so the surfaced error was just a raw selector.
+
+We traced it on World Chain (480): the group-1 identity manager's `latestRoot()` was **static** for a while,
+and the World App proof's root was newer and not yet in the bridged tree — `checkValidRoot(proofRoot)` reverts.
+Two consecutive attempts produced the identical proof root while `latestRoot` didn't move, so it was **not a
+bad Orb ID and not our code** — it read as the **State Bridge lagging behind the canonical identity tree**.
+
+**How it resolved:** a while later `latestRoot` on World Chain advanced (we watched it move), we retried the
+same command, and registration **landed** — tx `0xaa4c255c5edb7c973452a264184076dca73cfc051c019e0a1c7837a54b0fd870`,
+`status: registered`, AgentBook now resolves the wallet to a human. So the fix was simply "wait for the bridge
+to catch up," but nothing told us that.
+
+**What would have saved the hours:**
+1. **Decode the revert.** The CLI surfacing `NonExistentRoot` as *"the proof root hasn't propagated to World
+   Chain yet — retry shortly"* instead of a raw `0xddae3b71` would have made this a 2-minute wait, not a
+   multi-hour chase.
+2. **The CLI's error hint is misleading here** — it lists "the World ID is not Orb-verified" as a likely cause.
+   It was a perfectly valid Orb ID; that hint sent us the wrong way.
+3. **Document the root-propagation delay** next to the AgentBook quickstart (how long it takes / where to watch
+   the State Bridge), so teams know a `NonExistentRoot` right after a valid verify just means "retry soon."
+
+Minor extras while here: (a) `cli/README.md` documents a `--network base|base-sepolia` flag the shipped 0.2.0
+binary doesn't accept; (b) "Orb required" (groupId=1) is the single most load-bearing fact and is easy to miss.
+
+Everything works now end to end on our side (registered agent → dispute accepted; unregistered → refused).
+Happy to share the exact addresses/roots. Thanks!
+
+---
+
+*(Full W1–W14 findings + the on-chain evidence are in `docs/WORLD-FEEDBACK.md`. The docs-gap piece was also
+submitted through World's own docs feedback channel.)*

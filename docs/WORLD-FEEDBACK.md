@@ -13,14 +13,18 @@ under **## World**, entries W1–W14. This is the consolidated version, ordered 
 
 Integration is **live and correct** — the agent path recovers the address from the signature, reads
 AgentBook on World Chain 480, and returns the honest verdict; a signed request from an unregistered wallet
-gets `403 agent_not_human_backed` with the right reason. The one thing not working is on-chain registration
-(W14), and the evidence points at the World Chain state bridge, not our code.
+gets `403 agent_not_human_backed` with the right reason, and a registered wallet gets `202` with AgentBook
+standing — the full flow is now verified live in both directions. Registration itself (W14) blocked us for
+hours with a `NonExistentRoot()` revert, then cleared when the World Chain state bridge advanced; the evidence
+pointed at the bridge, not our code.
 
 ---
 
-## 🔴 The one blocking us right now — W14: `register()` reverts `NonExistentRoot()` on World Chain
+## 🟠 Hit us for hours, then cleared — W14: `register()` reverted `NonExistentRoot()` until the World Chain root bridged
 
-**A valid Orb proof, rejected because the proof's Merkle root is not on World Chain.**
+**A valid Orb proof, rejected because the proof's Merkle root hadn't bridged to World Chain yet — it cleared on
+a retry once the bridge advanced (tx `0xaa4c255c…fd870`, wallet now `registered`; full dispute flow then
+verified live `202`/`403`).**
 
 - The World ID verify **succeeds** — real Orb scan, valid Merkle root, valid nullifier, full 8-element ZK
   proof. Then the on-chain `register()` **reverts**, and the CLI cannot decode the error:
@@ -44,7 +48,8 @@ gets `403 agent_not_human_backed` with the right reason. The one thing not worki
 2. **The CLI's own error hint is actively misleading here:** it lists "the World ID used is not Orb-verified"
    as a likely cause. It was a perfectly good Orb ID. A team that trusts that hint re-scans for hours.
 3. Document the World Chain root-propagation delay next to the AgentBook quickstart, and how to obtain a
-   bridged-root proof. This is the single thing standing between us and a fully live demo.
+   bridged-root proof. It cleared on its own once the bridge advanced — but nothing told us to just wait, so
+   we spent hours treating a transient bridge lag as a broken integration.
 
 ---
 
