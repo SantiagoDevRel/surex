@@ -17,7 +17,6 @@ export function StatStrip({ stats }: { stats: RegistryStats }) {
     [stats.flagged, 'flagged', 'text-flagged'],
     [stats.disputed, 'disputed', 'text-disputed'],
     [stats.stale, 'stale', 'text-stale'],
-    [stats.tierA, 'tier A', 'text-ink'],
   ];
   return (
     <div className="mt-4 flex flex-wrap items-baseline gap-x-7 gap-y-2">
@@ -50,15 +49,16 @@ export function RegistryTable({
 
             THE NUMBER IS ARITHMETIC, NOT TASTE, so it has to move when a column
             does. The five fixed cells in CustodyRow's COL (236+104+66+148+132),
-            five 10px gaps and 16px of padding either side come to 768px; the
-            remainder is STANDING, which is the only flexible cell. This was
-            1040 when REVIEWED was 104px wide — 724 fixed + 316 for STANDING.
-            REVIEWED then grew to 148px for the timestamp and this number did
-            not follow it, which quietly cut STANDING to 272px at the narrow end
-            and put the longest standing line plus the `illustrative` marker back
-            over the edge the min-width exists to keep it inside. 768 + 316 =
-            1084 restores exactly the slack the row was designed with. */}
-        <div className="min-w-[1084px]">
+            the gaps and 16px of padding either side come to 768px; the
+            remainder is STANDING, the only flexible cell, which needs 316px to
+            hold its longest line plus the `illustrative` marker on one row.
+
+            This number is ARITHMETIC over the column widths and has to move
+            whenever they do — it was already caught once lagging behind REVIEWED
+            growing 104px to 148px, which cut STANDING to 272px and wrapped every
+            row to 51px. Dropping the 66px TIER cell and one 10px gap takes the
+            fixed total 768 → 692, so 692 + 316 = 1008. */}
+        <div className="min-w-[1008px]">
           <CustodyHeader />
           {rows.map((row) => (
             <CustodyRow key={row.fingerprint ?? `${row.name}@${row.version}`} row={row} />
@@ -80,9 +80,6 @@ export function RegistryTable({
         </div>
       </Panel>
 
-      {/* The tier gloss that used to sit here is now the legend above the table
-          (TierLegend) — one wording for the three letters, where the reader
-          meets the column rather than after they have scrolled past it. */}
       <div className="mt-2.5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1 text-mini text-faint">
         <span>
           {rows.length} of {total} {COPY.browse.countSuffix}

@@ -193,15 +193,11 @@ export function RegistryFilters({
       <HiddenNotice query={query} rows={rows} />
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
-        <FilterGroup label={COPY.browse.filterTier} lead>
-          {['all', 'A', 'B', 'C'].map((tier) => (
-            <FilterChip key={tier} href={href(query, { tier })} active={query.tier === tier}>
-              {tier}
-            </FilterChip>
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label={COPY.browse.filterSort}>
+        {/* The tier chips are gone with the tier column — filtering a list by a
+            value every row shares is a control that can only ever return the
+            list. `query.tier` is still parsed and still round-trips through the
+            URL, so a bookmarked ?tier=A keeps working and nothing 404s. */}
+        <FilterGroup label={COPY.browse.filterSort} lead>
           <FilterChip href={href(query, { sort: 'state' })} active={query.sort === 'state'}>
             {COPY.browse.sortByState}
           </FilterChip>

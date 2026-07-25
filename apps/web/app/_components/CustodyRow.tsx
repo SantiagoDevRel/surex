@@ -4,32 +4,20 @@ import { COPY } from '@/lib/copy.ts';
 import { cn } from '@/lib/cn.ts';
 import { isoMinute } from '@/lib/format.ts';
 import { STANDING_TONE, stateStyle } from '@/lib/state-styles.ts';
-import type { RegistryRow, Tier } from '@/lib/types.ts';
+import type { RegistryRow } from '@/lib/types.ts';
 
 /**
- * The compact custody row. LOCKED — design/tokens.html §06, option 1c.
+ * The compact custody row.
  *
- *   state (hue, 600) · tier (letter 600 + 3-cell meter) · standing (plain)
- *   · meta right-aligned. 32px row, line-2 separators.
+ *   state (hue, 600) · standing (plain) · meta right-aligned.
+ *   32px row, line-2 separators.
  *
- * The meter is the chain, shrunk to a glance: three cells, filled as far as the
- * link actually reaches.
+ * The TIER cell and its three-cell meter used to sit between state and standing.
+ * Both are gone: every published entry is Tier C, so the column printed one
+ * identical letter down the page and the meter one identical bar. Tier is still
+ * real and still decides what the gate may claim on a developer's machine — it
+ * just told a reader of this list nothing.
  */
-
-/** ▮▮▮ / ▮▮ / ▮ — 7px cells, 2px gaps, 25px total. */
-export function TierMeter({ tier }: { tier: Tier | '—' }) {
-  const filled = tier === 'A' ? 3 : tier === 'B' ? 2 : tier === 'C' ? 1 : 0;
-  return (
-    <span className="flex shrink-0 gap-[2px]" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className={cn('h-[7px] w-[7px]', i < filled ? 'bg-ink-2' : 'bg-line')}
-        />
-      ))}
-    </span>
-  );
-}
 
 /**
  * Column widths live here, once, shared by the header and the row — they are a
@@ -43,7 +31,6 @@ export function TierMeter({ tier }: { tier: Tier | '—' }) {
 const COL = {
   server: 'w-[236px] shrink-0',
   state: 'w-[104px] shrink-0',
-  tier: 'w-[66px] shrink-0',
   standing: 'flex-1',
   /**
    * `2026-07-25 14:31Z` — 17 mono chars ≈ 106px, plus the same breathing room the
@@ -61,7 +48,6 @@ export function CustodyHeader() {
     <div className="flex items-center gap-2.5 border-b border-line px-4 py-2 text-[8.5px] uppercase tracking-[0.14em] text-faint">
       <span className={COL.server}>{COPY.browse.columnServer}</span>
       <span className={COL.state}>{COPY.browse.columnState}</span>
-      <span className={COL.tier}>{COPY.browse.columnTier}</span>
       <span className={COL.standing}>{COPY.browse.columnStanding}</span>
       <span className={COL.reviewed}>{COPY.browse.columnReviewed}</span>
       <span className={COL.capabilities}>{COPY.browse.columnCapabilities}</span>
@@ -100,14 +86,6 @@ export function CustodyRow({ row }: { row: RegistryRow }) {
       </span>
       <span className={cn(COL.state, 'text-row font-semibold', s.text)}>
         {row.status === 'running' ? COPY.states.running : row.status}
-      </span>
-      <span className={cn(COL.tier, 'flex items-center gap-1.5')}>
-        <TierMeter tier={row.tier} />
-        <span
-          className={cn('text-row font-semibold', row.tier === '—' ? 'text-faint' : 'text-ink')}
-        >
-          {row.tier}
-        </span>
       </span>
       <span
         className={cn(

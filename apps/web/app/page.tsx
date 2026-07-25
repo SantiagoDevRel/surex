@@ -8,7 +8,6 @@ import { Footer } from './_components/Footer.tsx';
 import { IllustrativeBanner } from './_components/IllustrativeBanner.tsx';
 import { RegistryFilters, type RegistryQuery } from './_components/RegistryFilters.tsx';
 import { RegistryTable, StatStrip } from './_components/RegistryTable.tsx';
-import { VerdictAxes } from './_components/VerdictAxes.tsx';
 
 /**
  * The registry list — `browse` in design/prototype.html.
@@ -34,7 +33,6 @@ function filterRows(rows: RegistryRow[], query: RegistryQuery): RegistryRow[] {
     // one, which is a filter and therefore something a test has to be able to
     // pin. Nothing is dropped here that RegistryFilters does not announce.
     if (!matchesState(row.status, query.state)) return false;
-    if (query.tier !== 'all' && row.tier !== query.tier) return false;
     if (!needle) return true;
     return (
       row.name.toLowerCase().includes(needle) ||
@@ -108,11 +106,23 @@ export default async function BrowsePage({
         ) : null}
 
         <RegistryFilters query={query} rows={rows} />
-        {/* Directly under the filters and directly above the table, so both
-            columns are explained where they are first used — and explained
-            TOGETHER, because the tier legend on its own reads as a single
-            good-to-bad scale. VerdictAxes renders the tier legend inside it. */}
-        <VerdictAxes />
+        {/*
+          The tier legend and the two-axes explainer used to sit here.
+
+          Both are gone from the SITE, not from the product. Tier answers "is the
+          code we read the code you will run", and today every published entry is
+          Tier C — so the column printed one identical letter down the page and
+          the legend spent a paragraph explaining three values the registry has
+          never shown two of. An explanation of a distinction the data does not
+          make is something a reader has to get past, not something they learn
+          from.
+
+          `tierSentence()` still runs where it earns its place: in the gate's
+          message on a developer's own machine, where "nothing was checked — this
+          verdict may be about code that is not your code" is the difference
+          between a verdict about their bytes and a verdict about somebody
+          else's. That claim is load-bearing there and decorative here.
+        */}
         <RegistryTable rows={visible} total={rows.length} query={query.q} />
 
         <Footer />
