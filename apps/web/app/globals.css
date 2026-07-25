@@ -1,0 +1,322 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   SUREX — token layer.
+
+   Verbatim from design/tokens.html (§01 colour, §02 type, §03 space/radius/
+   border/motion) and design/prototype.html (the light variant).
+
+   Two-step on purpose:
+     1. `--sx-*` on :root  → the runtime values, which flip with the theme.
+     2. `@theme inline`    → makes them real Tailwind tokens, so a component
+                             writes `text-clean`, never `#6aa87c`.
+
+   `inline` matters: it emits `color: var(--sx-clean)` into the utility rather
+   than resolving the hex at build time, which is what lets one class follow
+   the theme.
+
+   Dark is the default. `prefers-color-scheme: light` moves to the light
+   variant; an explicit `data-theme` on <html> beats both, in either direction.
+   ============================================================================ */
+
+:root {
+  --sx-bg: #141310;
+  --sx-panel: #1c1a16;
+  --sx-panel-2: #181713;
+  --sx-line: rgba(255, 255, 255, 0.09);
+  --sx-line-2: rgba(255, 255, 255, 0.06);
+
+  --sx-ink: #e8e4da;
+  --sx-ink-2: #b5afa0;
+  --sx-ink-3: #8b8578;
+  --sx-faint: #5c584e;
+
+  /* links, focus, actions — NEVER inside a verdict */
+  --sx-accent: #7aa3cc;
+  --sx-accent-t: rgba(122, 163, 204, 0.09);
+
+  --sx-clean: #6aa87c;
+  --sx-clean-t: rgba(106, 168, 124, 0.13);
+  --sx-clean-l: rgba(106, 168, 124, 0.5);
+
+  --sx-flagged: #c95b4d;
+  --sx-flagged-t: rgba(201, 91, 77, 0.13);
+  --sx-flagged-l: rgba(201, 91, 77, 0.55);
+
+  --sx-disputed: #9c86c9;
+  --sx-disputed-t: rgba(156, 134, 201, 0.13);
+  --sx-disputed-l: rgba(156, 134, 201, 0.55);
+
+  --sx-stale: #c9a15a;
+  --sx-stale-t: rgba(201, 161, 90, 0.13);
+  --sx-stale-l: rgba(201, 161, 90, 0.55);
+
+  /* the terminal keeps its own surface in both themes — it is a screenshot of
+     a real TTY, not a page element */
+  --sx-termbg: #0c0b09;
+  --sx-termink: #d8d4c8;
+
+  color-scheme: dark;
+}
+
+/* the light variant, factored out so the media query and the explicit
+   override cannot drift apart */
+:root[data-theme="light"] {
+  --sx-bg: #f5f2ea;
+  --sx-panel: #fdfbf6;
+  --sx-panel-2: #edeade;
+  --sx-line: rgba(30, 28, 20, 0.14);
+  --sx-line-2: rgba(30, 28, 20, 0.08);
+
+  --sx-ink: #22201a;
+  --sx-ink-2: #4a463c;
+  --sx-ink-3: #6e6a5e;
+  --sx-faint: #a49e90;
+
+  --sx-accent: #33608f;
+  --sx-accent-t: rgba(51, 96, 143, 0.08);
+
+  --sx-clean: #2e7047;
+  --sx-clean-t: rgba(46, 112, 71, 0.09);
+  --sx-clean-l: rgba(46, 112, 71, 0.45);
+
+  --sx-flagged: #a33d2f;
+  --sx-flagged-t: rgba(163, 61, 47, 0.09);
+  --sx-flagged-l: rgba(163, 61, 47, 0.5);
+
+  --sx-disputed: #6b4fa0;
+  --sx-disputed-t: rgba(107, 79, 160, 0.09);
+  --sx-disputed-l: rgba(107, 79, 160, 0.5);
+
+  --sx-stale: #8a6a24;
+  --sx-stale-t: rgba(138, 106, 36, 0.1);
+  --sx-stale-l: rgba(138, 106, 36, 0.5);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --sx-bg: #f5f2ea;
+    --sx-panel: #fdfbf6;
+    --sx-panel-2: #edeade;
+    --sx-line: rgba(30, 28, 20, 0.14);
+    --sx-line-2: rgba(30, 28, 20, 0.08);
+
+    --sx-ink: #22201a;
+    --sx-ink-2: #4a463c;
+    --sx-ink-3: #6e6a5e;
+    --sx-faint: #a49e90;
+
+    --sx-accent: #33608f;
+    --sx-accent-t: rgba(51, 96, 143, 0.08);
+
+    --sx-clean: #2e7047;
+    --sx-clean-t: rgba(46, 112, 71, 0.09);
+    --sx-clean-l: rgba(46, 112, 71, 0.45);
+
+    --sx-flagged: #a33d2f;
+    --sx-flagged-t: rgba(163, 61, 47, 0.09);
+    --sx-flagged-l: rgba(163, 61, 47, 0.5);
+
+    --sx-disputed: #6b4fa0;
+    --sx-disputed-t: rgba(107, 79, 160, 0.09);
+    --sx-disputed-l: rgba(107, 79, 160, 0.5);
+
+    --sx-stale: #8a6a24;
+    --sx-stale-t: rgba(138, 106, 36, 0.1);
+    --sx-stale-l: rgba(138, 106, 36, 0.5);
+
+    color-scheme: light;
+  }
+}
+
+/* ---------------------------------------------------------------- colour --*/
+@theme inline {
+  --color-bg: var(--sx-bg);
+  --color-panel: var(--sx-panel);
+  --color-panel-2: var(--sx-panel-2);
+  --color-line: var(--sx-line);
+  --color-line-2: var(--sx-line-2);
+
+  --color-ink: var(--sx-ink);
+  --color-ink-2: var(--sx-ink-2);
+  --color-ink-3: var(--sx-ink-3);
+  --color-faint: var(--sx-faint);
+
+  --color-accent: var(--sx-accent);
+  --color-accent-t: var(--sx-accent-t);
+
+  --color-clean: var(--sx-clean);
+  --color-clean-t: var(--sx-clean-t);
+  --color-clean-l: var(--sx-clean-l);
+
+  --color-flagged: var(--sx-flagged);
+  --color-flagged-t: var(--sx-flagged-t);
+  --color-flagged-l: var(--sx-flagged-l);
+
+  --color-disputed: var(--sx-disputed);
+  --color-disputed-t: var(--sx-disputed-t);
+  --color-disputed-l: var(--sx-disputed-l);
+
+  --color-stale: var(--sx-stale);
+  --color-stale-t: var(--sx-stale-t);
+  --color-stale-l: var(--sx-stale-l);
+
+  --color-termbg: var(--sx-termbg);
+  --color-termink: var(--sx-termink);
+
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: var(--font-source-serif), Georgia, serif;
+}
+
+/* ------------------------------------------- type · radius · motion scale --*/
+@theme {
+  /* §02 — IBM Plex Mono carries structure, Source Serif 4 carries evidence
+     prose. The px ladder is the design's, not Tailwind's default. */
+  /* 8.5px is the stamp's sub-line and the counter-stamp — the smallest type in
+     the system, and it only ever carries caps + letter-spacing. */
+  --text-nano: 8.5px;
+  --text-nano--line-height: 1.5;
+  --text-nano--letter-spacing: 0.09em;
+  --text-label: 9px;
+  --text-label--line-height: 1.5;
+  --text-label--letter-spacing: 0.16em;
+  --text-micro: 9.5px;
+  --text-micro--line-height: 1.6;
+  --text-mini: 10px;
+  --text-mini--line-height: 1.6;
+  --text-meta: 10.5px;
+  --text-meta--line-height: 1.6;
+  --text-row: 11px;
+  --text-row--line-height: 1.6;
+  --text-data: 11.5px;
+  --text-data--line-height: 1.6;
+  --text-body: 12px;
+  --text-body--line-height: 1.65;
+  --text-body-lg: 12.5px;
+  --text-body-lg--line-height: 1.6;
+  --text-subject: 13px;
+  --text-subject--line-height: 1.5;
+  --text-subject-lg: 13.5px;
+  --text-subject-lg--line-height: 1.5;
+  --text-prose: 14.5px;
+  --text-prose--line-height: 1.6;
+  --text-prose-lg: 15px;
+  --text-prose-lg--line-height: 1.55;
+  --text-lede: 16.5px;
+  --text-lede--line-height: 1.6;
+  --text-title: 19px;
+  --text-title--line-height: 1.35;
+  --text-stamp-sm: 17px;
+  --text-stamp-sm--line-height: 1.1;
+  --text-stamp: 24px;
+  --text-stamp--line-height: 1.1;
+
+  /* §03 — radius: 3 chips · 4 inputs/wells · 6 panels · 0 on stamps */
+  --radius-chip: 3px;
+  --radius-input: 4px;
+  --radius-panel: 6px;
+
+  /* §03 — motion */
+  --animate-stamp-in: stamp-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* The stagger is in the DURATION, never in an animation-delay. A delay plus
+     `both` fill-mode holds the element in its `from` state — scaleX(0), opacity
+     0 — which means a screenshot, a print, or any environment that does not run
+     the animation loses the segment entirely. The chain is the primary tier
+     display; it cannot be information that only exists while animating. */
+  --animate-counter-in: counter-in 0.75s both;
+  --animate-bar-draw: bar-draw 0.4s both;
+  --animate-dash-flow: dash-flow 1.2s linear infinite;
+  --animate-blink: blink 1s step-end infinite;
+  --animate-fade-up: fade-up 0.3s both;
+
+  @keyframes stamp-in {
+    0% {
+      opacity: 0;
+      transform: scale(1.55) rotate(-6deg);
+    }
+    55% {
+      opacity: 1;
+      transform: scale(0.97) rotate(-2deg);
+    }
+    75% {
+      transform: scale(1.03) rotate(-2deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(-2deg);
+    }
+  }
+  /* Lands after the stamp because the first 60% is a hold, not because of a
+     delay — see the note on --animate-counter-in. */
+  @keyframes counter-in {
+    0%,
+    60% {
+      opacity: 0;
+      transform: scale(1.4) rotate(2deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(2deg);
+    }
+  }
+  @keyframes bar-draw {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes dash-flow {
+    to {
+      background-position: 24px 0;
+    }
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+}
+
+@layer base {
+  html {
+    background: var(--sx-bg);
+  }
+
+  body {
+    margin: 0;
+    background: var(--sx-bg);
+    color: var(--sx-ink);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* §03 — focus: 2px offset outline in accent */
+  :focus-visible {
+    outline: 2px solid var(--sx-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--sx-accent-t);
+  }
+}
+
+/* Motion in this product is one stamp slam and a chain draw. Neither carries
+   information, so both are safe to drop entirely. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

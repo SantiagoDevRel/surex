@@ -2,12 +2,14 @@
   "name": "@surex/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "The registry: browse, verdict, dispute, submit.",
   "scripts": {
     "dev": "next dev -p 4311",
     "build": "next build",
     "start": "next start -p 4311",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@surex/core": "workspace:*",

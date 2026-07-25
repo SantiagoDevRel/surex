@@ -1,0 +1,345 @@
+/**
+ * The registry client.
+ *
+ * Written against the frozen contract in `packages/core/src/contract.mjs`, not
+ * against the API implementation — `ROUTES` builds every path and
+ * `parseVerdictHead()` validates every head before anything renders it. The
+ * API is a separate lane being built in parallel; this file must work whether
+ * or not it is up yet.
+ *
+ * Three outcomes, kept distinct because they mean different things:
+ *
+ *   reachable + answer   → live data, no banner
+ *   reachable + 404      → `unknown`. A real fact: nobody has submitted this
+ *                          install configuration. Not an error, not fixtures.
+ *   unreachable / 5xx    → local fixtures, and the illustrative banner goes up
+ *                          and stays up for as long as the data is fake.
+ *
+ * A malformed head degrades to `unknown`, never to `clean` — same rule the
+ * gate follows, for the same reason.
+ */
+
+import { ROUTES, parseVerdictHead, unknownHead, isFingerprint } from '@surex/core';
+
+import { COPY } from './copy.ts';
+import {
+  fixtureDispute,
+  fixtureEntry,
+  fixtureRows,
+  fixtureStats,
+} from './fixtures.ts';
+import { shortCapabilities, splitName } from './format.ts';
+import type {
+  Dispute,
+  Entry,
+  RegistryRow,
+  RegistryStats,
+  Sourced,
+  Tier,
+  VerdictHead,
+} from './types.ts';
+
+/** Dev default matches the port the API lane runs on. */
+const DEFAULT_BASE = 'http://localhost:4310';
+
+export function apiBase(): string {
+  const raw = process.env.NEXT_PUBLIC_SUREX_API?.trim();
+  return (raw && raw.length ? raw : DEFAULT_BASE).replace(/\/+$/, '');
+}
+
+/**
+ * More generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on purpose: that
+ * budget exists because the gate sits in front of every tool call. A page
+ * render can afford to wait a little longer before giving up on live data.
+ */
+const TIMEOUT_MS = 2500;
+
+type Fetched<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      kind: 'notfound' | 'unreachable';
+      detail: string;
+      /** The API marks its own error bodies too. Carried so a 404 from a mock
+          registry can still say the answer is illustrative. */
+      illustrative?: boolean;
+    };
+
+async function getJson<T>(path: string, init?: RequestInit): Promise<Fetched<T>> {
+  const url = `${apiBase()}${path}`;
+  try {
+    const res = await fetch(url, {
+      ...init,
+      cache: 'no-store',
+      headers: { accept: 'application/json', ...(init?.headers ?? {}) },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (res.status === 404 || res.status === 400) {
+      const body = (await res.json().catch(() => null)) as { illustrative?: boolean } | null;
+      return {
+        ok: false,
+        kind: 'notfound',
+        detail: `HTTP ${res.status}`,
+        illustrative: body?.illustrative === true,
+      };
+    }
+    if (!res.ok) return { ok: false, kind: 'unreachable', detail: `HTTP ${res.status}` };
+    return { ok: true, data: (await res.json()) as T };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'network error';
+    return { ok: false, kind: 'unreachable', detail };
+  }
+}
+
+function fixture<T>(data: T, note: string): Sourced<T> {
+  return { data, origin: 'fixture', illustrative: true, note };
+}
+
+function live<T>(data: T, illustrative: boolean): Sourced<T> {
+  return { data, origin: 'api', illustrative };
+}
+
+/** Anything the API marked as demo data taints the whole screen. */
+function tainted(...values: unknown[]): boolean {
+  return values.some((v) => {
+    if (Array.isArray(v)) return v.some((x) => tainted(x));
+    if (v && typeof v === 'object') return (v as { illustrative?: boolean }).illustrative === true;
+    return false;
+  });
+}
+
+/* ----------------------------------------------------------- the verdict --*/
+
+/**
+ * `GET /v1/verdict?fp=…` — the hot path. Returns a head that is always safe to
+ * render: a bad fingerprint, a 404 or a malformed payload all come back as
+ * `unknown`, which the UI presents as "not in the registry" rather than as a
+ * clean bill of health.
+ */
+export async function getVerdict(fp: string): Promise<Sourced<VerdictHead>> {
+  if (!isFingerprint(fp)) {
+    return { data: unknownHead(fp) as VerdictHead, origin: 'api', illustrative: false };
+  }
+
+  const res = await getJson<unknown>(ROUTES.verdict(fp));
+  if (res.ok) {
+    const head = parseVerdictHead(res.data) as VerdictHead | null;
+    if (head) return live(head, head.illustrative === true);
+    // Reachable but unreadable. Degrade visibly, never to `clean`.
+    return live(unknownHead(fp) as VerdictHead, false);
+  }
+  if (res.kind === 'notfound') return live(unknownHead(fp) as VerdictHead, false);
+
+  const entry = fixtureEntry(fp);
+  if (entry) return fixture(entry.head, `${COPY.banners.unreachableLabel}: ${res.detail}`);
+  return fixture(unknownHead(fp) as VerdictHead, `${COPY.banners.unreachableLabel}: ${res.detail}`);
+}
+
+/* ------------------------------------------------------------- the entry --*/
+
+/** Read whatever the entry route gives us without assuming its full shape. */
+function normaliseEntry(fp: string, raw: unknown): Entry | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const body = raw as Record<string, unknown>;
+  const head = parseVerdictHead(body.head ?? body) as VerdictHead | null;
+  if (!head) return null;
+
+  const pick = <T>(key: string): T | undefined => body[key] as T | undefined;
+  return {
+    head,
+    summary: pick<string>('summary'),
+    options: pick<string>('options'),
+    findings: pick<Entry['findings']>('findings') ?? (head.topFinding ? [head.topFinding] : []),
+    source: pick<Entry['source']>('source'),
+    review:
+      pick<Entry['review']>('review') ??
+      (head.modelId
+        ? { modelId: head.modelId, promptVersion: head.promptVersion, analyzedAt: head.reviewedAt }
+        : undefined),
+    localLinkage: pick<Entry['localLinkage']>('localLinkage'),
+    tierNote: pick<string>('tierNote'),
+    dispute: pick<Dispute>('dispute'),
+    supersededBy: pick<string>('supersededBy'),
+    supersededAt: pick<string>('supersededAt'),
+    overrideCommand: pick<string>('overrideCommand') ?? `surex allow ${fp}`,
+    illustrative: head.illustrative === true,
+  };
+}
+
+/**
+ * `GET /v1/entry/<fp>` — the whole verdict page. `null` data means the
+ * registry genuinely has no entry, which is a different screen from a registry
+ * we could not reach.
+ */
+export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
+  if (!isFingerprint(fp)) return { data: null, origin: 'api', illustrative: false };
+
+  const res = await getJson<unknown>(ROUTES.entry(fp));
+  if (res.ok) {
+    const entry = normaliseEntry(fp, res.data);
+    if (entry) return live(entry, entry.illustrative === true || tainted(res.data));
+    return live(null, tainted(res.data));
+  }
+  // A mock registry's "no entry" is not a real fact about the registry either,
+  // so the API's own `illustrative` flag on the 404 body still raises the banner.
+  if (res.kind === 'notfound') return live(null, res.illustrative === true);
+
+  const entry = fixtureEntry(fp);
+  return fixture(entry, `${COPY.banners.unreachableLabel}: ${res.detail}`);
+}
+
+/* ----------------------------------------------------------- the dispute --*/
+
+/**
+ * The contract has no per-fingerprint dispute route — `POST /v1/disputes`
+ * files one, and the dispute record rides along on the entry. So the dispute
+ * screen reads the entry and takes the dispute off it.
+ */
+export async function getDispute(fp: string): Promise<Sourced<Dispute | null>> {
+  const entry = await getEntry(fp);
+  if (entry.origin === 'fixture') {
+    return fixture(fixtureDispute(fp), entry.note ?? COPY.banners.unreachableLabel);
+  }
+  const dispute = entry.data?.dispute ?? null;
+  return live(dispute, entry.illustrative);
+}
+
+/* ---------------------------------------------------------- the registry --*/
+
+export interface RegistryView {
+  rows: RegistryRow[];
+  stats: RegistryStats;
+  /**
+   * True when the live rows are the flagged feed only. `/v1` freezes
+   * `/v1/flagged` (the public feed for org-level gateways, FR-14) and
+   * `/v1/verdict`, but no route that lists the whole registry — so a live
+   * browse screen can honestly show the flagged feed and must say that is what
+   * it is showing rather than implying it is everything.
+   */
+  partial: boolean;
+}
+
+function rowFromHead(head: VerdictHead): RegistryRow {
+  const { name, version } = splitName(head.name ?? head.fingerprint);
+  const standing =
+    head.state === 'disputed'
+      ? COPY.confidence.disputed
+      : head.enforceAfter && Date.now() > Number(head.enforceAfter)
+        ? COPY.confidence.confirmed
+        : COPY.confidence.unconfirmed;
+  return {
+    fingerprint: head.fingerprint,
+    name,
+    version: version || '—',
+    status: head.state,
+    tier: (head.tier ?? 'C') as Tier,
+    standing,
+    standingTone: head.state === 'disputed' ? 'disputed' : undefined,
+    reviewedAt: head.reviewedAt ?? head.updatedAt ?? '—',
+    capabilities: shortCapabilities(head.capabilities),
+    illustrative: head.illustrative === true,
+    linkable: true,
+  };
+}
+
+function statsFromRows(rows: RegistryRow[], illustrative: boolean): RegistryStats {
+  return {
+    // Neither `unreviewable` nor `running` has been reviewed. Counting them
+    // would overstate coverage, which is the one number nobody should inflate.
+    reviewed: rows.filter(
+      (r) => r.status !== 'running' && r.status !== 'unknown' && r.status !== 'unreviewable',
+    ).length,
+    flagged: rows.filter((r) => r.status === 'flagged').length,
+    disputed: rows.filter((r) => r.status === 'disputed').length,
+    stale: rows.filter((r) => r.status === 'stale').length,
+    tierA: rows.filter((r) => r.tier === 'A').length,
+    illustrative,
+  };
+}
+
+export async function getRegistry(): Promise<Sourced<RegistryView>> {
+  const res = await getJson<unknown>(ROUTES.flagged());
+
+  if (!res.ok && res.kind === 'unreachable') {
+    return fixture(
+      { rows: fixtureRows(), stats: fixtureStats(), partial: false },
+      `${COPY.banners.unreachableLabel}: ${res.detail}`,
+    );
+  }
+
+  const body = res.ok ? res.data : null;
+  const rows = headList(body)
+    .map((r) => parseVerdictHead(r) as VerdictHead | null)
+    .filter((h): h is VerdictHead => h !== null)
+    .map(rowFromHead);
+
+  // Reachable but with nothing to show is a real answer — an empty registry.
+  const illustrative =
+    rows.some((r) => r.illustrative) || tainted(body) || bodyFlag(body) === true;
+
+  const statsRes = await getJson<unknown>(ROUTES.stats());
+  const stats = statsRes.ok
+    ? normaliseStats(statsRes.data, rows, illustrative)
+    : statsFromRows(rows, illustrative);
+
+  return live({ rows, stats, partial: true }, illustrative || stats.illustrative === true);
+}
+
+/**
+ * The frozen contract names the routes and the head fields; it does not name the
+ * envelope. So read every envelope the other lane could reasonably have picked
+ * rather than making them change one.
+ */
+function headList(body: unknown): unknown[] {
+  if (Array.isArray(body)) return body;
+  if (!body || typeof body !== 'object') return [];
+  const b = body as Record<string, unknown>;
+  for (const key of ['heads', 'entries', 'verdicts', 'items', 'results']) {
+    if (Array.isArray(b[key])) return b[key] as unknown[];
+  }
+  return [];
+}
+
+function bodyFlag(body: unknown): boolean | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  return (body as { illustrative?: boolean }).illustrative;
+}
+
+/**
+ * `/v1/stats` is a telemetry document, not a counts document — the API lane
+ * reports hit rate, lookups by state, and a nested `registry` block. Take the
+ * counts where they exist and count the rows where they do not. A number that
+ * is not reported is left undefined and simply not rendered; nothing here
+ * invents one.
+ */
+function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: boolean): RegistryStats {
+  const derived = statsFromRows(rows, illustrative);
+  if (!raw || typeof raw !== 'object') return derived;
+
+  const top = raw as Record<string, unknown>;
+  const flat = top as Partial<RegistryStats>;
+  const registry = (top.registry ?? {}) as {
+    entries?: number;
+    byState?: Record<string, number>;
+    illustrative?: boolean;
+  };
+  const byState = registry.byState ?? {};
+  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+
+  const unreviewable = num(byState.unreviewable) ?? 0;
+  const reviewed =
+    num(flat.reviewed) ??
+    (num(registry.entries) !== undefined ? (registry.entries as number) - unreviewable : undefined);
+
+  return {
+    reviewed: reviewed ?? derived.reviewed,
+    flagged: num(flat.flagged) ?? num(byState.flagged) ?? derived.flagged,
+    disputed: num(flat.disputed) ?? num(byState.disputed) ?? derived.disputed,
+    stale: num(flat.stale) ?? num(byState.stale) ?? derived.stale,
+    // Tier A is not reported by the stats route. Left undefined, so the strip
+    // omits it rather than showing a figure nobody counted.
+    tierA: num(flat.tierA),
+    illustrative:
+      illustrative || bodyFlag(raw) === true || registry.illustrative === true,
+  };
+}
