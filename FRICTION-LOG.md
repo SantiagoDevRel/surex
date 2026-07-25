@@ -770,27 +770,44 @@ its passes, look for a leaked timer, not for a slow test.
 
 ---
 
-### V4 · A catch-all rewrite does not cover `/`, and the root HANGS instead of 404ing — **[VERIFIED]**
-**Severity: medium**, and nastier than a 500 because a hang looks like a network problem on the caller's side.
+### V4 · An auto-detected framework preset makes `/` HANG instead of reaching the function — **[VERIFIED]**
+**Severity: medium**, and nastier than a 500, because a hang reads as a network fault on the caller's side
+rather than as a problem with the deployment.
 
-- **Expected:** `"rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]` sends every path to the
-  function, root included. That is the documented pattern for putting one server behind a Vercel project,
-  and `/(.*)` matches the empty string.
-- **Happened:** every path reached the function and answered — `/healthz` 200, `/v1/stats` 200, `/nope` a
-  clean 404 from the app's own handler — but `GET /` never returned at all. Not a 404, not a 500: the
-  connection established, the request was sent, and nothing came back until curl gave up at 25s.
-- **How we found out:** runtime logs, which is the only place the answer is visible. Every other path logs
-  `[info/serverless]`; the root logs **`GET / 0 [info/static]`** — status 0, source *static*. Vercel resolves
-  the bare root against the static handler, finds no index file, and the request dies there. The function
-  module had even been loaded (its boot `console.log` appears in the same log line), so from the outside it
-  looks like the app hung.
-- **Repro:** an `api/index.mjs` function plus that single catch-all rewrite, then
-  `curl -v https://<deployment>/` → `Operation timed out ... 0 bytes received`, while `curl https://<deployment>/nope`
-  returns the app's 404 immediately.
-- **Fix:** an explicit `{ "source": "/", "destination": "/api/index" }` **before** the catch-all.
-- **What would have prevented it:** either make `/(.*)` genuinely include the root, or — much better — have
-  the static handler 404 when it has nothing to serve. A platform that hangs where it means "not found"
-  costs far more debugging time than the same condition reported as a status code.
+- **Setup:** an `api/index.mjs` function plus `"rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]`
+  — the documented pattern for putting one server behind a Vercel project. `vercel link` auto-detected the
+  framework as **Hono** and we left that alone.
+- **Expected:** every path reaches the function, root included.
+- **Happened:** every path did — `/healthz` 200, `/v1/stats` 200, `/nope` a clean 404 from the app's own
+  handler — but `GET /` never returned at all. Connection established, request sent, nothing back until curl
+  gave up at 25 s.
+- **How we found out:** runtime logs, the only place the answer is visible. Every other path logs
+  `[info/serverless]`; the root logs **`GET / 0 [info/static]`** — status 0, source *static*. The function
+  module had even booted (its startup line appears in the same log entry), so from outside it looked exactly
+  like our app hanging on one route.
+- **The wrong fix, recorded because it cost a deploy:** adding an explicit `{ "source": "/", "destination":
+  "/api/index" }` before the catch-all changed nothing. Rewrites are evaluated *after* the filesystem check,
+  so a root already claimed by the static layer never reaches them.
+- **The actual cause:** the **auto-detected framework preset**. It gives the project a static output root,
+  and the bare `/` resolves there first. Setting `framework: null` — a plain functions-plus-rewrites project
+  — fixed it immediately: `/` went from a 25 s hang to `200` in 0.41 s, with every other route unchanged.
+- **Repro:** deploy an `api/*` function with a catch-all rewrite and framework `hono`; `curl -v https://<url>/`
+  times out with 0 bytes while `curl https://<url>/nope` answers instantly. Set framework to none, redeploy,
+  and the root answers.
+- **What would have prevented it:** the static handler returning **404** when it has nothing to serve. A
+  platform that hangs where it means "not found" costs far more debugging time than the same condition
+  reported as a status code — and auto-detecting a framework for a project that is only functions is what put
+  the static handler in the path at all.
+
+### V5 · `vercel build` cannot run locally here, which is exactly when you need it — **[VERIFIED]**
+- **Expected:** `vercel pull && vercel build` reproduces the remote build locally, so a routing problem can be
+  diagnosed by reading the generated `.vercel/output/config.json` instead of by redeploying.
+- **Happened:** `Error: spawn cmd.exe ENOENT`, in both Git Bash and PowerShell, on a machine where
+  `$env:ComSpec` is `C:\Windows\system32\cmd.exe`, that file exists, and `System32` is on `PATH` twice.
+  No `.vercel/output` is produced, so there is nothing to inspect.
+- **Why it matters:** the rule after a failed remote fix is to stop guessing and reproduce locally. This is the
+  tool for that, and on Windows it was unavailable precisely when the routing behaviour needed explaining —
+  which is how V4 above cost an extra deploy instead of being read off a config file.
 
 ## Next.js / Tailwind v4
 

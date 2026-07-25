@@ -44,7 +44,8 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | `packages/worker` + seeding | in progress |
 | World ID / AgentKit wiring | **not built** — the dispute route has the gate and an injectable verifier that refuses everything, and the submit page sends a real request with no proof and renders the 401 verbatim |
 | Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
-| Deployed anywhere | **no** — everything above runs locally |
+| Deployed | **yes** — web `arkiv-surex.vercel.app`, API `arkiv-surex-api.vercel.app`, both on `santiago-prod`, both reading live Braga. Git-connected to this repo, so every push to `main` redeploys. |
+| The registry, live | **51 entries** · 1 flagged (our fixture) · 10 unreviewable(licence) · 40 unknown · 0 clean |
 
 **Total: 223 tests green** (`pnpm test`), plus 9 copy-law tests in the web app.
 

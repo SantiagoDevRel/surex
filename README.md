@@ -11,6 +11,20 @@ proceed anyway.
 
 Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 
+## Live
+
+| | |
+|---|---|
+| **The registry** | **https://arkiv-surex.vercel.app** |
+| **The API** | **https://arkiv-surex-api.vercel.app** — [`/v1/registry`](https://arkiv-surex-api.vercel.app/v1/registry) · [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) · [`/v1/flagged`](https://arkiv-surex-api.vercel.app/v1/flagged) |
+
+Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
+official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model
+has reviewed. The browse strip says `1 reviewed` because one is the true number.
+
+> The explainer at `santiagodevrel.github.io/surex` predates this build and still says "design phase".
+> It is superseded by the link above.
+
 ## Status
 
 **The chain runs end to end.** One command proves it:
