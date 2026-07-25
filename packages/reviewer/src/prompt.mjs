@@ -44,7 +44,7 @@
 
 import { randomBytes, createHash } from 'node:crypto';
 
-export const PROMPT_VERSION = 'rv-5';
+export const PROMPT_VERSION = 'rv-6';
 
 /** The two paraphrases. Both are asked for the same schema; nothing else matches. */
 export const VARIANTS = Object.freeze(['a', 'b']);
@@ -337,6 +337,14 @@ const SCHEMA_BLOCK = `{
 const SCHEMA_RULES = [
   'Output JSON only. No prose before it, no prose after it, no markdown fence.',
   'severity: 0 none, 1 low, 2 moderate, 3 high, 4 critical. The record severity is the highest finding severity.',
+  'Severity is about BLAST RADIUS, not about how much the omission annoys you. Ask what the undeclared',
+  '  behaviour can reach: 3-4 when it can move the user\'s data or code off the machine, run or install code,',
+  '  read credentials or files outside the package, or change what other tools do. 1-2 when it is undeclared',
+  '  but bounded and carries nothing the user would call theirs — usage counts about the tool itself, a file',
+  '  inside the package\'s own directory, a version check, a fixed destination with a fixed payload.',
+  'Do not reach for 3 by default. A registry that stops a developer\'s work over every undeclared ping is one',
+  '  they switch off, after which it protects nobody. If the finding is real but bounded, 2 is the honest',
+  '  answer and it still shows the developer the evidence.',
   '"clean" requires severity 0 and no findings above severity 0. If you found something, it is not clean.',
   '"flagged" requires at least one finding. A flag with no evidence is not usable.',
   '"unreviewable" is for when the material does not let you reach a conclusion — packed or obfuscated code, no source, or source that does not correspond to the declared tools.',
