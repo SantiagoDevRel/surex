@@ -697,6 +697,51 @@ test('a checked submission is FORWARDED to the writer, and 202 only if the write
   assert.match(body.error.message, /fault in the registry, not in your submission/i);
 });
 
+test('GET /v1/submissions/:id names the model doing the reading', async () => {
+  // A review is minutes because a model reads the source twice — four times when
+  // the readings disagree. A screen that hides that behind an anonymous spinner
+  // is asking to be trusted rather than read, so the status says which model,
+  // and it comes from the same variable the reviewer itself reads.
+  const env = {
+    SUREX_MOCK: '1',
+    SUREX_INGEST_URL: 'https://writer.test',
+    SUREX_INGEST_TOKEN: 't0ken',
+    SUREX_REVIEWER_MODEL: 'qwen3-coder-next:surex32k',
+  };
+  const app = createApp({
+    logger: quiet, env,
+    fetchImpl: async (url, init) => {
+      assert.match(String(url), /\/v1\/ingest\/ing_1$/);
+      assert.equal(init.headers.authorization, 'Bearer t0ken');
+      return new Response(JSON.stringify({ status: 'running', startedAt: '2026-07-25T20:00:00Z' }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  const res = await app.request('/v1/submissions/ing_1', { headers: { host: HOST } });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, 'running');
+  assert.equal(body.reviewer.model, 'qwen3-coder-next:surex32k');
+  assert.equal(body.reviewer.humanAudited, false);
+  assert.match(body.reviewer.readings, /paraphrased/);
+  assert.equal(res.headers.get('cache-control'), 'no-store', 'progress must never be cached');
+});
+
+test('an unset reviewer model is reported as unset, never guessed', async () => {
+  // A hardcoded default here would be a screen confidently naming a model nobody
+  // configured — and that name ends up beside a verdict.
+  const app = createApp({
+    logger: quiet,
+    env: { SUREX_MOCK: '1', SUREX_INGEST_URL: 'https://writer.test', SUREX_INGEST_TOKEN: 't' },
+    fetchImpl: async () => new Response(JSON.stringify({ status: 'queued' }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }),
+  });
+  const body = await (await app.request('/v1/submissions/ing_2', { headers: { host: HOST } })).json();
+  assert.equal(body.reviewer.model, null);
+});
+
 /* ────────────────────────────────────────────────────────────────── selection ─*/
 
 test('the World verifiers are opt-in, and a broken configuration fails to the stub', async () => {

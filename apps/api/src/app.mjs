@@ -28,7 +28,7 @@ import { createArkivStore } from './arkiv.mjs';
 import { AGENTKIT_HEADER, REFUSAL_STATUS, WORLD_ACTIONS, resolveVerifiers } from './verifiers.mjs';
 import { mountAdmin } from './admin.mjs';
 import { withLinks } from './links.mjs';
-import { forwardSubmission, validateSubmission } from './ingest.mjs';
+import { forwardSubmission, submissionStatus, validateSubmission } from './ingest.mjs';
 import { createHash } from 'node:crypto';
 
 /** A whole config's prefetch, capped. 5–20 is typical; 100 is already absurd. */
@@ -206,6 +206,8 @@ export function createApp(options = {}) {
         'GET  /v1/source/:key',
         'GET  /v1/review/:key',
         'POST /v1/disputes',
+        'POST /v1/submissions',
+        'GET  /v1/submissions/:id',
         'GET  /v1/flagged',
         'GET  /v1/registry?state=&limit=',
         'GET  /v1/stats',
@@ -859,6 +861,59 @@ export function createApp(options = {}) {
       ),
       503,
     );
+  });
+
+  /**
+   * How a submission is going.
+   *
+   * Public and unauthenticated on purpose: the id is unguessable, it reveals only
+   * what the submitter already knows, and requiring a credential would mean a
+   * submit page that cannot show progress on the thing it just submitted.
+   *
+   * It names the model. A review takes minutes because a model reads the source
+   * twice — four times when the two readings disagree — and a screen that hides
+   * that behind an anonymous spinner is asking to be trusted rather than read.
+   */
+  app.get(`/${API_VERSION}/submissions/:id`, async (c) => {
+    const status = await submissionStatus(c.req.param('id'), { env, fetchImpl: options.fetchImpl });
+
+    if (status.kind === 'invalid') {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'that is not a submission id'), 400);
+    }
+    if (status.kind === 'unconfigured') {
+      return c.json(
+        apiError(ERROR_CODES.NOT_IMPLEMENTED, 'this deployment has no writer configured, so it has no submissions to report on', {
+          built: false, missing: status.missing,
+        }),
+        501,
+      );
+    }
+    if (status.kind === 'unknown') {
+      return c.json(apiError(ERROR_CODES.NOT_FOUND, 'no submission with that id'), 404);
+    }
+    if (status.kind !== 'ok') {
+      return c.json(
+        apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, 'the registry could not reach its writer to ask about this submission', {
+          detail: status.detail ?? undefined,
+        }),
+        503,
+      );
+    }
+
+    c.header('Cache-Control', 'no-store');
+    return c.json({
+      id: c.req.param('id'),
+      status: status.status,
+      queuePosition: status.queuePosition ?? undefined,
+      startedAt: status.startedAt ?? undefined,
+      durationMs: status.durationMs ?? undefined,
+      reviewer: status.reviewer,
+      result: status.result ?? undefined,
+      error: status.error ?? undefined,
+      // A job the process died under may have written half of what it intended.
+      // Whoever is watching needs that said, not smoothed over.
+      interrupted: status.interrupted,
+    });
   });
 
   // ── the demo-recovery control ─────────────────────────────────────────────

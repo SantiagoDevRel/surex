@@ -69,6 +69,72 @@ export function validateSubmission(body) {
 }
 
 /**
+ * Where a submission has got to.
+ *
+ * A review is minutes, not seconds — a model reads the source twice, and four
+ * times when the two readings disagree. Without this the submit screen has
+ * nothing true to say during those minutes, and a screen with nothing true to
+ * say invents something.
+ *
+ * It reports WHICH MODEL is doing the reading, deliberately. The verdict will
+ * carry that name forever; someone watching it happen should see the same name,
+ * not a spinner that could be hiding anything.
+ */
+export async function submissionStatus(id, { env = process.env, fetchImpl = fetch, timeoutMs = 6000 } = {}) {
+  const config = ingestConfig(env);
+  if (!config.configured) return { kind: 'unconfigured', missing: config.missing };
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(String(id ?? ''))) return { kind: 'invalid' };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(`${config.baseUrl}/v1/ingest/${encodeURIComponent(id)}`, {
+      headers: { accept: 'application/json', authorization: `Bearer ${config.token}` },
+      signal: controller.signal,
+    });
+    if (res.status === 404) return { kind: 'unknown' };
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) return { kind: 'unreachable', status: res.status };
+    return {
+      kind: 'ok',
+      status: body.status,
+      queuePosition: body.queuePosition ?? null,
+      startedAt: body.startedAt ?? null,
+      durationMs: body.durationMs ?? null,
+      result: body.result ?? null,
+      error: body.error ?? null,
+      interrupted: body.interrupted ?? undefined,
+      // Named, not implied. The model doing the reading is part of what the
+      // verdict will claim, so it is visible while it is happening.
+      reviewer: reviewerIdentity(env),
+    };
+  } catch (err) {
+    return { kind: 'unreachable', detail: err?.name === 'AbortError' ? 'the writer did not answer in time' : 'the writer could not be reached' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Which model reads the code, in the words the verdict will use.
+ *
+ * Read from the same environment variable the reviewer itself reads, so the
+ * screen cannot drift from what actually ran. Unset is reported as unset — a
+ * hardcoded default here would be a screen confidently naming a model nobody
+ * configured.
+ */
+export function reviewerIdentity(env = process.env) {
+  const model = (env.SUREX_REVIEWER_MODEL ?? '').trim();
+  return {
+    model: model || null,
+    // Two paraphrased readings, and two more when they disagree — see the
+    // reviewer's merge rule. Worth saying: it explains why this takes minutes.
+    readings: '2 paraphrased readings, 4 when they disagree',
+    humanAudited: false,
+  };
+}
+
+/**
  * Forward it. Returns what happened, in the caller's vocabulary — `queued`,
  * `unconfigured`, or `unreachable` — and never invents the first one.
  */
