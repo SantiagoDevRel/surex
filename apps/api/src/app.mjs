@@ -28,6 +28,7 @@ import { createArkivStore } from './arkiv.mjs';
 import { AGENTKIT_HEADER, REFUSAL_STATUS, WORLD_ACTIONS, resolveVerifiers } from './verifiers.mjs';
 import { mountAdmin } from './admin.mjs';
 import { withLinks } from './links.mjs';
+import { forwardSubmission, submissionStatus, validateSubmission } from './ingest.mjs';
 import { createHash } from 'node:crypto';
 
 /** A whole config's prefetch, capped. 5–20 is typical; 100 is already absurd. */
@@ -205,6 +206,8 @@ export function createApp(options = {}) {
         'GET  /v1/source/:key',
         'GET  /v1/review/:key',
         'POST /v1/disputes',
+        'POST /v1/submissions',
+        'GET  /v1/submissions/:id',
         'GET  /v1/flagged',
         'GET  /v1/registry?state=&limit=',
         'GET  /v1/stats',
@@ -754,10 +757,20 @@ export function createApp(options = {}) {
     try {
       body = await c.req.json();
     } catch {
-      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, release, proof }'), 400);
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, commit, proof }'), 400);
     }
-    if (!body?.repo || !body?.release) {
-      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repo and a release'), 400);
+    // A repo and a COMMIT. `release` used to be required here and is now the
+    // optional half: a tag is a human-readable label for a commit, and it is the
+    // commit that names bytes. Requiring the label rejected perfectly good
+    // submissions of a default-branch head, and did it BEFORE the proof was
+    // checked — so a submitter with a valid proof was told their body was
+    // malformed for omitting something that identifies nothing.
+    // Only the shape needed to run the gate. The commit is checked AFTER the
+    // proof, by validateSubmission — identity first, then the submission's
+    // content. Checking the commit here would refuse an anonymous request for
+    // the wrong reason and reveal that we had read the body before the gate.
+    if (!body?.repo) {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repository'), 400);
     }
 
     const check = await verifiers.verifyHumanProof({
@@ -797,20 +810,120 @@ export function createApp(options = {}) {
       );
     }
 
+    // ── the proof checked out; hand it to the writer ────────────────────────
+    //
+    // This process still has no wallet, and that is the design: the ingest
+    // service holds it, on the machine the reviewer already runs on. So the
+    // submission is FORWARDED. Nothing below ever answers 202 unless the writer
+    // said it accepted — a submit form that reports "queued" when nothing was
+    // queued is the exact class of lie this registry exists to make impossible.
+    const shape = validateSubmission(body);
+    if (!shape.ok) {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, shape.detail, { field: shape.code }), 400);
+    }
+
+    const identity = { action: check.action, checked: true, nullifierSpent: false, verifier: verifiers.name };
+    const forwarded = await forwardSubmission(
+      { ...shape, submissionId: check.nullifierHash ?? undefined },
+      { env, fetchImpl: options.fetchImpl },
+    );
+
+    if (forwarded.kind === 'queued') {
+      return c.json({
+        accepted: true,
+        submissionId: forwarded.id,
+        repo: shape.repo,
+        commit: shape.commit,
+        release: shape.release,
+        deduped: forwarded.deduped || undefined,
+        queuePosition: forwarded.queuePosition ?? undefined,
+        identity,
+        // Said plainly: the review has NOT run yet, and the verdict may be that
+        // nothing could be concluded. Queued is not a promise of a clean answer.
+        note:
+          'The release is queued for review. A verdict blob publishes to the index when the run completes, ' +
+          'whatever it concludes.',
+      }, 202);
+    }
+
+    if (forwarded.kind === 'unconfigured') {
+      return c.json(
+        apiError(
+          ERROR_CODES.NOT_IMPLEMENTED,
+          'World ID personhood checked out for this submission, and this deployment has no writer configured to ' +
+            'take it: the review, the Walrus upload and the Arkiv write all need a wallet, which this process ' +
+            'deliberately does not hold. Nothing was queued and no review will run.',
+          { built: false, identity, missing: forwarded.missing },
+        ),
+        501,
+      );
+    }
+
+    // Reachable and refused, or not reachable at all. Either way this is OUR
+    // problem, and the submitter is told that rather than being left to think
+    // their submission was rejected.
     return c.json(
       apiError(
-        ERROR_CODES.NOT_IMPLEMENTED,
-        'World ID personhood checked out for this submission. The rest of POST /v1/submissions is NOT built in ' +
-          'this deployment: repo-ownership proof, licence gate, Walrus upload and the Arkiv write all need a ' +
-          'writer, and this process has no wallet. Nothing was queued and no review will run.',
-        {
-          built: false,
-          identity: { action: check.action, checked: true, nullifierSpent: false, verifier: verifiers.name },
-          missing: ['repo-ownership proof', 'licence gate', 'Walrus upload', 'Arkiv write'],
-        },
+        ERROR_CODES.UPSTREAM_UNAVAILABLE,
+        'World ID personhood checked out, but the registry could not hand this submission to its writer. ' +
+          'Nothing was queued. This is a fault in the registry, not in your submission — retry.',
+        { built: true, identity, detail: forwarded.detail, ...(forwarded.status ? { upstreamStatus: forwarded.status } : {}) },
       ),
-      501,
+      503,
     );
+  });
+
+  /**
+   * How a submission is going.
+   *
+   * Public and unauthenticated on purpose: the id is unguessable, it reveals only
+   * what the submitter already knows, and requiring a credential would mean a
+   * submit page that cannot show progress on the thing it just submitted.
+   *
+   * It names the model. A review takes minutes because a model reads the source
+   * twice — four times when the two readings disagree — and a screen that hides
+   * that behind an anonymous spinner is asking to be trusted rather than read.
+   */
+  app.get(`/${API_VERSION}/submissions/:id`, async (c) => {
+    const status = await submissionStatus(c.req.param('id'), { env, fetchImpl: options.fetchImpl });
+
+    if (status.kind === 'invalid') {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'that is not a submission id'), 400);
+    }
+    if (status.kind === 'unconfigured') {
+      return c.json(
+        apiError(ERROR_CODES.NOT_IMPLEMENTED, 'this deployment has no writer configured, so it has no submissions to report on', {
+          built: false, missing: status.missing,
+        }),
+        501,
+      );
+    }
+    if (status.kind === 'unknown') {
+      return c.json(apiError(ERROR_CODES.NOT_FOUND, 'no submission with that id'), 404);
+    }
+    if (status.kind !== 'ok') {
+      return c.json(
+        apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, 'the registry could not reach its writer to ask about this submission', {
+          detail: status.detail ?? undefined,
+        }),
+        503,
+      );
+    }
+
+    c.header('Cache-Control', 'no-store');
+    return c.json({
+      id: c.req.param('id'),
+      status: status.status,
+      queuePosition: status.queuePosition ?? undefined,
+      startedAt: status.startedAt ?? undefined,
+      durationMs: status.durationMs ?? undefined,
+      reviewer: status.reviewer,
+      result: status.result ?? undefined,
+      error: status.error ?? undefined,
+      // A job the process died under may have written half of what it intended.
+      // Whoever is watching needs that said, not smoothed over.
+      interrupted: status.interrupted,
+    });
   });
 
   // ── the demo-recovery control ─────────────────────────────────────────────

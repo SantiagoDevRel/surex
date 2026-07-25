@@ -14,8 +14,15 @@
 
 export const VERDICTS = Object.freeze(['clean', 'flagged', 'unreviewable']);
 
-/** The closed `reason` enum from the contract. `null` means "no special reason". */
-export const REASONS = Object.freeze(['licence', 'source-unavailable', 'remote-endpoint']);
+/**
+ * The closed `reason` enum from the contract. `null` means "no special reason".
+ *
+ * The first three are all "we could not read the code". **`no-agreement` is a
+ * different admission**: the code was read, more than once, and the readings did
+ * not converge — so there is a review, and it has no verdict. A model may not
+ * return it (nothing in the prompt offers it); only the merge produces it.
+ */
+export const REASONS = Object.freeze(['licence', 'source-unavailable', 'remote-endpoint', 'no-agreement', 'withheld', 'partial-source']);
 
 export const CAPABILITY_KEYS = Object.freeze([
   'network', 'filesystem', 'exec', 'env', 'credentials',
@@ -26,8 +33,15 @@ export const MAX_SEVERITY = 4;
 /** The one category that is asserted deterministically, never taken from a model. */
 export const INJECTION_CATEGORY = 'reviewer-injection';
 
-/** Ceiling applied whenever the two runs did not agree (tech-spec §6.3). */
+/** Ceiling applied to a finding only one reading in the panel reported. */
 export const DISAGREEMENT_SEVERITY_CAP = 2;
+
+/**
+ * The largest panel a review can run: two paraphrased readings, plus one more of
+ * each when those two disagree. `agreementRuns` is the size of the majority, so
+ * it is bounded by this.
+ */
+export const MAX_PANEL = 4;
 
 // ---------------------------------------------------------------------------
 // primitives
@@ -240,8 +254,17 @@ export function validateReviewRecord(raw) {
   if (typeof raw.promptVersion !== 'string' || !raw.promptVersion) {
     errors.push('promptVersion must be a non-empty string');
   }
+  // The panel is two readings normally and FOUR when the first two split (one
+  // more of each variant — see TIEBREAK_VARIANTS in review.mjs), so the number
+  // of readings that agreed can be anything from 0 to 4. This used to say
+  // "0, 1 or 2", which was true when a split was resolved by picking a side; it
+  // silently turned every majority-of-four verdict into `unreviewable` the moment
+  // the tie-break shipped — a validation failure being reported as a review
+  // failure, which is exactly the confusion this validator exists to prevent.
   const runs = asInt(raw.agreementRuns);
-  if (runs === null || runs < 0 || runs > 2) errors.push('agreementRuns must be 0, 1 or 2');
+  if (runs === null || runs < 0 || runs > MAX_PANEL) {
+    errors.push(`agreementRuns must be between 0 and ${MAX_PANEL}`);
+  }
 
   if (!isPlainObject(raw.capabilities)) {
     errors.push('capabilities must be an object');

@@ -114,6 +114,19 @@ Follow-up to W4, resolving the "is there a no-Orb path?" question as far as it c
 ### W13 · A minor sharp edge: `humanId` is returned unpadded
 - `lookupHuman` returns `toHex(uint256)`, which drops leading zeros: the same registration reads as `0x1c2d8c2a0abcd…` from the SDK and `0x01c2d8c2a0abcd…` from the `AgentRegistered` event topic. Anyone using `humanId` as a map key, a database key, or a cross-check against the event will get two identities for one human depending on where they read it. Return it zero-padded to 32 bytes, or document it as a numeric value rather than a hash-shaped string.
 
+### W15 · The documented failure mode for a Face-Check-disabled app is *nothing happens* — **[NOT reproduced by us; sourced from World's own docs]**
+- **Context:** switching `/submit` and `/d/[fp]` from `deviceLegacy` to Selfie Check (`selfieCheckLegacy`), 2026-07-25, `@worldcoin/idkit@4.2.1`.
+- **The preset itself is well documented and the swap is genuinely one line** — `world-id/idkit/credentials#selfie-check` gives the exact React call, and it is correct: `selfieCheckLegacy({ signal })` on the standard `IDKitRequestWidget` with `allow_legacy_proofs`. Credit where due; W11's complaint does not apply here.
+- **What is not documented next to it:** Selfie Check is gated per app (`enable_face_check`), and World's own gotcha table describes the failure as *"Face Check appears unresponsive or never starts"* → "the app may not be enabled for Face Check" (`world-id/SKILL`, Phase 7). A **silent no-op** is the worst available failure mode for a beta feature behind an entitlement: there is no error code, nothing in `onError`, and nothing distinguishes "not entitled" from "user closed the sheet".
+- **We could not reproduce either branch.** Our app *is* enabled (`enable_face_check: true`), and completing the flow needs a phone with World App — so we have verified the code path and the request shape, not the camera. Recorded as an unverified-by-us doc claim on purpose.
+- **What would have prevented it:** have IDKit reject the request with a named code (`credential_not_enabled`) when the app lacks the entitlement, the same way `user_presence_failed` exists for a failed liveness step. Failing that, put the `enable_face_check` precondition in the Selfie Check section of `idkit/credentials` — not only in the gotcha table of a separate skill page, which is the last thing a developer reads and the first thing they need.
+
+### W16 · The only full-narrative React example for `selfieCheckLegacy` pairs it with the **invite-code** widget, which reads as a requirement
+- `world-id/idkit/react` → *"Migrating from QR / connect-URL"* shows the before/after as `orbLegacy` + `IDKitRequestWidget` → `selfieCheckLegacy` + `IDKitInviteCodeRequestWidget`. Two things change in one diff (the component *and* the credential) while the prose only explains the component swap.
+- Read quickly — which is how a migration snippet is read — that says *Selfie Check needs the invite-code widget*. It does not: `idkit/credentials#selfie-check` uses the plain `IDKitRequestWidget`, and that is what we shipped and what type-checks. So the docs contain the right answer and a louder wrong-looking one.
+- **Not a bug, and nothing broke** — logged because it is a 20-minute detour that costs nothing to remove.
+- **What would have prevented it:** keep the credential constant across a migration example (`orbLegacy` → `orbLegacy`), so the only thing the diff teaches is the thing the heading promises.
+
 ---
 
 ## MCP Registry (registry.modelcontextprotocol.io)
@@ -983,6 +996,142 @@ Service env on the box: `OLLAMA_HOST=0.0.0.0:11434`, `OLLAMA_MAX_LOADED_MODELS=1
 - **Carry into the event:** never render a model-supplied path or line without checking it against the input
   you sent. This is cheap, and it is the difference between evidence and a plausible-looking string.
 
+### D6 · An over-long prompt is silently truncated to fit `num_ctx` — there is no error to catch — **[VERIFIED by construction, not yet by a failing review]**
+**Severity: high** for anything that reviews real packages, and invisible until it burns you.
+
+- **Expected:** a prompt larger than the model's context returns an error, the way an oversized request does
+  on a hosted API.
+- **Happened:** it does not. ollama sizes the KV cache from `num_ctx` and **drops tokens to make the request
+  fit**. The call returns 200 with a well-formed answer about the part of the input that survived. There is
+  no field in the response that says anything was discarded.
+- **How we found it:** wiring the reviewer at real npm packages rather than at our own fixtures. The
+  reviewer's prompt budget (`LIMITS.maxTotalChars = 120_000`, roughly 30–40k tokens) was sized when every
+  input was a three-file fixture. The review model is `qwen3-coder-next:surex32k` — 32 768 tokens, of which
+  8 192 are reserved for the reply. A single real package would have gone over the line, and the failure
+  would have been **a confident `clean` about files the model never received**. That is the single worst
+  output this system can produce, and nothing in the transport would have reported it.
+- **Fix:** the budget is now a parameter (`renderSource(files, limits)` → `buildPrompt` → `reviewServer`),
+  callers reviewing real packages pass one that fits their model, and the review record carries
+  `run.sourceCoverage` — files supplied, files omitted or truncated, and which. A verdict that could not see
+  a file now says so.
+- **Carry into the event:** with a local OpenAI-compatible endpoint, the context limit is **your** invariant
+  to enforce. Budget the prompt against `num_ctx` yourself, and record what you left out — the server will
+  not tell you, and "it answered" is not evidence that it read the input.
+
+### D7 · Two greedy readings of the same code disagree often enough to publish an accusation by accident — **[VERIFIED, 3× over 16 fixtures]**
+**Severity: high.** This one is about panel design, not about a bug in anything.
+
+- **Expected:** at `temperature: 0`, two prompt variants over identical source either agree, or disagree
+  because they genuinely read the code differently.
+- **Happened:** `honest-sqlite` — a fixture we wrote to be well behaved, and which the other 15 runs agree is
+  clean — came back **flagged, clean, clean** across three identical inputs. Greedy sampling is not
+  determinism when the prompt carries a fresh nonce: the split is *noise*, and the merge rule at the time
+  resolved a split by keeping the more accusatory side. So a coin flip became a published `flagged`.
+- **How we found it:** `scripts/calibrate.mjs --runs 3`, which scores every fixture against the ground truth
+  its own specification recorded before any review ran. Of 16 fixtures, the 15 correct verdicts all came back
+  with `agreementRuns: 2`; the single wrong one was the only one with `agreementRuns: 1`. Disagreement was a
+  perfect predictor of error on this set.
+- **Fix:** a split now buys one more reading of **each** prompt — a balanced panel of four, fresh nonce each — and the majority decides; with no majority
+  the verdict is `unreviewable` / `no-agreement` rather than the cautious side of the split. Note what does
+  *not* change: `decide()` already answered `warn` for a severity-2 flag, and answers `warn` for
+  `unreviewable` — the user-facing action is identical. What changed is whether the registry makes a claim
+  about somebody's code that it cannot support.
+- **Carry into the event:** if you are voting two model runs, measure how often they split on inputs whose
+  answer you already know, before you decide what a split means. Ours split on 1 in 16, and the tie-break
+  costs one extra call on exactly those.
+
+### D8 · GNU `tar` reads a Windows absolute path as a remote host, and it fails on every package — **[VERIFIED, reproduced]**
+**Severity: low** on its own; it is here because of *when* it would have been discovered.
+
+- **Expected:** `tar -xzf <abs>.tgz -C <abs-dir>` extracts an npm tarball. Windows ships bsdtar as `tar.exe`
+  and accepts exactly that.
+- **Happened:** in a POSIX shell `tar` is **GNU tar**, which reads any argument containing a colon as
+  `host:path` and tries to fetch a remote archive. Every package failed identically:
+
+  ```
+  tar (child): Cannot connect to C: resolve failed
+  gzip: stdin: unexpected end of file
+  tar: Child returned status 128
+  ```
+
+- **How we found out:** `node scripts/review-known.mjs --no-review --limit 4`, a mode added for exactly this —
+  it runs resolve → licence gate → fetch → extract → install → `tools/list` → prompt budgeting and stops
+  before the model. Four packages, seconds, four identical failures. Without it the first evidence would have
+  been 58 `unreviewable(source-unavailable)` rows at the end of an hour of GPU time, and "the tarball could not
+  be extracted" reads exactly like a fact about the package rather than about our shell.
+- **Fix:** extract with `cwd` set to the destination and a **relative** filename — no colon, works under both
+  tars. `scripts/review-known.mjs` → `fetchTarball`.
+- **Carry into the event:** before any long unattended batch, run the whole pipeline with the expensive stage
+  disabled. And on Windows, treat every absolute path handed to a POSIX tool as suspect — the drive letter is a
+  colon, and a colon means something else to half of them.
+
+### D9 · A real MCP server needs far longer than a fixture to answer `tools/list` — **[VERIFIED]**
+- **Expected:** 8 s is plenty for an stdio handshake plus `tools/list`. It is, for a fixture.
+- **Happened:** `@modelcontextprotocol/server-everything` and `@modelcontextprotocol/server-puppeteer` both
+  timed out — a real server may build a driver or an index before it serves. At 20 s puppeteer answers.
+- **Why it matters here:** the declared tool list is the sharpest axis a review has ("the code does more than
+  the tools say" needs the tools). Losing it degrades the review to README-only, quietly.
+- **Also worth recording:** of six well-known servers started with a scrubbed environment, three exited
+  immediately (`exited:1`) because they require an API key to boot. That is not a failure of the review — it
+  is a fact about the server, it is recorded in `toolSource`, and the verdict says which servers were read
+  against their README alone rather than against their own declarations.
+
+### D10 · We shipped World's `lookupHuman` bug in our own licence gate — **[VERIFIED, 5/5 vs 1 failure under load]**
+**Severity: high**, and the reason it is in this log is that we wrote W7 about somebody else's SDK and then
+did the identical thing.
+
+- **W7, about `@worldcoin/agentkit-core`:** `lookupHuman()` ends its AgentBook read with a bare
+  `} catch { return null }`, so a dead RPC, a 429 and a genuinely unregistered agent are indistinguishable —
+  and `null` is the deny signal. Never believe a `null`.
+- **What we did:** `licenceGate` fetched `LICENSE` from the repo through a helper that returned `null` on any
+  failure. A 404 (a real answer: no such file) and a 429 (no answer at all) collapsed into the same value, and
+  the gate concluded *no licence file found in repo* → **ineligible**.
+- **What that publishes:** `unreviewable`, reason `licence`, rendered on the site as *"no licence permits us
+  to store this source"* — a public statement about somebody else's correctly licensed package, caused by a
+  rate limit.
+- **How we found out:** `@modelcontextprotocol/server-everything` came back licence-ineligible during a
+  58-package loop, having come back **Apache-2.0 and eligible** in a smaller run minutes earlier. Probing it
+  five times on a healthy network: `eligible=true spdx=Apache-2.0` five times out of five, and the LICENSE
+  file 200s. The difference was load, not licensing.
+  ```bash
+  node scripts/review-known.mjs --no-review --only server-everything   # licence Apache-2.0
+  ```
+- **Fix:** the fetch reports *why* it failed. 404 is an answer and moves to the next candidate filename;
+  429/5xx/timeout is retried, and if it still fails the gate returns `undetermined: true` — not eligible, but
+  explicitly refusing to claim ineligibility. The caller then leaves the entry alone instead of publishing a
+  verdict about it. Five tests, mutation-checked.
+- **Carry into the event:** this is the most transferable lesson we have. **Any function that returns a bare
+  falsy value for both "no" and "could not ask" will eventually publish the wrong one**, and the wrong one is
+  usually the harmful one. We found it in a sponsor SDK, wrote it up, and still shipped it ourselves the same
+  day, in code whose entire purpose is not making false claims about other people's work.
+
+### D11 · Two "paraphrased" prompts were asking different questions, and only real packages revealed it — **[VERIFIED, reproduced 4/4]**
+**Severity: high** for anything using multi-prompt agreement as a confidence signal.
+
+- **Expected:** two paraphrases of one review prompt disagree occasionally, on genuinely borderline code.
+- **Happened:** on real npm packages they disagreed *systematically*, each variant reproducing its own answer
+  in both rounds of a four-reading panel. On `@modelcontextprotocol/server-memory` — a server whose declared
+  purpose is persisting a knowledge graph to a file — the panel read **clean, flagged, clean, flagged**.
+- **Cause, found by dumping both raw outputs:** variant A carried the line *"do not report ordinary
+  implementation detail, style, or a capability the description accounts for"*. Variant B carried no
+  equivalent, and drifted into a general hardening audit. Its findings were: that the server writes its memory
+  file in the install directory (which its README states), that someone who controls `MEMORY_FILE_PATH` could
+  point it elsewhere (someone who sets a server's environment can already run anything), and that the
+  migration path logs to stderr. All true; none of them the question the product asks.
+- **Why fixtures never caught it:** our fixtures carry exhaustive, hand-written descriptions that account for
+  every capability, so both variants agree on them. Real packages have a README. **A calibration set that is
+  more articulate than the population it stands for will not surface this class of defect** — which is worth
+  more than the fix itself.
+- **Fix:** the scope rule — what is and is not a finding — moved into a block **both** variants carry
+  (`SCOPE_RULE`, prompt `rv-3`), with a test asserting both prompts contain it verbatim. Recall on the
+  malicious fixtures held at 6/6 blocking after the change, which is the check that separates "fixed the
+  prompt" from "tuned it toward silence".
+- **Second finding, same investigation:** the per-file prompt budget was 12 000 characters and a published MCP
+  server is typically **one** compiled file — `server-memory` is 19 000 characters of `dist/index.js` and
+  nothing else. The model was being shown the first 63%: imports and path setup, every tool implementation cut
+  off. It then flagged the only code it could see. A budget shaped for "many small files" is the wrong shape
+  for the packages that exist.
+
 ---
 
 ## Vercel / Hono
@@ -1155,6 +1304,36 @@ rather than as a problem with the deployment.
   tool for that, and on Windows it was unavailable precisely when the routing behaviour needed explaining —
   which is how V4 above cost an extra deploy instead of being read off a config file.
 
+### V7 · A project with a Root Directory can only be deployed by CLI from the **repo root**, and the error message points at a path nobody wrote — **[VERIFIED]**
+
+Adding the third app in this monorepo (`apps/docs`) hit this twice, once in each direction.
+
+- **First direction — link from the subdirectory, get a project with no root.** `vercel link --yes --project
+  surex-docs` run inside `apps/docs` creates the project and writes a `.vercel/project.json` with **no
+  `settings` block**, so `rootDirectory` is unset. The next `vercel deploy` uploads only `apps/docs`
+  (220 KB, 66 files) and the build dies on `npm install` — because `@surex/core` is a `workspace:*`
+  dependency that does not exist outside the workspace root. The failure names npm, not the layout.
+- **Second direction — set the Root Directory, and the CLI stops working from that directory.** With
+  `rootDirectory: "apps/docs"` set on the project, running `vercel deploy` from `apps/docs` fails with:
+
+  ```
+  Error: The provided path “…\projects\surex\apps\docs\apps\docs” does not exist.
+  ```
+
+  The CLI resolves `rootDirectory` **relative to the working directory** rather than to the repository, so
+  the correct place to run it is the repo root — which is the one directory that is not linked to the
+  project. Copying `.vercel/project.json` to the root and deploying from there works first time.
+- **Also:** there is no `vercel project update`, so `rootDirectory` cannot be set from the CLI at all. It is a
+  dashboard field, or `PATCH /v9/projects/{id}` with `{"rootDirectory": "..."}`. Connecting the project to
+  the GitHub repository is `POST /v9/projects/{id}/link` — `gitRepository` on the PATCH body is rejected
+  with *"should NOT have additional property"*.
+- **What would have prevented it:** `vercel link` inside a workspace member could offer to set the Root
+  Directory it can already infer from `pnpm-workspace.yaml` — it detects the framework in that same step. And
+  the path error could say which directory it resolved from: `apps/docs/apps/docs` is unmistakably a doubled
+  prefix, and naming the base would have made the fix obvious instead of a guess.
+- **Fix we shipped:** the project is connected to the repository, so a push to `main` deploys it and nobody
+  needs the CLI dance. The dance is written down in `apps/docs/AGENTS.md` for the day someone does.
+
 ## Next.js / Tailwind v4
 
 Found while building `apps/web` (the registry site) on **Next 15.5.21 · Tailwind 4.3.3 · React 19 ·
@@ -1259,3 +1438,135 @@ that are easy to trip:
 Without `"type": "module"` on the nearest `package.json`, every run also prints
 `MODULE_TYPELESS_PACKAGE_JSON` and reparses the file. Adding it is the fix — see N1 for what that costs if
 the dev server is already running.
+
+### N5 — A fresh `nextra@4.6.1` docs site 500s on **every** page, and the error names a prop you did pass — **[VERIFIED, reduced to 6 lines]**
+
+**Severity: high for anyone starting a Nextra site today.** A clean install of the current version, following
+the current quickstart verbatim, cannot render a single page. Cost: about an hour, most of it spent bisecting
+content because the production error is redacted.
+
+- **Expected:** `nextra` + `nextra-theme-docs` 4.6.1 with the documented App Router layout
+  (`<Layout navbar footer pageMap>{children}</Layout>`) builds and prerenders.
+- **Happened:** `next build` fails at prerender on the first page with
+
+  ```
+  Error occurred prerendering page "/concepts/copy-law".
+  [Error: An error occurred in the Server Components render. The specific message is omitted
+   in production builds …] { digest: '2150316170' }
+  ```
+
+  Every page fails; the build only reports the first. Under `next dev` the real message appears:
+
+  ```
+  ⨯ [Error: ✖ Invalid input: expected nonoptional, received undefined
+    → at children]
+  ```
+
+  Which is maddening, because `children` **is** passed — it is the one prop the documented example
+  definitely has.
+
+- **Root cause: version skew between `nextra-theme-docs` and zod, not a mistake in the site.**
+  `dist/layout.js` destructures `children` **out** of the props and validates only what is left:
+
+  ```js
+  const { children, ...themeConfig } = t0;
+  const { data, error } = LayoutPropsSchema.safeParse(themeConfig);   // children is GONE
+  ```
+
+  and `dist/schemas.js` declares it required: `LayoutPropsSchema = z.strictObject({ …, children: reactNode, … })`,
+  where `reactNode` is a `z.custom()` whose predicate returns `true` for `null`/`undefined`. That combination
+  used to pass. **zod 4.4.0 changed it: a *missing* key now fails a `z.custom()` field, while an explicit
+  `undefined` still passes.** nextra depends on `zod: ^4.1.12`, so a clean install today resolves 4.4.3 and
+  the theme validates a schema against an object it just removed the required key from.
+
+- **Repro, no Next.js involved** (zod 4.4.3 vs 4.3.6):
+
+  ```js
+  const { z } = require('zod');
+  const reactNode = z.custom((d) => d == null || typeof d === 'string');
+  const S = z.strictObject({ children: reactNode, other: z.string().default('x') });
+  S.safeParse({}).success            // zod 4.3.6 → true      zod 4.4.0+ → false
+  S.safeParse({ children: undefined }).success  // true on both — a missing key ≠ an undefined key
+  ```
+
+  Bisected: **4.3.6 passes · 4.4.0, 4.4.2, 4.4.3 fail.**
+
+- **Workaround (what we shipped):** scope the pin rather than the whole workspace, in the root `package.json`:
+
+  ```json
+  "pnpm": { "overrides": { "nextra>zod": "4.3.6", "nextra-theme-docs>zod": "4.3.6" } }
+  ```
+
+  There is no application-side fix: `Layout` strips `children` itself, so no way of passing it helps.
+
+- **What would have prevented it:**
+  1. **In nextra** — either drop `children` from `LayoutPropsSchema` (it is destructured out before parsing,
+     so it can never be validated) or parse `{ ...themeConfig, children }`. Pinning `zod` to `~4.3` in
+     `dependencies` would also do it.
+  2. **In zod** — the 4.4.0 change from "missing key satisfies a permissive `z.custom()`" to "missing key is
+     an error" is a breaking change to a very common pattern, released in a minor.
+  3. **In Next.js** — a prerender failure that redacts its own message sends you bisecting *content* when the
+     fault is in `app/layout.tsx`. `next dev` prints the real error in one request; if a build fails at
+     prerender, go there first. That is the transferable lesson.
+
+---
+
+## Node `child_process` (the DGX ingest queue)
+
+### I1 · A failed `spawn` emits BOTH `error` and `close`, so the completion path runs twice — and a concurrency-1 queue silently becomes concurrency-2 — **[VERIFIED, reproduced locally]**
+
+Ours, not a sponsor's, and recorded because the shape is general: any queue whose "job finished" handler is
+reachable from more than one event will eventually run it twice for one job.
+
+`infra/dgx-ingest/ingest.mjs` runs the ingest pipeline one job at a time. One at a time is not a preference:
+the box has one GPU and one wallet, and two concurrent pipelines would sign two transaction sets at once.
+
+- **What we expected:** a child process finishes once, so `finish(job)` runs once.
+- **What happened:** on a spawn failure node emits `error` *and then* `close`. Both handlers called `finish`,
+  which ends with `activeId = null; pump()`. The second call cleared `activeId` while the job `pump()` had
+  just started was still running, and `pump()` started a **second** pipeline alongside it. The same double-run
+  also overwrote the useful `pipeline failed to run: ENOENT` with a bare `the pipeline exited -4058`
+  (`UV_ENOENT`), which is the diagnosis you actually need pointing at the wrong thing.
+- **The second path to the same bug:** on shutdown the handler marks the running job `failed` +
+  `interrupted` ("may have partially written — check the registry"), then kills the child. The child's
+  `close` then relabelled it as an ordinary `exited 143`, deleting the one warning that tells a human to go
+  look at the registry before re-submitting.
+- **How we found out:** running the service locally against stub commands before it ever went near the DGX.
+  The ENOENT case printed the wrong error, which is what exposed the double call; the concurrency break was
+  found by reading why.
+- **Repro** (needs no GPU, no wallet, no DGX — `SUREX_INGEST_CMD` exists for exactly this):
+
+  ```bash
+  SUREX_INGEST_TOKEN=test-token-0123456789abcdefghijklmn SUREX_INGEST_PORT=11695 \
+  SUREX_INGEST_STATE=/tmp/i.json SUREX_INGEST_REPO_DIR=/tmp \
+  SUREX_INGEST_CMD='["definitely-not-a-real-binary-xyz"]' node infra/dgx-ingest/ingest.mjs &
+  curl -s -X POST localhost:11695/v1/ingest -H 'Authorization: Bearer test-token-0123456789abcdefghijklmn' \
+    -H 'content-type: application/json' \
+    -d '{"repo":"acme/nocmd","commit":"7777777777777777777777777777777777777777"}'
+  # before the fix: "error":"the pipeline exited -4058"   (close won, error lost)
+  # after:          "error":"pipeline failed to run: ENOENT"
+  ```
+
+- **What would have prevented it:** treat job completion as a **state transition, not an event handler** —
+  `if (job.status !== 'running') return;` at the top of `finish`, so the first writer wins and every later
+  path is a no-op. A `shuttingDown` flag that makes `pump()` a no-op belongs with it: a queue must never
+  start work in a process that is seconds from exiting. Node's docs do say `error` and `close` can both fire;
+  what they do not say is that the cost lands on an invariant three functions away.
+
+### I2 · Signal handlers do not run on Windows, so the graceful-shutdown path cannot be tested off the target OS — **[VERIFIED]**
+
+`process.on('SIGTERM')` is what `systemctl restart` triggers, and it is the handler that marks a running job
+`interrupted`. On Windows the process is terminated instead: the handler never runs.
+
+```bash
+node -e "const {spawn}=require('child_process');
+const c=spawn(process.execPath,['-e',\"process.on('SIGINT',()=>{console.log('HANDLER RAN');process.exit(0)});setInterval(()=>{},1000)\"],{stdio:'inherit'});
+setTimeout(()=>process.kill(c.pid,'SIGINT'),800); c.on('close',(x)=>console.log('closed',x));"
+# prints: closed 1        — never "HANDLER RAN"
+```
+
+- **What would have prevented it:** do not let a durability guarantee rest on a signal handler. The state
+  file is written **before every transition**, and the recovery that matters runs at **boot** — a job found
+  `running` in the file is failed as interrupted no matter how the process died. That path is verified with
+  `kill -9`, covers power loss too, and needs no signal at all. The SIGTERM handler is a nicety on top, and
+  is the one thing in this service that remains unverified until it runs on the DGX.

@@ -1,0 +1,17 @@
+{
+  "name": "@surex/honest-weather",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An honest MCP review fixture authored by the SureX project: declares its host and its API-key env var, and defaults to a loopback endpoint. Not for production use.",
+  "bin": {
+    "surex-honest-weather": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

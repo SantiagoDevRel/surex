@@ -59,6 +59,54 @@ export function disputeSignal(verdictKey: string | null | undefined, evidenceHas
   return sha256Hex(`${verdictKey ?? ''}|${evidenceHash}`);
 }
 
+/* ──────────────────────────────────────────── which credential we ask for ───*/
+
+/**
+ * WHAT THE PERSON IS ASKED TO PROVE — and it is not one bar, it is three.
+ *
+ * Chosen HERE, on the server, and carried to the browser in the rp-signature
+ * response. The browser never picks it, and the screen states which one it got
+ * rather than describing "personhood" in the abstract — because the three do not
+ * prove the same thing and a screen that worded them identically would be lying
+ * about two of them.
+ *
+ *   face   — Selfie Check, via `selfieCheckLegacy`. World App opens the phone
+ *            camera, checks a live face, and matches it against the enrolled one.
+ *            World's own docs rate its sybil resistance as **"some"** —
+ *            "Facial similarity checks provide some sybil resistance, but not as
+ *            strong as Orb or NFC verification" — and the preset-selection table
+ *            files it under "lower-friction liveness or bot deterrence", NOT under
+ *            "one-human-one-action checks". It is beta, and it returns a World ID
+ *            3.0 Face proof, which is why `allow_legacy_proofs` must stay set.
+ *            → https://docs.world.org/world-id/credentials/11
+ *            → https://docs.world.org/world-id/idkit/credentials#selfie-check
+ *
+ *   orb    — Proof of Human, via `proofOfHuman`. An Orb-verified World ID: the
+ *            strong anti-sybil credential, and the only one of the three under
+ *            which "the same person cannot come back as somebody else" holds.
+ *            → https://docs.world.org/world-id/idkit/credentials
+ *
+ *   device — Device level, via `deviceLegacy`. What SureX requested before Face
+ *            Check was enabled on the app: the person holds a World App account
+ *            and no biometric was checked at all. Kept reachable instead of
+ *            deleted, so the earlier decision it encoded — requiring an Orb to
+ *            defend your own code excludes almost every maintainer there is — is
+ *            one env var away rather than lost.
+ *
+ * The default is `face`: it opens a camera, which is the point of the demo, and it
+ * makes the *weakest* claim of the three. A deployment that never sets the variable
+ * therefore cannot end up claiming more than it checked.
+ *
+ * An unset variable takes that default. A variable set to something unrecognised is
+ * a configuration ERROR, not a silent fallback — `WORLD_CREDENTIAL=orbb` must never
+ * quietly hand back a face check to an operator who asked for an Orb.
+ */
+export const WORLD_CREDENTIALS = ['face', 'orb', 'device'] as const;
+
+export type WorldCredential = (typeof WORLD_CREDENTIALS)[number];
+
+export const DEFAULT_WORLD_CREDENTIAL: WorldCredential = 'face';
+
 /* ─────────────────────────────────────────────────────── the relying party ───*/
 
 export interface WorldConfig {
@@ -66,6 +114,8 @@ export interface WorldConfig {
   rpId: string;
   signingKey: string;
   environment: 'production' | 'staging' | 'sandbox';
+  /** Which credential the widget will request. Server-chosen; see above. */
+  credential: WorldCredential;
 }
 
 export type WorldConfigResult = { ok: true; config: WorldConfig } | { ok: false; missing: string[]; detail: string };
@@ -103,5 +153,22 @@ export function worldConfig(env: NodeJS.ProcessEnv = process.env): WorldConfigRe
   if (!rpId.startsWith('rp_') && !rpId.startsWith('app_')) {
     return { ok: false, missing: ['NEXT_PUBLIC_WORLD_RP_ID'], detail: 'NEXT_PUBLIC_WORLD_RP_ID must start with "rp_" (or "app_" for a pre-4.0 app).' };
   }
-  return { ok: true, config: { appId, rpId, signingKey, environment } };
+
+  // Unset → the default (`face`, the weakest claim). Set to anything else → an
+  // error, because an operator who typed `orbb` asked for the Orb and must not be
+  // handed a face check under a screen that says Face Check.
+  const rawCredential = env.WORLD_CREDENTIAL?.trim().toLowerCase() ?? '';
+  const credential = (rawCredential || DEFAULT_WORLD_CREDENTIAL) as WorldCredential;
+  if (!(WORLD_CREDENTIALS as readonly string[]).includes(credential)) {
+    return {
+      ok: false,
+      missing: ['WORLD_CREDENTIAL'],
+      detail:
+        `WORLD_CREDENTIAL is set to "${rawCredential}", which is not a credential this app can request. ` +
+        `Use one of: ${WORLD_CREDENTIALS.join(', ')} — or leave it unset for "${DEFAULT_WORLD_CREDENTIAL}". ` +
+        'It is refused rather than defaulted, because a deployment that asked for an Orb must never quietly get a face check.',
+    };
+  }
+
+  return { ok: true, config: { appId, rpId, signingKey, environment, credential } };
 }

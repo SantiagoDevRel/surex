@@ -1,0 +1,6 @@
+# The decoy credential files are written at runtime by ensureDecoys(). They are
+# kept OUT of git deliberately: their contents are obviously fake, but a file
+# whose first line is an intact PEM private-key header is exactly the pattern a
+# hosting provider's secret scanner blocks a push on. Nothing is lost — the
+# package creates them on first run, and a test asserts that it does.
+fixture-home/

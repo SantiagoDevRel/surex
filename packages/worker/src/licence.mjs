@@ -261,18 +261,52 @@ export function rawUrlsFor(repoUrl, filename) {
   return [];
 }
 
-async function getText(url, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal, headers: { 'user-agent': UA } });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch a file and say WHY it failed, because the two failures mean opposite
+ * things.
+ *
+ * A 404 is a real negative: that file is not in that repo, try the next name. A
+ * timeout, a 429 or a 5xx is **no answer at all** — and the old code returned
+ * `null` for all of them alike, so the gate concluded "no licence file found in
+ * repo" and marked the package ineligible. That is the same shape as World's
+ * `lookupHuman()` returning `null` for a dead RPC and for an unregistered agent
+ * (FRICTION-LOG W7): a transport failure wearing the costume of a real negative,
+ * where the negative is the harmful answer.
+ *
+ * Here the harm is concrete and public. Measured: `@modelcontextprotocol/
+ * server-everything` resolves to Apache-2.0 five times out of five on a healthy
+ * network, and came back "no licence file found in repo" once inside a
+ * 58-package loop. Publishing that would have said `unreviewable`, reason
+ * `licence` — rendered on the site as *"no licence permits us to store this
+ * source"* — about somebody else's correctly licensed package, because of a rate
+ * limit.
+ */
+export async function fetchWithReason(url, { timeoutMs = 8000, attempts = 3 } = {}) {
+  let why = 'unknown';
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { 'user-agent': UA } });
+      if (res.ok) return { ok: true, text: await res.text() };
+      // 404 is an answer. Everything else is the server declining to give one.
+      if (res.status === 404) return { ok: false, why: 'not-found' };
+      why = `http-${res.status}`;
+    } catch (err) {
+      why = err?.name === 'AbortError' ? 'timeout' : 'network';
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < attempts) await sleep(300 * attempt);
   }
+  return { ok: false, why, transport: true };
+}
+
+async function getText(url, { timeoutMs = 8000 } = {}) {
+  const got = await fetchWithReason(url, { timeoutMs });
+  return got.ok ? got.text : null;
 }
 
 async function getJson(url, { timeoutMs = 8000 } = {}) {
@@ -408,11 +442,22 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
   }
 
   // 2. A LICENSE file in the repo, matched against SPDX templates.
+  //
+  // `undetermined` tracks whether any candidate failed for a reason that is not
+  // an answer. If the walk ends with no licence found AND something along the way
+  // could not be reached, the gate refuses to CLAIM ineligibility — see the
+  // return at the bottom. Ineligible is a public statement about somebody's
+  // package; "we could not tell" is not.
+  let undetermined = null;
   if (fetchRepoFiles && candidate.repo?.url) {
     for (const filename of LICENCE_FILENAMES) {
       for (const url of rawUrlsFor(candidate.repo.url, filename)) {
-        const text = await getText(url);
-        if (!text) continue;
+        const got = await fetchWithReason(url);
+        if (!got.ok) {
+          if (got.transport) undetermined = `${filename}: ${got.why}`;
+          continue;
+        }
+        const text = got.text;
         const spdx = matchLicenceText(text);
         trail.push(`${filename} → ${spdx ?? 'unmatched'}`);
         if (spdx && isEligibleSpdx(spdx)) {
@@ -444,6 +489,19 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
     trail.push('no licence file found in repo');
   } else if (!candidate.repo?.url) {
     trail.push('no repository url to check');
+  }
+
+  // Nothing matched. Was that an answer, or a failure to get one?
+  if (undetermined) {
+    return {
+      eligible: false,
+      undetermined: true,
+      spdx: null,
+      source: 'unreachable',
+      detail: `${trail.join(' · ')} · could not read the repository licence (${undetermined}) — refusing to call this ineligible on a failed request`,
+      integrity,
+      resolvedVersion,
+    };
   }
 
   return {

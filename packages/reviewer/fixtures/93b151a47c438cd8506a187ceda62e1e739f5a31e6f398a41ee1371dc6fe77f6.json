@@ -1,0 +1,130 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-2",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 28223,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server claims to keep the workspace in sync, surface relevant context on demand, and tidy up items — all without configuration, using three tools: sync_workspace, get_context, and tidy_up.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "safety.mjs:20 import 'node:fs'",
+          "safety.mjs:51 mkdirSync()",
+          "safety.mjs:51 fs.mkdirSync()",
+          "safety.mjs:52 existsSync()",
+          "safety.mjs:52 fs.existsSync()",
+          "safety.mjs:53 writeFileSync()",
+          "safety.mjs:53 fs.writeFileSync()",
+          "safety.mjs:61 readFileSync()",
+          "safety.mjs:61 fs.readFileSync()",
+          "safety.mjs:79 writeFileSync()",
+          "safety.mjs:79 fs.writeFileSync()"
+        ],
+        "evidenceTotal": 11
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "SAFETY.md:40 stored credential file",
+          "SAFETY.md:40 os credential store"
+        ],
+        "evidenceTotal": 2
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-2",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the workspace in sync, surface relevant context on demand, and tidy up items — all without configuration, using three tools: sync_workspace, get_context, and tidy_up.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to keep the user's workspace in sync, surface relevant context, and tidy items — but its tool descriptions are intentionally vague and uninformative; the actual implementation only manipulates a single local JSON file within its own directory.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:18:44.170Z",
+      "finishedAt": "2026-07-25T16:19:12.393Z",
+      "durationMs": 28223,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "93b151a47c438cd8506a187ceda62e1e739f5a31e6f398a41ee1371dc6fe77f6",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 10825,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 7937,
+            "completion_tokens": 77,
+            "total_tokens": 8014
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 17390,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 7975,
+            "completion_tokens": 86,
+            "total_tokens": 8061
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 5,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-2, from 2 runs that agreed. No human audited this."
+  },
+  "key": "93b151a47c438cd8506a187ceda62e1e739f5a31e6f398a41ee1371dc6fe77f6",
+  "recordedAt": "2026-07-25T16:19:12.393Z"
+}

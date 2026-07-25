@@ -1,0 +1,133 @@
+---
+title: Install the plugin
+description: What gets installed, where state lives, how to configure it, and how to take it out.
+---
+
+import { Callout } from 'nextra/components';
+
+# Install the plugin
+
+```
+/plugin marketplace add SantiagoDevRel/surex
+/plugin install surex@surex
+```
+
+That is the whole install. There is **no `npm install` step** — a plugin installed from a git repo
+never runs one, so the gate has zero runtime dependencies by rule, and `packages/core` is vendored
+into `lib/core/` rather than imported.
+
+## What you are agreeing to
+
+Claude Code shows a "Will install" list naming the hooks, behind a trust gate, before anything runs.
+The plugin registers two hooks, one slash command, and one executable:
+
+| | |
+|---|---|
+| `PreToolUse` hook, matcher `mcp__.*` | the gate. One lookup per MCP tool call, 10 s hook timeout |
+| `SessionStart` hook | one batched prefetch for every server in your config, 15 s |
+| `/surex` slash command | runs the CLI and shows you its output verbatim |
+| `bin/surex` | the CLI, if you want to run it directly |
+
+<Callout type="warning">
+**Plugin hooks run unsandboxed, with your permissions.** Every Claude Code plugin does. Read
+[`packages/plugin/lib`](https://github.com/SantiagoDevRel/surex/tree/main/packages/plugin/lib)
+before installing this one — it is around seven hundred lines with no dependencies, which is a
+deliberate property and not a boast.
+</Callout>
+
+## What happens on your first session
+
+The `SessionStart` hook reads every MCP server visible from your working directory, fingerprints
+each one from configuration alone, and asks the registry about all of them in **one** request. If
+any are flagged you are told once, up front, rather than being surprised mid-task:
+
+```
+⚠ SureX: 1 of 12 configured MCP server(s) are flagged and will be blocked when called.
+  Run `surex list` to see them.
+```
+
+Then nothing happens until a tool call. A `clean` server produces no output at all — the gate exits
+0 silently, because a check you notice on every call is a check you turn off.
+
+## Scopes it reads
+
+Precedence, highest first. It is **not** a merge: the first scope that defines a name owns that name
+entirely, because a half-merged definition would fingerprint as a server that exists nowhere.
+
+| Scope | File |
+|---|---|
+| local | `~/.claude.json` → `projects["<dir>"].mcpServers`, nearest ancestor first |
+| user | `~/.claude.json` → `mcpServers` |
+| project | `<root>/.mcp.json` → `mcpServers` |
+
+`${VAR}` references are expanded exactly as the client expands them before launching a server. An
+**unset** variable is left as the literal token rather than blanked — blanking would silently merge
+two different servers onto one fingerprint.
+
+Servers provided by other plugins live inside those plugins, in no scope the gate can read. It can
+name them but not fingerprint them, and it says so rather than guessing.
+
+## Configuration
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SUREX_API_URL` | `https://arkiv-surex-api.vercel.app` | the registry the gate asks. Point it at your own deployment or a local `SUREX_MOCK=1` API |
+| `SUREX_WEB_URL` | `https://arkiv-surex.vercel.app` | the base for the evidence and dispute links printed in a block |
+| `CLAUDE_PLUGIN_DATA` | set by Claude Code | where your state lives — see below |
+
+There is no configuration for "block harder" or "block less". The threshold is part of the contract
+and the escape hatch is the override.
+
+## Where your state lives
+
+`${CLAUDE_PLUGIN_DATA}` — never `${CLAUDE_PLUGIN_ROOT}`, which is replaced on every plugin update
+and would take your approvals with it.
+
+```
+cache.json       verdicts, with TTLs
+overrides.json   the servers you told the gate to stop blocking
+gate.log         what the gate decided, locally
+```
+
+**Overrides are local and are reported nowhere.** A registry that phones home about which warnings
+you ignored is a different product, and a worse one.
+
+`/surex status` prints all of it, including the number failure analysis says should be first on any
+dashboard — the **registry hit rate**, how many of your configured servers the registry actually
+knows anything about. A gate that recognises almost nothing looks exactly like a gate that is
+working.
+
+## Check it is doing something
+
+The honest test is a real block, which is what the [Quickstart](/quickstart) walks through end to
+end. Short of that:
+
+```
+/surex list      every configured server, its fingerprint, its verdict
+/surex check     what each one fingerprints to, and why
+/surex status    where state lives, what is cached, what the gate has been deciding
+```
+
+## Uninstalling
+
+```
+/plugin uninstall surex@surex
+```
+
+The hooks go with it and MCP tool calls return to the behaviour they had before. Your overrides file
+lives in the plugin's data directory and goes with it too.
+
+## Running it against your own registry
+
+The gate, the API and the reviewer all speak the same frozen `/v1` contract, so nothing here is
+tied to the deployment SureX runs:
+
+```bash
+# a registry with no chain and no network, answering from fixtures
+SUREX_MOCK=1 node apps/api/src/server.mjs        # → http://localhost:4310
+
+# point the gate at it
+export SUREX_API_URL=http://localhost:4310
+```
+
+Everything the mock serves carries `illustrative: true`, and no surface may strip that flag.

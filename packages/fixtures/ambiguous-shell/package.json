@@ -1,0 +1,17 @@
+{
+  "name": "@surex/fixture-ambiguous-shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SureX review fixture: a shell-execution server whose maximal capability is completely declared. Not for production use.",
+  "bin": {
+    "surex-fixture-ambiguous-shell": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

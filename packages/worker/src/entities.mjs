@@ -23,6 +23,8 @@
 // misrepresent the source and reject perfectly ordinary servers whose blurb says
 // "secrets".
 
+import { readFileSync } from 'node:fs';
+
 import { assertCopy } from '@surex/core';
 import { PROJECT, EXPIRES, evenSeconds } from './config.mjs';
 
@@ -36,6 +38,72 @@ export const ENTITY_TYPES = Object.freeze([
 
 /** Seeded entries are never `clean`. See buildVerdictHead. */
 export const SEED_STATE = 'unknown';
+
+// ---------------------------------------------------------------------------
+// who may be publicly flagged — enforced HERE, at the write boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * The fingerprints of servers **we wrote ourselves**, and the only ones that may
+ * ever be published as `flagged` or `disputed`.
+ *
+ * AGENTS.md §4 forbids publicly flagging a real third-party project on an
+ * unaudited model verdict. That rule used to live in the publishing *scripts* —
+ * one of them tested the server's NAME against `/fixture|mal-|ambiguous-|honest-/`.
+ * Two things are wrong with that, and a code review caught both:
+ *
+ *   1. **It is not at the write boundary.** Any new script that calls
+ *      `buildVerdictHead` — and this session added two — skips the check
+ *      entirely. The worker is the only process with a wallet; the policy
+ *      belongs where the wallet is.
+ *   2. **A name regex is not an identity.** `totally-not-a-fixture-thirdparty`
+ *      matches `/fixture/`. A name is a label the caller chooses; a fingerprint
+ *      is derived from the configuration being judged.
+ *
+ * So the allowlist is fingerprints, written by the script that computes them
+ * from our own fixture directory, and this file reads it. An entry that is not
+ * on the list cannot be flagged, whatever it calls itself.
+ */
+const SELF_AUTHORED_FILE = 'self-authored.json';
+
+let selfAuthoredCache = null;
+
+/** Where the allowlist lives: `packages/worker/state/self-authored.json`. */
+export function selfAuthoredPath() {
+  return new URL(`../state/${SELF_AUTHORED_FILE}`, import.meta.url);
+}
+
+/**
+ * Load the allowlist. A missing file means an EMPTY allowlist — nothing may be
+ * flagged — which is the safe direction: the failure mode of a lost file is
+ * "we cannot publish our own fixtures", not "we can publish accusations".
+ */
+export function loadSelfAuthored({ reload = false } = {}) {
+  if (selfAuthoredCache && !reload) return selfAuthoredCache;
+  let list = [];
+  try {
+    const text = readFileSync(selfAuthoredPath(), 'utf8');
+    const parsed = JSON.parse(text);
+    list = Array.isArray(parsed) ? parsed : (parsed?.fingerprints ?? []);
+  } catch {
+    list = [];
+  }
+  selfAuthoredCache = new Set(list.map((f) => String(f)));
+  return selfAuthoredCache;
+}
+
+/** For tests and for the publisher, which regenerates the list before writing. */
+export function setSelfAuthored(fingerprints) {
+  selfAuthoredCache = new Set([...(fingerprints ?? [])].map((f) => String(f)));
+  return selfAuthoredCache;
+}
+
+export function isSelfAuthored(fingerprint) {
+  return loadSelfAuthored().has(String(fingerprint));
+}
+
+/** The states that make a public accusation about a named piece of software. */
+export const ACCUSING_STATES = Object.freeze(['flagged', 'disputed']);
 
 const projectAttr = (project = PROJECT) => ({ key: 'project', value: project });
 
@@ -272,7 +340,39 @@ export function buildVerdictHead({
     );
   }
   if (state === 'unreviewable' && !reason) {
-    throw new Error('state=unreviewable needs a reason (licence|source-unavailable|remote-endpoint)');
+    throw new Error('state=unreviewable needs a reason (licence|source-unavailable|remote-endpoint|no-agreement|withheld)');
+  }
+
+  // ── the two gates on a public accusation ─────────────────────────────────
+  //
+  // Both are HERE and not in the calling script, because this module is the one
+  // the wallet goes through. A script can be added; this cannot be bypassed.
+  if (ACCUSING_STATES.includes(state)) {
+    if (!isSelfAuthored(fingerprint)) {
+      throw new Error(
+        `refusing to publish state=${state} for ${fingerprint} (${name ?? 'unnamed'}): it is not on the ` +
+          'self-authored allowlist. AGENTS.md §4 — the only servers SureX flags publicly are the ones it ' +
+          'wrote itself, and the check is on the FINGERPRINT because a name is whatever the caller types.',
+      );
+    }
+    // Provenance is not decoration on an accusation. The copy law requires every
+    // verdict to state what was reviewed, when, by which model and prompt — and
+    // the live `@surex/mal-*` heads were written without a commit, so the block
+    // message rendered "commit —". A flag with no provenance is unanswerable by
+    // the person it accuses, so it is refused rather than written.
+    const missing = [];
+    if (!modelId) missing.push('modelId');
+    if (!promptVersion) missing.push('promptVersion');
+    if (!reviewedCommit && !integrity && !reviewedSourceBlobId) {
+      missing.push('reviewedCommit or integrity or reviewedSourceBlobId — what exactly was read');
+    }
+    if (missing.length) {
+      throw new Error(
+        `refusing to publish state=${state} for ${fingerprint} without provenance: missing ${missing.join(', ')}. ` +
+          'A finding nobody can trace to specific bytes cannot be answered, and an unanswerable accusation is ' +
+          'the thing this registry exists not to make.',
+      );
+    }
   }
 
   return {

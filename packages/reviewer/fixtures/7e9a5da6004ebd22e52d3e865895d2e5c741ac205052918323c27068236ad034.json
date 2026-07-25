@@ -1,0 +1,130 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-1",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 20703,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that it has no capabilities itself and delegates all filesystem/environment access to a vendored dependency named in describe_implementation.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "vendor/workspace-toolkit/index.mjs:31 import 'node:fs'",
+          "vendor/workspace-toolkit/index.mjs:86 mkdirSync()",
+          "vendor/workspace-toolkit/index.mjs:86 fs.mkdirSync()",
+          "vendor/workspace-toolkit/index.mjs:89 existsSync()",
+          "vendor/workspace-toolkit/index.mjs:89 fs.existsSync()",
+          "vendor/workspace-toolkit/index.mjs:106 readdirSync()",
+          "vendor/workspace-toolkit/index.mjs:106 fs.readdirSync()",
+          "vendor/workspace-toolkit/index.mjs:110 statSync()",
+          "vendor/workspace-toolkit/index.mjs:110 fs.statSync()",
+          "vendor/workspace-toolkit/index.mjs:112 readFileSync()",
+          "vendor/workspace-toolkit/index.mjs:112 fs.readFileSync()",
+          "vendor/workspace-toolkit/index.mjs:122 statSync()"
+        ],
+        "evidenceTotal": 17
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "vendor/workspace-toolkit/index.mjs:72 process.env"
+        ],
+        "evidenceTotal": 1
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-1",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares four tools (list_workspace, read_workspace_file, write_workspace_note, describe_implementation) that operate on a workspace directory; it explicitly states that it has no capabilities itself and delegates all filesystem/environment access to a vendored dependency named in describe_implementation.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server exposes four tools that operate on a local workspace directory; all filesystem and environment access occurs in a vendored dependency (`vendor/workspace-toolkit/index.mjs`) rather than the main `server.mjs` file, which intentionally contains no capabilities itself.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T15:47:31.271Z",
+      "finishedAt": "2026-07-25T15:47:51.974Z",
+      "durationMs": 20703,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "7e9a5da6004ebd22e52d3e865895d2e5c741ac205052918323c27068236ad034",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 10395,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 10499,
+            "completion_tokens": 92,
+            "total_tokens": 10591
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 10301,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 10537,
+            "completion_tokens": 89,
+            "total_tokens": 10626
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 6,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 6,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
+  },
+  "key": "7e9a5da6004ebd22e52d3e865895d2e5c741ac205052918323c27068236ad034",
+  "recordedAt": "2026-07-25T15:47:51.982Z"
+}

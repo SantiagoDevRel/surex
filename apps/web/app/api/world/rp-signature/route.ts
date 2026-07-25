@@ -86,6 +86,11 @@ export async function POST(request: Request): Promise<Response> {
     environment: cfg.config.environment,
     action,
     signal,
+    // WHICH CREDENTIAL THE WIDGET MAY ASK FOR. Server-chosen, like the signal and
+    // for the same reason: a browser that could pick its own bar would pick the
+    // cheapest one, and the screen's statement of what was proven would stop
+    // matching what was actually checked. `lib/world.ts` documents the three.
+    credential: cfg.config.credential,
     rp_context: {
       rp_id: cfg.config.rpId,
       nonce: signed.nonce,

@@ -1,0 +1,5 @@
+# The sample git repository this fixture reads is created at runtime by
+# ensureRepository(), inside this directory. It is kept out of git for the obvious
+# reason — a nested repository inside a repository is a mess — and because the two
+# commits it contains are made by the server itself on first start.
+fixture-home/

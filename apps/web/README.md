@@ -163,6 +163,7 @@ choice before first paint.
 | `NEXT_PUBLIC_WORLD_RP_ID` | *none* | `rp_…` from the same app |
 | `RP_SIGNING_KEY` | *none* | **server only, and it must stay that way.** Shown exactly once by the portal. Never `NEXT_PUBLIC_*`, never logged, never sent to the browser — whoever holds it can forge proof requests in SureX's name. A test asserts the prefix never appears |
 | `NEXT_PUBLIC_WORLD_ID_ENVIRONMENT` | `production` | `staging` / `sandbox` produce simulator identities, and every screen that uses one says **SIMULATED IDENTITY — NOT A PERSON** |
+| `WORLD_CREDENTIAL` | `face` | which credential the widget requests: `face` (Selfie Check) · `orb` (Proof of Human) · `device` (device level). **Server only** — the browser is told which one, it never picks. An unrecognised value is a `503` configuration error, not a silent fallback, so `orbb` can never hand back a face check to someone who asked for an Orb |
 
 With none of the three World variables set, `POST /api/world/rp-signature` answers `503` naming exactly
 which are missing, and the screen renders that. There is no demo mode: nothing here ever behaves as though
@@ -185,11 +186,29 @@ wait a little longer before giving up on live data.
    success state here reads *"PROOF IN HAND — THE REGISTRY HAS NOT SEEN IT YET"*.
 3. **A non-production proof says so, loudly.** Staging and sandbox proofs come from a simulator, not a
    person, and a screen that looked identical either way would be the most misleading thing on the site.
+4. **The screen names the credential, and states what that credential proves.** Because the three this app
+   can request do not prove the same thing, and one sentence about "personhood" would be false under two
+   of them.
 
-The preset is `deviceLegacy({ signal })` — the 4.x replacement for `verification_level: "device"`, which no
-longer exists (FRICTION-LOG **W11**). It returns the person's highest legacy credential, so an Orb holder
-still verifies with their Orb credential; requiring an Orb of a maintainer defending their own code would
-exclude almost every maintainer there is.
+### Which credential, and what each one actually proves
+
+Set by `WORLD_CREDENTIAL`, **server-side**, and carried to the browser with the signature. The default is
+`face`.
+
+| `WORLD_CREDENTIAL` | IDKit preset | What it establishes |
+|---|---|---|
+| `face` *(default)* | `selfieCheckLegacy({ signal })` | **Liveness.** World App opens the camera on the phone (on desktop, after a QR scan — never in this browser), checks a live face and matches it to the enrolled one. World rates its sybil resistance as **"some"**, *"not as strong as Orb or NFC"*, and files the preset under *"lower-friction liveness or bot deterrence"* rather than one-human-one-action. Beta, and gated per app by `enable_face_check` |
+| `orb` | `proofOfHuman({ signal })` | **Uniqueness.** An Orb-verified World ID — the only one of the three under which the same person cannot come back as somebody else, and therefore the only one under which the registry's per-person limits actually bind |
+| `device` | `deviceLegacy({ signal })` | **An account.** No biometric at all. What this app requested before Face Check was enabled; kept reachable rather than deleted, because requiring an Orb of a maintainer defending their own code excludes almost every maintainer there is |
+
+`allow_legacy_proofs` stays set for all three: Selfie Check returns a World ID 3.0 Face proof, and
+`verification_level` no longer exists in IDKit 4.x (FRICTION-LOG **W11**).
+
+**The copy follows the preset, and a test enforces it.** Every string outside `COPY.world.credential`
+renders without knowing which credential the deployment requested, so each must be true of the *weakest*
+one — which is why the submit step reads *"Person check"* and not *"Unique human"*, and why
+`copy.test.mjs` fails on any string that claims uniqueness outside the Orb block. Face Check proves a live
+person answered. It does **not** prove that person has not already answered under another World ID.
 
 Editing the repository (on `/submit`) or the rebuttal (on `/d/<fp>`) **drops a held proof**, because the
 signal is derived from those fields and a proof bound to the old value would be refused with

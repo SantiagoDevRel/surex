@@ -1,0 +1,174 @@
+---
+title: /v1 API
+description: The frozen contract — routes, the head shape, error codes, cache policy. Rendered from contract.mjs itself.
+---
+
+import { Callout } from 'nextra/components';
+import { ContractMeta, ErrorCodeTable, RouteTable, CachePolicy } from '../../components/contract.tsx';
+
+# The `/v1` API
+
+<ContractMeta />
+
+Frozen early and on purpose: with the contract agreed, the gate, the API, the registry site and the
+reviewer can each be built and demoed standalone against the same shapes. **Additive changes only**
+— anything that would break a shipped gate goes to `/v2`.
+
+<Callout type="info">
+The tables on this page are rendered at build time from `packages/core/src/contract.mjs`, the same
+module the gate and the API import. They cannot drift from the contract; if it changes, this page
+changes with it or the build fails.
+</Callout>
+
+## Routes
+
+<RouteTable />
+
+The API is a **read path only**. There is no private key in that process, no wallet client and no
+route that writes to Arkiv — verdicts are written by the worker's wallet in a different process, and
+the two never share one. A compromise of the read API cannot rewrite the registry, and that
+separation is a property to preserve rather than an implementation detail.
+
+## `GET /v1/verdict?fp=…` — the hot path
+
+Returns the **head shape itself** as the body.
+
+```jsonc
+{
+  "fingerprint": "sxf1_…",
+  "state": "flagged",          // clean | flagged | disputed | unreviewable | stale | unknown
+  "severity": 4,               // 0–4; the gate blocks at 3
+  "tier": "C",                 // A | B | C | MISMATCH — an INDEPENDENT axis
+  "name": "@acme/mcp-tools@2.1.0",
+  "enforceAfter": 1785249090468,   // selects block WORDING, not whether we block
+  "reviewedCommit": "…",
+  "reviewedAt": "2026-07-25T14:31:30.468Z",
+  "modelId": "qwen3-coder-next:surex32k",
+  "promptVersion": "rv-1",
+  "integrity": "sha512-…",     // npm dist.integrity recorded at review time (Tier A)
+  "capabilities": { "network": { "present": true, "evidence": ["src/x.mjs:84 fetch()"],
+                                 "evidenceTotal": 1 }, "…": {} },
+  "topFinding": { "file": "…", "line": 55, "description": "…", "severity": 4,
+                  "category": "reviewer-injection", "detectedBy": "deterministic-scan" },
+  "disputeSummary": "…",
+  "evidence": { "blobId": "…", "suiObjectId": "0x…", "registerTx": "…",
+                "certifyTx": "…", "encodingType": "RS2", "contentSha256": "…" },
+  "arkivEntityKey": "0x…",
+  "updatedAt": "…",
+  "illustrative": true          // present whenever the row is demo data. NEVER stripped
+}
+```
+
+**A miss is a `200` carrying the `unknown` head, never a bodyless `404`** — the gate has to make a
+decision from what it gets. But "we could not look" is a different fact from "we looked and found
+nothing": if the registry is unreachable and nothing is in grace, the answer is `503
+upstream_unavailable`, never a synthesised `unknown`.
+
+Cache headers match the contract exactly — `max-age=900` on a hit, `max-age=120` on a miss — because
+a TTL the server does not honour is a stale block waiting to happen. Responses carry
+`X-SureX-Cache: hit|miss|stale` and `X-SureX-Mode: mock|live`.
+
+A cached `flagged` or `disputed` head **outlives its TTL** when Arkiv is unreachable, served as
+`stale`. A cached `clean` does not: an expired non-blocking head with no reachable registry is a
+`503`. A blip must never un-flag a server already known to be bad, and must never keep answering
+`clean` for one that can no longer be checked.
+
+## `POST /v1/verdicts/batch` — the SessionStart prefetch
+
+```jsonc
+// request
+{ "fps": ["sxf1_…", "sxf1_…"] }          // max 100
+
+// response
+{ "requested": 4,
+  "heads": [ /* one per requested VALID fp, IN REQUEST ORDER, misses as the unknown head */ ],
+  "invalid": [ { "fp": "garbage", "code": "bad_fingerprint" } ],
+  "ttlMs": { "positive": 900000, "negative": 120000 } }
+```
+
+**One** Arkiv round trip for a whole config — the fingerprints are OR-ed into a single predicate,
+not looped. Malformed entries go to `invalid` rather than failing the whole prefetch: one bad row in
+a config should not cost the other nineteen their verdicts.
+
+<Callout type="warning">
+**A caller may only cache a miss the registry actually answered for.** `partitionBatchResponse()`
+returns `answered` and `unanswered` separately for exactly this reason. An early gate synthesised an
+`unknown` for every unanswered fingerprint and cached it, so a batch endpoint that returned nothing
+wrote eleven negative cache entries — and the hot path then served a **flagged** server as `unknown`
+for the whole negative TTL, with no lookup and no block.
+</Callout>
+
+## `GET /v1/registry` · `GET /v1/flagged`
+
+`registry` is what a browse page needs: every state, `?state=` and `?limit=`. `flagged` is the feed
+an org-level gateway mirrors, and it returns **`flagged` and `disputed`** — a dispute changes what a
+user is told, not whether the call is stopped, so a mirror that takes only `flagged` silently stops
+enforcing everything anyone has contested.
+
+Both are sorted **client-side**. `orderBy` exists in the Arkiv SDK, is accepted silently, and does
+nothing — it is marked deprecated because server-side ordering is not supported by the network.
+
+## `GET /v1/entry/:fp` · `/v1/source/:key` · `/v1/review/:key`
+
+History and evidence. Each record carries a `links` object built from what it actually recorded —
+anything missing is omitted rather than guessed:
+
+| link | target |
+|---|---|
+| `blob` | `<walrus aggregator>/v1/blobs/<blobId>` |
+| `suiObject` | `https://suiscan.xyz/testnet/object/<id>` |
+| `registerTx`, `certifyTx` | `https://suiscan.xyz/testnet/tx/<digest>` |
+| `arkivEntity` | `https://explorer.braga.hoodi.arkiv.network/entity/<key>` |
+
+`?evidence=1` additionally fetches the Walrus blob and reports **which checks actually ran** —
+`content-sha256` can be `passed` while `blob-id` reports `asserted` when no encoder is available.
+Claiming a check that did not run is exactly the kind of thing this product exists to object to.
+
+A direct key read re-applies the provenance check by hand, because `getEntity` has no creator filter
+of its own: an entity whose creator is not the SureX writer, or whose project or entity type does
+not match, is a `404`.
+
+## `GET /v1/stats`
+
+```jsonc
+{ "registry": { "source": "arkiv", "chainId": 60138453102, "project": "surex-lisbon",
+                "writerAddress": "0x…", "entries": 0, "verdictHeads": 0,
+                "byState": { "clean": 0, "flagged": 0, "disputed": 0,
+                             "unreviewable": 0, "stale": 0, "unknown": 0 } },
+  "contract": { "version": "v1", "frozenAt": "2026-07-25" },
+  "mode": "live",
+  "omitted": [ "hitRate — no lookups served by this process yet", "…" ] }
+```
+
+**Numbers that are not real are omitted and named in `omitted`, never invented.** Before the process
+has served a lookup there is no `hitRate` key at all — not a zero. Registry counts are real, from
+`count()` against the chain; the hit rate, when present, is real but narrow: lookups this process
+has served since it started, in memory, which on serverless means one warm instance rather than the
+fleet.
+
+`registry.byState` and `/v1/flagged` can legitimately disagree. `byState` counts on-chain rows;
+`flagged` only lists heads that survive `parseVerdictHead`. A row written with a malformed
+fingerprint is counted but not served — because the gate makes an enforcement decision from a head,
+so a malformed one must never be passed through.
+
+## Errors
+
+Always `{ "error": { "code", "message", … } }`.
+
+<ErrorCodeTable />
+
+`upstream_unavailable` versus `agent_not_human_backed` is the distinction that took the longest to
+get right: `lookupHuman()` returns `null` for a throttled RPC exactly as it does for an unregistered
+agent, so only a **confirmed on-chain zero** may become a `403`.
+
+## Cache and budget
+
+<CachePolicy />
+
+## CORS and auth
+
+It is a public read API: `SUREX_CORS_ORIGIN` defaults to `*`, and no route on the read path requires
+authentication. The only authenticated surface is an admin control for reloading the review model on
+the machine that hosts it, mounted only when its slug is configured — described honestly in
+[`apps/api/README.md`](https://github.com/SantiagoDevRel/surex/blob/main/apps/api/README.md) as a
+demo control and not a security boundary.

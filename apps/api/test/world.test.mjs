@@ -625,16 +625,121 @@ test('POST /v1/submissions checks personhood BEFORE the pipeline it does not hav
     action: WORLD_ACTIONS.submit,
     responses: [{ ...PROOF().responses[0], signal_hash: hashToField(submitSignal({ repoUrl: 'github.com/acme/acme-mcp' })) }],
   });
+  // A submission must name BYTES. A tag can be repointed or deleted, so the
+  // commit is required and its absence is refused before anything else happens.
   res = await app.request('/v1/submissions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', host: HOST },
     body: JSON.stringify({ repo: 'github.com/acme/acme-mcp', release: 'v1', proof }),
+  });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error.field, 'invalid_commit');
+
+  // With a commit and NO writer configured, the honest answer is still that the
+  // rest is not built — and the person keeps their submission.
+  res = await app.request('/v1/submissions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', host: HOST },
+    body: JSON.stringify({ repo: 'github.com/acme/acme-mcp', release: 'v1', commit: 'a'.repeat(40), proof }),
   });
   assert.equal(res.status, 501);
   const body = await res.json();
   assert.equal(body.error.built, false);
   assert.equal(body.error.identity.checked, true);
   assert.equal(body.error.identity.nullifierSpent, false, 'a person must not lose their one submission to a pipeline that never ran');
+  assert.ok(body.error.missing.includes('SUREX_INGEST_URL'), 'and it names what is missing');
+});
+
+test('a checked submission is FORWARDED to the writer, and 202 only if the writer took it', async () => {
+  const p = portal(200, { success: true, nullifier: '0x2a' });
+  const v = createWorldVerifiers({ env: humanEnv(), logger: quiet, fetchImpl: p.fetchImpl });
+  const proof = PROOF({
+    action: WORLD_ACTIONS.submit,
+    responses: [{ ...PROOF().responses[0], signal_hash: hashToField(submitSignal({ repoUrl: 'github.com/acme/acme-mcp' })) }],
+  });
+  const submission = { repo: 'github.com/acme/acme-mcp', release: 'v1', commit: 'b'.repeat(40), proof };
+  const ingestEnv = { SUREX_MOCK: '1', SUREX_INGEST_URL: 'https://writer.test', SUREX_INGEST_TOKEN: 't0ken' };
+
+  // the writer accepts
+  let seen = null;
+  let app = createApp({
+    logger: quiet, verifiers: v, env: ingestEnv,
+    fetchImpl: async (url, init) => {
+      seen = { url: String(url), auth: init.headers.authorization, body: JSON.parse(init.body) };
+      return new Response(JSON.stringify({ id: 'ing_1', status: 'queued', queuePosition: 1 }), {
+        status: 202, headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  let res = await app.request('/v1/submissions', {
+    method: 'POST', headers: { 'content-type': 'application/json', host: HOST }, body: JSON.stringify(submission),
+  });
+  assert.equal(res.status, 202);
+  let body = await res.json();
+  assert.equal(body.accepted, true);
+  assert.equal(body.submissionId, 'ing_1');
+  assert.equal(seen.url, 'https://writer.test/v1/ingest');
+  assert.equal(seen.auth, 'Bearer t0ken');
+  assert.equal(seen.body.commit, 'b'.repeat(40), 'the writer is told which bytes');
+  assert.equal(seen.body.proof, undefined, 'the proof stays here — the writer has no use for it');
+
+  // the writer is unreachable: 503, and NEVER a 202 claiming it was queued
+  app = createApp({
+    logger: quiet, verifiers: v, env: ingestEnv,
+    fetchImpl: async () => { throw new Error('econnrefused'); },
+  });
+  res = await app.request('/v1/submissions', {
+    method: 'POST', headers: { 'content-type': 'application/json', host: HOST }, body: JSON.stringify(submission),
+  });
+  assert.equal(res.status, 503);
+  body = await res.json();
+  assert.notEqual(body.accepted, true, 'nothing was queued and the answer must not imply otherwise');
+  assert.match(body.error.message, /fault in the registry, not in your submission/i);
+});
+
+test('GET /v1/submissions/:id names the model doing the reading', async () => {
+  // A review is minutes because a model reads the source twice — four times when
+  // the readings disagree. A screen that hides that behind an anonymous spinner
+  // is asking to be trusted rather than read, so the status says which model,
+  // and it comes from the same variable the reviewer itself reads.
+  const env = {
+    SUREX_MOCK: '1',
+    SUREX_INGEST_URL: 'https://writer.test',
+    SUREX_INGEST_TOKEN: 't0ken',
+    SUREX_REVIEWER_MODEL: 'qwen3-coder-next:surex32k',
+  };
+  const app = createApp({
+    logger: quiet, env,
+    fetchImpl: async (url, init) => {
+      assert.match(String(url), /\/v1\/ingest\/ing_1$/);
+      assert.equal(init.headers.authorization, 'Bearer t0ken');
+      return new Response(JSON.stringify({ status: 'running', startedAt: '2026-07-25T20:00:00Z' }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  const res = await app.request('/v1/submissions/ing_1', { headers: { host: HOST } });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, 'running');
+  assert.equal(body.reviewer.model, 'qwen3-coder-next:surex32k');
+  assert.equal(body.reviewer.humanAudited, false);
+  assert.match(body.reviewer.readings, /paraphrased/);
+  assert.equal(res.headers.get('cache-control'), 'no-store', 'progress must never be cached');
+});
+
+test('an unset reviewer model is reported as unset, never guessed', async () => {
+  // A hardcoded default here would be a screen confidently naming a model nobody
+  // configured — and that name ends up beside a verdict.
+  const app = createApp({
+    logger: quiet,
+    env: { SUREX_MOCK: '1', SUREX_INGEST_URL: 'https://writer.test', SUREX_INGEST_TOKEN: 't' },
+    fetchImpl: async () => new Response(JSON.stringify({ status: 'queued' }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }),
+  });
+  const body = await (await app.request('/v1/submissions/ing_2', { headers: { host: HOST } })).json();
+  assert.equal(body.reviewer.model, null);
 });
 
 /* ────────────────────────────────────────────────────────────────── selection ─*/

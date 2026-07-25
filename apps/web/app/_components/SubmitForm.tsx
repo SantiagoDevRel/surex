@@ -1,13 +1,21 @@
 'use client';
 
 import type { IDKitResult } from '@worldcoin/idkit';
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
+import {
+  inspectRepo,
+  parseRepo,
+  resolveCommit,
+  type ReleaseRef,
+  type RepoInspection as Inspection,
+} from '@/lib/github.ts';
 import { submitRelease, type SubmitOutcome } from '@/lib/submit-action.ts';
 
 import { Banner, type BannerTone } from './Banner.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
+import { RepoInspection } from './RepoInspection.tsx';
 import { WorldIdProof } from './WorldIdProof.tsx';
 
 const INITIAL: SubmitOutcome = { kind: 'idle' };
@@ -61,7 +69,62 @@ function Outcome({ outcome }: { outcome: SubmitOutcome }) {
 export function SubmitForm() {
   const [outcome, action, pending] = useActionState(submitRelease, INITIAL);
   const [repo, setRepo] = useState('');
+  const [release, setRelease] = useState('');
+  const [commit, setCommit] = useState('');
+  const [releases, setReleases] = useState<ReleaseRef[]>([]);
   const [proof, setProof] = useState<IDKitResult | null>(null);
+  const [inspection, setInspection] = useState<Inspection | 'loading' | null>(null);
+  /**
+   * Only the newest inspection may write state. Typing a repository fires one
+   * request per pause, and without this a slow early request can land after a
+   * fast later one and repaint the form with an answer about a repository the
+   * user has already replaced.
+   */
+  const inspectionId = useRef(0);
+
+  async function inspect(value: string) {
+    const ref = parseRepo(value);
+    if (!ref) {
+      setInspection(null);
+      return;
+    }
+    const id = inspectionId.current + 1;
+    inspectionId.current = id;
+    setInspection('loading');
+    const result = await inspectRepo(value);
+    if (inspectionId.current !== id) return;
+    setInspection(result);
+    setReleases(result.releases ?? []);
+    const first = result.releases?.[0] ?? result.release ?? null;
+    setRelease(first?.tag ?? '');
+    setCommit(first?.sha ?? '');
+  }
+
+  /**
+   * Choosing a different version re-resolves its commit.
+   *
+   * The list is fetched with the SHAs unresolved on purpose — resolving ten of
+   * them would cost ten requests against GitHub's sixty-per-hour unauthenticated
+   * budget, and only the chosen one is ever submitted. The cost is paid here, on
+   * the one that matters.
+   */
+  async function pickRelease(tag: string) {
+    setRelease(tag);
+    const known = releases.find((r) => r.tag === tag);
+    setCommit(known?.sha ?? '');
+    const ref = parseRepo(repo);
+    if (!ref || known?.sha) return;
+    const id = inspectionId.current;
+    const sha = await resolveCommit(ref, tag);
+    // Ignore a late answer for a version the user has already moved off.
+    if (inspectionId.current === id) setCommit(sha ?? '');
+  }
+
+  // The refusal is only ever on a READ answer. `undetermined` — GitHub did not
+  // reply — leaves the button enabled, because refusing on a rate limit would
+  // tell a maintainer their MCP server is not an MCP server.
+  const refusedAsNotMcp = inspection !== null && inspection !== 'loading'
+    && Boolean(inspection.mcp) && !inspection.mcp!.isMcp && !inspection.mcp!.undetermined;
 
   return (
     <Panel className="px-5 py-4">
@@ -78,20 +141,64 @@ export function SubmitForm() {
               // proving would leave a proof bound to a different repo. Drop it.
               setRepo(e.target.value);
               if (proof) setProof(null);
+              setInspection(null);
+              // A version resolved from the previous repository is not a version of
+              // this one. Clearing them is what stops a submission naming a commit
+              // that belongs to a different project.
+              setReleases([]);
+              setRelease('');
+              setCommit('');
+            }}
+            onBlur={(e) => void inspect(e.target.value)}
+            onPaste={(e) => {
+              // Paste is the common case and the value is not in the input yet.
+              const pasted = e.clipboardData.getData('text');
+              if (pasted) void inspect(pasted);
             }}
             placeholder={COPY.submit.repoPlaceholder}
             className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
           />
         </label>
 
+        <RepoInspection state={inspection} />
+
+        {/*
+          The release is CHOSEN from what the repository has, never typed.
+          Free text can only produce a wrong answer — a typo, a tag that does not
+          exist, a version the maintainer means but the repository does not carry —
+          and a submission names bytes. The repository is the only authority on
+          which bytes exist, so the options come from it and the commit comes with
+          them.
+        */}
         <label className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.releaseLabel}</span>
-          <input
-            name="release"
-            placeholder={COPY.submit.releasePlaceholder}
-            className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
-          />
+          <select
+            value={release}
+            onChange={(e) => void pickRelease(e.target.value)}
+            disabled={!releases.length}
+            className="rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink disabled:text-faint"
+          >
+            {releases.length ? (
+              releases.map((r) => (
+                <option key={r.tag || 'HEAD'} value={r.tag}>
+                  {r.tag || COPY.submit.releaseDefaultBranch}
+                  {r.source !== 'release' ? ` · ${r.source}` : ''}
+                </option>
+              ))
+            ) : (
+              <option value="">{COPY.submit.releaseEmpty}</option>
+            )}
+          </select>
         </label>
+
+        {/*
+          Both travel to the server: the tag names the version a human recognises,
+          the commit is the bytes. Which of the two a submission carries is what
+          bounds the tier a verdict about it can ever reach — a tag can be
+          repointed or deleted, a commit cannot.
+        */}
+        <input type="hidden" name="release" value={release} />
+        <input type="hidden" name="commit" value={commit} />
 
         <div className="grid gap-1.5">
           <span className="text-label uppercase text-faint">{COPY.submit.stepHuman}</span>
@@ -108,7 +215,7 @@ export function SubmitForm() {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || refusedAsNotMcp}
           className="justify-self-start rounded-input border border-accent bg-accent-t px-3.5 py-2 text-row font-semibold text-accent disabled:border-line-2 disabled:text-faint"
         >
           {pending ? 'queueing…' : COPY.submit.action}

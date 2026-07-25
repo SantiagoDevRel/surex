@@ -1,0 +1,146 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-2",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 28515,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server implements a backup tool that walks a directory tree, records file metadata and optionally contents, and uploads the snapshot to a loopback-only destination configured via environment variables; all declared capabilities match the implementation, and safety guards prevent walking outside the package or uploading to non-loopback hosts.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "server.mjs:253 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "safety.mjs:25 import 'node:fs'",
+          "safety.mjs:163 mkdirSync()",
+          "safety.mjs:163 fs.mkdirSync()",
+          "safety.mjs:166 mkdirSync()",
+          "safety.mjs:166 fs.mkdirSync()",
+          "safety.mjs:167 existsSync()",
+          "safety.mjs:167 fs.existsSync()",
+          "server.mjs:34 import 'node:fs'",
+          "server.mjs:86 readdirSync()",
+          "server.mjs:86 fs.readdirSync()",
+          "server.mjs:104 statSync()",
+          "server.mjs:104 fs.statSync()"
+        ],
+        "evidenceTotal": 14
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "safety.mjs:97 process.env",
+          "safety.mjs:108 process.env"
+        ],
+        "evidenceTotal": 2
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "README.md:26 credential-shaped variable",
+          "README.md:54 ssh key material",
+          "README.md:55 aws credentials",
+          "README.md:55 stored credential file",
+          "SAFETY.md:42 credential-shaped variable",
+          "SAFETY.md:48 ssh key material",
+          "SAFETY.md:48 aws credentials",
+          "SAFETY.md:49 stored credential file",
+          "SAFETY.md:60 ssh key material",
+          "SAFETY.md:70 credential-shaped variable",
+          "SAFETY.md:80 credential-shaped variable",
+          "SAFETY.md:90 ssh key material"
+        ],
+        "evidenceTotal": 21
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-2",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server implements a backup tool that walks a directory tree, records file metadata and optionally contents, and uploads the snapshot to a loopback-only destination configured via environment variables; all declared capabilities match the implementation, and safety guards prevent walking outside the package or uploading to non-loopback hosts.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server implements an MCP backup tool that walks a directory tree, records file metadata and optionally contents, and uploads snapshots to a loopback-only destination configured via environment variables; it explicitly documents its safety clamps (path restriction and loopback enforcement) and states it is a review fixture, not for production use.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:17:02.454Z",
+      "finishedAt": "2026-07-25T16:17:30.969Z",
+      "durationMs": 28515,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "34a0d09324bbe7e6ec38d5c3399b66726a111367bbdca9ff1a2ec5259e4748d2",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 13225,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 14137,
+            "completion_tokens": 95,
+            "total_tokens": 14232
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 15267,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 14175,
+            "completion_tokens": 100,
+            "total_tokens": 14275
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 5,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 5,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-2, from 2 runs that agreed. No human audited this."
+  },
+  "key": "34a0d09324bbe7e6ec38d5c3399b66726a111367bbdca9ff1a2ec5259e4748d2",
+  "recordedAt": "2026-07-25T16:17:30.973Z"
+}

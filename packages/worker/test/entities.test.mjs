@@ -7,6 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  setSelfAuthored,
   buildRegistryEntry,
   buildVerdictHead,
   buildSourceRecord,
@@ -87,6 +88,11 @@ test('unreviewable needs a reason', () => {
 });
 
 test('needsReanalysis is a string, and severity/enforceAfter stay integers', () => {
+  // This test is about attribute ENCODING, but a `flagged` head now has to get
+  // past the two write-boundary gates first: the fingerprint must be one of ours,
+  // and the accusation must carry provenance. Satisfying them here is not
+  // weakening the test — `accusation-gate.test.mjs` is where those rules live.
+  setSelfAuthored(['sxf1_x']);
   const head = buildVerdictHead({
     fingerprint: 'sxf1_x',
     state: 'flagged',
@@ -94,6 +100,9 @@ test('needsReanalysis is a string, and severity/enforceAfter stay integers', () 
     severity: 4,
     needsReanalysis: true,
     enforceAfter: 1784950249894,
+    modelId: 'qwen3-coder-next:surex32k',
+    promptVersion: 'rv-4',
+    reviewedCommit: 'a'.repeat(40),
   });
   const a = attrsOf(head);
   assert.equal(a.needsReanalysis, 'true');

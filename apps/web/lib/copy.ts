@@ -95,6 +95,30 @@ export const COPY = {
     tierLegendB: 'same version string, but the bytes were never compared',
     tierLegendC: 'nothing was checked; the verdict may be about code that is not your code',
     rowsAreLinks: 'each row links to the evidence behind its verdict',
+
+    /**
+     * How to read a verdict — the two axes, and that they are independent.
+     *
+     * Added because the tier legend alone taught the wrong thing. A reader who
+     * sees three letters explained and a coloured state unexplained concludes
+     * they are one scale, and then reads "Tier C" as a weaker verdict rather
+     * than as a statement about linkage. They are orthogonal, and the pairs
+     * below are the fastest way to make that concrete: the same verdict at two
+     * tiers means two different things, and so does the same tier at two
+     * verdicts.
+     *
+     * No count, no example package name — a named example here would be a claim
+     * about a real project that this file cannot keep true.
+     */
+    axesLabel: 'HOW TO READ A VERDICT — TWO SEPARATE QUESTIONS',
+    axesVerdictTerm: 'VERDICT',
+    axesVerdictBody:
+      'what the review found in the code it read: clean, flagged, disputed, unreviewable, or unknown when nobody has looked.',
+    axesTierTerm: 'TIER',
+    axesTierBody:
+      'whether the code it read is the code you will run. A, B or C — it says nothing about whether the review found anything.',
+    axesIndependent:
+      'They move independently. A clean verdict at tier C is a real review of a real package, of a version your machine may not resolve to. A flagged verdict at tier A is a finding in exactly the bytes you have.',
     /** Hover title on the REVIEWED cell, which shows a date, not a timestamp. */
     reviewedAtTitle: 'recorded review time, UTC',
     countSuffix: 'shown',
@@ -123,6 +147,23 @@ export const COPY = {
     licence: 'no licence permits us to store this source',
     'source-unavailable': 'the source could not be fetched at the named commit',
     'remote-endpoint': 'a remote endpoint — there is no local code to read',
+    /**
+     * The readings disagreed and a third did not break the tie. Measured, not
+     * hypothetical: one honest fixture came back flagged, clean, clean on three
+     * identical inputs, so a two-reading panel can resolve to an accusation by
+     * sampling noise alone. When the readings will not converge, the registry
+     * says that instead of picking one.
+     */
+    'no-agreement': 'the readings disagreed and no majority formed',
+    /**
+     * A review ran and its result is not published. Distinct from `unknown`
+     * ("nobody has looked") on purpose: publishing only the clean results and
+     * leaving everything else as unknown is publication bias, and it would make
+     * `unknown` quietly mean two different things.
+     */
+    withheld: 'a review ran and its result is held for a human to release',
+    /** The reviewer could not see all of the code, so it cannot say it found nothing. */
+    'partial-source': 'part of the source was not read, so no clean verdict can be given',
   },
 
   verdict: {
@@ -209,8 +250,14 @@ export const COPY = {
       'A wrongly-flagged server hurts the humans who wrote it and the agents that depend on it. Both can defend it here — the requirements differ, the weight of the rebuttal does not.',
     humanTitle: 'You are a person',
     humanBadge: 'WORLD ID',
+    /**
+     * NOT "prove unique personhood". This deployment can be configured to request
+     * any of three World ID credentials, and only one of them — the Orb — actually
+     * establishes uniqueness. The strong sentence moved to `world.credential.orb`,
+     * which renders only when the Orb is what was requested.
+     */
     humanStep1:
-      'Prove unique personhood with World ID — one human, one voice per dispute, so a rebuttal cannot be manufactured in bulk.',
+      'Prove personhood with World ID. How much that establishes depends on which credential this deployment requests — the button states which one it got, and what it does and does not settle.',
     humanStep2: 'Write the rebuttal. Point at code: file, line, commit.',
     humanStep3:
       'Attach evidence — repo link, test, config. Stored as a blob, hashed, and linked from the index.',
@@ -267,14 +314,51 @@ export const COPY = {
     simulatedLabel: 'SIMULATED IDENTITY — NOT A PERSON',
     simulatedBody:
       'This deployment points at a non-production World ID environment, where proofs come from a simulator rather than from a phone. Anything proven here is a test of the plumbing, not a human.',
+
+    /**
+     * WHAT THIS DEPLOYMENT ACTUALLY ASKED FOR — stated where it is known.
+     *
+     * The credential is chosen server-side (`lib/world.ts`) and arrives with the
+     * signature, so this is the only place on the site that can name it without
+     * guessing. Every other string about World ID is written to be true of the
+     * WEAKEST of the three, because a static page cannot know which one a given
+     * deployment requested.
+     *
+     * The three do not prove the same thing, and the difference is the whole
+     * point: Orb is the one-human-one-action bar, Face Check is liveness with
+     * what World itself rates as "some" sybil resistance, and device level is an
+     * account with no biometric behind it at all. Wording them alike would make
+     * two of the three a false claim.
+     */
+    credential: {
+      face: {
+        label: 'FACE CHECK — LIVENESS, NOT ONE-HUMAN-ONE-SUBMISSION',
+        body:
+          'This deployment requests Selfie Check. World App opens the camera on your phone, checks that a live face is there, and matches it against the face you enrolled — on a desktop that means scanning the QR first, and the camera is never opened by this browser. World rates its sybil resistance as "some", explicitly weaker than the Orb, and files it under lower-friction liveness rather than one-human-one-action. So it establishes that a live person answered. It does not establish that this person has not already answered under another World ID.',
+      },
+      orb: {
+        label: 'PROOF OF HUMAN — ORB, ONE PERSON CANNOT BE TWO',
+        body:
+          'This deployment requests Proof of Human: an Orb-verified World ID. That is the strong anti-sybil credential — the same person cannot come back as somebody else — so the per-person limits the registry applies actually hold. It is also the highest bar to clear, and a maintainer who has never been to an Orb cannot clear it.',
+      },
+      device: {
+        label: 'DEVICE LEVEL — AN ACCOUNT, NO BIOMETRIC',
+        body:
+          'This deployment requests device level: the person holds a World App account. Nothing biometric is checked. It raises the cost of bulk automation and says nothing at all about a live person being present, which is the weakest of the three bars this app can ask for.',
+      },
+    },
   },
 
   submit: {
     title: 'Submit your server for review',
     lede:
       'Submission is consent to a public record. Whatever the review concludes, the verdict blob publishes to the index when the run completes — and you are told first, so a rebuttal can ship with it from hour zero.',
-    stepHuman: 'Unique human',
-    stepHumanNote: 'World ID — personhood proven',
+    // "Unique human" was true only while this app requested an Orb. It now requests
+    // Face Check by default, which is liveness — so the step label says what is
+    // constant across all three credentials, and the precise claim is made at the
+    // button, where the credential is actually known.
+    stepHuman: 'Person check',
+    stepHumanNote: 'World ID — the credential requested is named at the button',
     stepRepo: 'Repo control',
     stepRepoNote: '.well-known/surex.txt found at the repo root',
     stepRelease: 'Release picked',
@@ -286,7 +370,38 @@ export const COPY = {
     repoPlaceholder: 'github.com/acme/acme-mcp',
     releaseLabel: 'Release tag',
     releasePlaceholder: 'v2.3.0',
+    /**
+     * The release is chosen from what the repository has, never typed. These two
+     * cover the cases where there is nothing to choose from — said plainly,
+     * because "no releases" is a fact about the repository and "we could not
+     * read it" is a fact about the request.
+     */
+    releaseEmpty: 'paste a repository first',
+    releaseDefaultBranch: 'default branch (moves — cannot pin bytes)',
     action: 'Queue the review',
+
+    /**
+     * The repository inspection, in words.
+     *
+     * Three states and they stay distinct, because the difference between "this
+     * is not an MCP server" and "we could not read the repository" is the
+     * difference between a refusal a maintainer deserves and one they do not.
+     * GitHub rate-limits an unauthenticated browser at sixty requests an hour.
+     */
+    inspecting: 'reading the repository…',
+    inspectMcpYes: 'MCP server confirmed',
+    inspectMcpNo: 'This does not look like an MCP server',
+    inspectMcpNoBody:
+      'SureX reviews MCP servers against what they declare, so it needs a server to read: no MCP SDK dependency, framework, manifest or keyword was found in this repository\'s manifests. If this is an MCP server, the signal is somewhere we did not look — say so and it gets added.',
+    inspectUnknownLabel: 'Could not read the repository',
+    inspectUnknownBody:
+      'GitHub did not answer, so nothing was determined about this repository — this is a statement about the request, not about the code. The tag and commit can be typed by hand.',
+    inspectPinnedLabel: 'PINNED TO',
+    /** Why a commit and not just a tag. Tier language, deliberately. */
+    inspectShaNote:
+      'The commit is what the review is about. A tag can be moved or deleted, so a submission that names only a tag can never link a verdict to the bytes you shipped.',
+    inspectNoShaNote:
+      'No commit was resolved, so this submission names a tag only — the verdict cannot be linked to specific bytes.',
     worldIdNote:
       'World ID personhood is checked by the registry before a submission is looked at, so the proof comes first and the release second. What is NOT built yet is everything after that gate — repo-ownership proof, licence gate, blob upload and the index write — so a submission with a good proof still comes back as not built. That answer is shown below exactly as the API sends it, rather than a screen pretending a review was queued.',
     resultAcceptedLabel: 'ACCEPTED',

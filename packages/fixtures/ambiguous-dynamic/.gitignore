@@ -1,0 +1,9 @@
+# The notes are written at runtime by ensureFiles(). They are scratch files this
+# fixture owns, not source.
+#
+# `tools.config.json` is NOT ignored, on purpose: it is the tool list, it is the
+# most interesting file in this fixture, and it should be readable in the repo. The
+# fixture does not write a default copy either — no tool name appears anywhere in
+# the source, which is the whole claim, and a default config in the source would
+# quietly break it. A missing config is fail-closed: the disclosure tool only.
+fixture-home/

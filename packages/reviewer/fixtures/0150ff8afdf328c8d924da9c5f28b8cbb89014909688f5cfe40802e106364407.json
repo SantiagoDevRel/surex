@@ -1,0 +1,128 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-4",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 22902,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "This server declares that it loads its tool list from tools.config.json at startup, offering three config-driven tools (whats_new, list_notes, note_line_count) plus one hardcoded disclosure tool (describe_tool_source), with all behaviours confined to the package directory and no dynamic code execution.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "safety.mjs:24 import 'node:fs'",
+          "safety.mjs:86 mkdirSync()",
+          "safety.mjs:86 fs.mkdirSync()",
+          "safety.mjs:89 existsSync()",
+          "safety.mjs:89 fs.existsSync()",
+          "safety.mjs:107 readFileSync()",
+          "safety.mjs:107 fs.readFileSync()",
+          "safety.mjs:156 readFileSync()",
+          "safety.mjs:156 fs.readFileSync()",
+          "safety.mjs:162 readdirSync()",
+          "safety.mjs:162 fs.readdirSync()",
+          "safety.mjs:164 statSync()"
+        ],
+        "evidenceTotal": 13
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-4",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares that it loads its tool list from tools.config.json at startup, offering three config-driven tools (whats_new, list_notes, note_line_count) plus one hardcoded disclosure tool (describe_tool_source), with all behaviours confined to the package directory and no dynamic code execution.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server declares its tool list dynamically from tools.config.json at startup, with all tool behaviors confined to a closed set of three implemented in the source and guarded against path traversal; it also includes a disclosure tool describing the config source.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T17:19:06.940Z",
+      "finishedAt": "2026-07-25T17:19:29.842Z",
+      "durationMs": 22902,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "0150ff8afdf328c8d924da9c5f28b8cbb89014909688f5cfe40802e106364407",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 11544,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 11989,
+            "completion_tokens": 95,
+            "total_tokens": 12084
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 11352,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 12037,
+            "completion_tokens": 84,
+            "total_tokens": 12121
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 6,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 6,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
+  },
+  "key": "0150ff8afdf328c8d924da9c5f28b8cbb89014909688f5cfe40802e106364407",
+  "recordedAt": "2026-07-25T17:19:29.843Z"
+}

@@ -1,0 +1,223 @@
+@import 'nextra-theme-docs/style.css';
+
+/* ============================================================================
+   SUREX — the docs skin.
+
+   The token values are lifted verbatim from `apps/web/app/globals.css`, which
+   took them verbatim from `design/tokens.html`. Same product, same surface: a
+   reader who lands here from the registry should not feel a seam.
+
+   Nextra owns layout and its own `--nextra-*` variables; this file owns colour,
+   type and the verdict palette. The two are kept apart on purpose — a theme
+   upgrade should never silently repaint a `flagged` chip.
+
+   Nextra switches themes with a `.dark` class on <html> (next-themes), NOT with
+   `data-theme` as the registry app does. Light is the `:root` set here and dark
+   is the `.dark` set, which is the opposite arrangement to the app's file for
+   exactly that reason. Both end up at the same hexes.
+   ============================================================================ */
+
+:root {
+  --sx-bg: #f5f2ea;
+  --sx-panel: #fdfbf6;
+  --sx-panel-2: #edeade;
+  --sx-line: rgba(30, 28, 20, 0.14);
+  --sx-line-2: rgba(30, 28, 20, 0.08);
+
+  --sx-ink: #22201a;
+  --sx-ink-2: #4a463c;
+  --sx-ink-3: #6e6a5e;
+  --sx-faint: #a49e90;
+
+  --sx-accent: #33608f;
+  --sx-accent-t: rgba(51, 96, 143, 0.08);
+
+  --sx-clean: #2e7047;
+  --sx-clean-t: rgba(46, 112, 71, 0.09);
+  --sx-flagged: #a33d2f;
+  --sx-flagged-t: rgba(163, 61, 47, 0.09);
+  --sx-disputed: #6b4fa0;
+  --sx-disputed-t: rgba(107, 79, 160, 0.09);
+  --sx-stale: #8a6a24;
+  --sx-stale-t: rgba(138, 106, 36, 0.1);
+
+  --sx-termbg: #0c0b09;
+  --sx-termink: #d8d4c8;
+}
+
+.dark {
+  --sx-bg: #141310;
+  --sx-panel: #1c1a16;
+  --sx-panel-2: #181713;
+  --sx-line: rgba(255, 255, 255, 0.09);
+  --sx-line-2: rgba(255, 255, 255, 0.06);
+
+  --sx-ink: #e8e4da;
+  --sx-ink-2: #b5afa0;
+  --sx-ink-3: #8b8578;
+  --sx-faint: #5c584e;
+
+  --sx-accent: #7aa3cc;
+  --sx-accent-t: rgba(122, 163, 204, 0.09);
+
+  --sx-clean: #6aa87c;
+  --sx-clean-t: rgba(106, 168, 124, 0.13);
+  --sx-flagged: #c95b4d;
+  --sx-flagged-t: rgba(201, 91, 77, 0.13);
+  --sx-disputed: #9c86c9;
+  --sx-disputed-t: rgba(156, 134, 201, 0.13);
+  --sx-stale: #c9a15a;
+  --sx-stale-t: rgba(201, 161, 90, 0.13);
+}
+
+/* ------------------------------------------------------------------ type --*/
+/* design/tokens.html §02 — two typefaces, one job each. IBM Plex Mono carries
+   structure (nav, headings, tables, code, commands); Source Serif 4 carries
+   prose. Nothing else. */
+html,
+body {
+  background: var(--sx-bg);
+  color: var(--sx-ink);
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3,
+.nextra-content h4 {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  letter-spacing: -0.01em;
+}
+
+.nextra-content h1 {
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.nextra-content p,
+.nextra-content li {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--sx-ink-2);
+}
+
+.nextra-content strong {
+  color: var(--sx-ink);
+  font-weight: 600;
+}
+
+.nextra-content a {
+  color: var(--sx-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Tables are data, so they stay in the structural face at data size. */
+.nextra-content table,
+.nextra-content table p {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.nextra-content th {
+  color: var(--sx-ink);
+  font-weight: 600;
+}
+
+.nextra-content blockquote {
+  border-inline-start-color: var(--sx-accent);
+  color: var(--sx-ink-3);
+}
+
+/* --------------------------------------------------------------- surfaces --*/
+.nextra-code,
+.nextra-content pre {
+  border: 1px solid var(--sx-line);
+  border-radius: 6px;
+}
+
+.nextra-content :not(pre) > code {
+  background: var(--sx-panel-2);
+  border: 1px solid var(--sx-line-2);
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------- the verdict scale --*/
+/* The one thing on this site that must never be decorative. These classes are
+   used by the state table and by inline verdict names in prose, and they carry
+   the SAME hexes the registry renders — a `flagged` here and a `flagged` there
+   are the same red or the reader has to re-learn the product. */
+.sx-state {
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sx-state-clean { color: var(--sx-clean); background: var(--sx-clean-t); }
+.sx-state-flagged { color: var(--sx-flagged); background: var(--sx-flagged-t); }
+.sx-state-disputed { color: var(--sx-disputed); background: var(--sx-disputed-t); }
+.sx-state-stale { color: var(--sx-stale); background: var(--sx-stale-t); }
+.sx-state-unreviewable,
+.sx-state-unknown { color: var(--sx-ink-3); background: var(--sx-line-2); }
+
+/* A real terminal keeps its own surface in both themes — it is a screenshot of
+   a TTY, not a page element. Same rule as the app. */
+.sx-term {
+  background: var(--sx-termbg);
+  color: var(--sx-termink);
+  border: 1px solid var(--sx-line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre;
+}
+
+/* --------------------------------------------------------------- the mark --*/
+.sx-mark {
+  border: 2px solid currentColor;
+  padding: 2px 7px;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+}
+
+/* --------------------------------------------------------------- mermaid --*/
+/* Rendered client-side into an <svg>; it needs a surface and room to breathe,
+   and it must scroll rather than push the page sideways on a phone. */
+.nextra-content .mermaid,
+.nextra-content [data-mermaid] {
+  background: var(--sx-panel-2);
+  border: 1px solid var(--sx-line);
+  border-radius: 6px;
+  padding: 18px 12px;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+
+/* ----------------------------------------------------------------- focus --*/
+:focus-visible {
+  outline: 2px solid var(--sx-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

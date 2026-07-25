@@ -20,12 +20,13 @@
 //   node scripts/review-and-publish.mjs               # review + publish
 //   node scripts/review-and-publish.mjs --only mal-   # a name prefix filter
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 
+import { entryOf, readTree, statedIntentFrom } from './lib/server-source.mjs';
 import { canonicalise, fingerprintOf, SEVERITY_LABEL } from '../packages/core/index.mjs';
 import { localEntryResolver } from '../packages/plugin/lib/localentry.mjs';
 import { reviewServer } from '../packages/reviewer/src/review.mjs';
@@ -37,6 +38,8 @@ import {
   buildRegistryEntry,
   recordBytes,
   sha256Hex,
+  selfAuthoredPath,
+  setSelfAuthored,
 } from '../packages/worker/index.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,23 +48,7 @@ const onlyIx = process.argv.indexOf('--only');
 const ONLY = onlyIx !== -1 ? process.argv[onlyIx + 1] : null;
 const log = (...a) => console.log(...a);
 
-const SOURCE_EXT = /\.(m?js|cjs|ts|json|md)$/i;
-const SKIP_DIR = /^(node_modules|fixture-home|test|\.out|\.git)$/i;
-
 // ── discover the servers ─────────────────────────────────────────────────────
-/** Where a fixture's stdio entry actually lives — not always <dir>/server.mjs. */
-function entryOf(dir) {
-  for (const rel of ['server.mjs', 'src/server.mjs', 'index.mjs', 'src/index.mjs']) {
-    if (existsSync(join(dir, rel))) return join(dir, rel);
-  }
-  try {
-    const bin = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).bin;
-    const first = typeof bin === 'string' ? bin : Object.values(bin ?? {})[0];
-    if (first && existsSync(join(dir, first))) return join(dir, first);
-  } catch { /* no package.json */ }
-  return null;
-}
-
 function discover() {
   const out = [];
   const original = join(ROOT, 'packages', 'fixture-mcp');
@@ -82,81 +69,14 @@ function discover() {
   return out.filter((s) => !ONLY || s.name.includes(ONLY));
 }
 
-/** Read a fixture's source tree the way the reviewer wants it: {path, content}[]. */
-function readTree(dir) {
-  const files = [];
-  const walk = (d) => {
-    for (const e of readdirSync(d, { withFileTypes: true })) {
-      if (e.isDirectory()) {
-        if (!SKIP_DIR.test(e.name)) walk(join(d, e.name));
-        continue;
-      }
-      if (!SOURCE_EXT.test(e.name)) continue;
-      const full = join(d, e.name);
-      if (statSync(full).size > 200 * 1024) continue;
-      // The reviewer keys everything off `file.text` — the capability scan, the
-      // injection scan and the prompt all read it. Passing `content` (which the
-      // model half also accepts) but not `text` was why `reach` came back
-      // "nothing detected" on code with 21 real call sites. Supply `text`.
-      const text = readFileSync(full, 'utf8');
-      files.push({ path: relative(dir, full).replace(/\\/g, '/'), text });
-    }
-  };
-  walk(dir);
-  return files;
-}
-
-/** Start the server and ask it what it declares. The intent is its own words. */
-function statedIntentFrom(dir, name, entry) {
-  return new Promise((resolvePromise) => {
-    // cwd at the repo ROOT, not the fixture dir: the server imports
-    // @modelcontextprotocol/sdk, which is hoisted into the monorepo's top-level
-    // node_modules. Launched from anywhere else, node cannot resolve it and the
-    // server dies before printing a single line — which read from the outside as
-    // "the server declares no tools".
-    const child = spawn('node', [entry], { cwd: ROOT, stdio: ['pipe', 'pipe', 'ignore'] });
-    let buf = '';
-    let settled = false;
-    const done = (intent) => {
-      if (settled) return;
-      settled = true;
-      try { child.kill(); } catch { /* already gone */ }
-      resolvePromise(intent);
-    };
-    const readme = ['README.md', 'AGENTS.md'].map((f) => join(dir, f)).find(existsSync);
-
-    // Consume COMPLETE lines only. Splitting the running buffer on every `data`
-    // event re-parses partial lines and never advances past them — which is why
-    // the first version saw zero tools even though the server answered three.
-    child.stdout.on('data', (d) => {
-      buf += d.toString();
-      let nl;
-      while ((nl = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (!line.startsWith('{')) continue;
-        try {
-          const msg = JSON.parse(line);
-          if (msg.id === 2 && msg.result?.tools) {
-            done({ name, tools: msg.result.tools, readme: readme ? readFileSync(readme, 'utf8') : null });
-          }
-        } catch { /* not a complete JSON object on this line */ }
-      }
-    });
-    const send = (o) => child.stdin.write(JSON.stringify(o) + '\n');
-    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'surex-review', version: '0' } } });
-    send({ jsonrpc: '2.0', method: 'notifications/initialized' });
-    send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
-    // If the server never answers, review the code with no declared tools rather
-    // than hang — an honest fixture that will not start is a finding of its own.
-    setTimeout(() => done({ name, tools: [], readme: readme ? readFileSync(readme, 'utf8') : null }), 8000);
-  });
-}
-
 // ── review one server ────────────────────────────────────────────────────────
 async function reviewOne(server) {
   const files = readTree(server.dir);
-  const statedIntent = await statedIntentFrom(server.dir, server.name, server.entry);
+  // cwd at the repo ROOT: an in-repo fixture imports @modelcontextprotocol/sdk
+  // from the monorepo's hoisted top-level node_modules — see server-source.mjs.
+  const statedIntent = await statedIntentFrom({
+    dir: server.dir, name: server.name, entry: server.entry, cwd: ROOT,
+  });
   log(`\n${server.name}  [${server.tier}]  ${files.length} files · ${statedIntent.tools.length} tools declared`);
 
   const result = await reviewServer({ files, statedIntent });
@@ -236,6 +156,43 @@ if (DRY) {
 
 // ── publish each verdict on chain ────────────────────────────────────────────
 log('\npublishing verdicts on chain…');
+
+/**
+ * The commit these fixtures were read at. Provenance, not decoration: the worker
+ * now REFUSES to write a flag without it, because the live `@surex/mal-*` heads
+ * were written without one and their block messages render "commit —" — a
+ * finding the accused cannot trace to any bytes.
+ */
+let reviewedCommit = null;
+try {
+  reviewedCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+} catch {
+  reviewedCommit = null;
+}
+if (!reviewedCommit) {
+  log('  ✗ could not read the current git commit — refusing to publish a flag with no provenance');
+  process.exit(1);
+}
+log(`  provenance: commit ${reviewedCommit.slice(0, 12)}`);
+
+/**
+ * Regenerate the self-authored allowlist from the fixtures we are about to
+ * publish, and hand it to the worker.
+ *
+ * The allowlist is FINGERPRINTS, computed here from our own directories, because
+ * a name is whatever the caller types — `totally-not-a-fixture-thirdparty`
+ * satisfies any name regex. The worker refuses to flag anything absent from it.
+ */
+const selfAuthored = [];
+for (const r of reviewed) {
+  if (r.error) continue;
+  const canonical = canonicalise({ command: 'node', args: [r.server.entry] }, { hashLocalEntry: localEntryResolver(ROOT) });
+  selfAuthored.push(fingerprintOf(canonical));
+}
+mkdirSync(join(ROOT, 'packages', 'worker', 'state'), { recursive: true });
+writeFileSync(fileURLToPath(selfAuthoredPath()), JSON.stringify(selfAuthored, null, 2));
+setSelfAuthored(selfAuthored);
+log(`  self-authored allowlist: ${selfAuthored.length} fingerprint(s) — nothing outside it can be flagged`);
 const walrus = await createWalrusWriter({ log: () => {} });
 const arkiv = createArkivWriter({ log: () => {} });
 
@@ -251,6 +208,16 @@ for (const r of reviewed) {
   const config = { command: 'node', args: [server.entry] };
   const canonical = canonicalise(config, { hashLocalEntry: localEntryResolver(ROOT) });
   const fingerprint = fingerprintOf(canonical);
+
+  // Idempotent: if a verdict head already exists for this fingerprint, skip the
+  // whole server — including the Walrus write. Without this a re-run re-writes and
+  // RE-CHARGES for every blob (the SDK does not dedupe already-certified bytes,
+  // FRICTION-LOG S3), and the original fixture-mcp is already on chain from an
+  // earlier publish.
+  if (await existingKey(fingerprint, 'verdictHead')) {
+    log(`  · ${server.name.padEnd(20)} already on chain — skipped`);
+    continue;
+  }
 
   const state = result.verdict === 'flagged' ? 'flagged'
     : result.verdict === 'unreviewable' ? 'unreviewable' : 'clean';
@@ -305,6 +272,10 @@ for (const r of reviewed) {
     name: `@surex/${server.name}`,
     latestReviewKey: reviewKey, sourceKey: `in-repo:${server.name}`,
     modelId: result.modelId, promptVersion: result.promptVersion,
+    // The commit these bytes were read at. The worker refuses a flag without it:
+    // the live heads written before this line existed render "commit —" in the
+    // block message, which is a finding nobody can trace to anything.
+    reviewedCommit,
     reviewedAt: new Date().toISOString(),
     capabilities: result.capabilities, topFinding: top ?? undefined,
     evidence: { ...pointer, contentSha256 },

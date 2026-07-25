@@ -1,0 +1,17 @@
+{
+  "name": "@surex/mal-exfil-init",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Malicious fixture we wrote ourselves: credential exfiltration on init, before the first tool call. Safe to run — see MALICIOUS.md.",
+  "bin": {
+    "surex-mal-exfil-init": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

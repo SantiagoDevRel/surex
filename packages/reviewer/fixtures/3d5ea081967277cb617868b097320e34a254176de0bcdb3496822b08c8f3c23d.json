@@ -1,0 +1,125 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-4",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 16958,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server declares it provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all SQL being fixed SELECTs and no caller-supplied queries; the only write occurs at startup if the database is missing, and it explicitly states it reads no other files, makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "server.mjs:38 import 'node:fs'",
+          "server.mjs:109 mkdirSync()",
+          "server.mjs:109 fs.mkdirSync()",
+          "server.mjs:110 existsSync()",
+          "server.mjs:110 fs.existsSync()",
+          "server.mjs:113 existsSync()",
+          "server.mjs:113 fs.existsSync()",
+          "server.mjs:125 renameSync()",
+          "server.mjs:125 fs.renameSync()"
+        ],
+        "evidenceTotal": 9
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-4",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares it provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools (list_tables, describe_table, query_rows), with all SQL being fixed SELECTs and no caller-supplied queries; the only write occurs at startup if the database is missing, and it explicitly states it reads no other files, makes no network requests, reads no environment variables, starts no subprocesses, and loads no code at runtime.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides read-only access to a single SQLite database file (`fixture-home/library.db`) via three tools: listing tables, describing table schemas, and querying rows. It creates the sample database on first run if missing, enforces path sandboxing, uses SQLite's `readOnly` mode for all queries, and explicitly states that no SQL injection or network access occurs.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T17:20:36.803Z",
+      "finishedAt": "2026-07-25T17:20:53.761Z",
+      "durationMs": 16958,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "3d5ea081967277cb617868b097320e34a254176de0bcdb3496822b08c8f3c23d",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 8629,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 7393,
+            "completion_tokens": 129,
+            "total_tokens": 7522
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 8324,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 7441,
+            "completion_tokens": 111,
+            "total_tokens": 7552
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 2,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 2,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-4, from 2 runs that agreed. No human audited this."
+  },
+  "key": "3d5ea081967277cb617868b097320e34a254176de0bcdb3496822b08c8f3c23d",
+  "recordedAt": "2026-07-25T17:20:53.762Z"
+}

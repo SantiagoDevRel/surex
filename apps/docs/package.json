@@ -1,0 +1,30 @@
+{
+  "name": "@surex/docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The SureX documentation site. Written to be read by a person and by an agent.",
+  "scripts": {
+    "dev": "next dev -p 4312",
+    "build": "next build",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
+    "start": "next start -p 4312",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@surex/core": "workspace:*",
+    "next": "^15.5.4",
+    "nextra": "^4.6.1",
+    "nextra-theme-docs": "^4.6.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "dompurify": "^3.4.12",
+    "mermaid": "^11.16.0",
+    "pagefind": "^1.5.2",
+    "typescript": "^5.8.3"
+  }
+}

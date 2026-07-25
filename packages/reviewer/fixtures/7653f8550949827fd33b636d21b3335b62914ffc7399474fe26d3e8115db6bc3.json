@@ -1,0 +1,129 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-2",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 101237,
+  "value": {
+    "verdict": "unreviewable",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlist validation and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "server.mjs:50 import 'node:fs'",
+          "server.mjs:229 mkdirSync()",
+          "server.mjs:229 fs.mkdirSync()",
+          "server.mjs:230 existsSync()",
+          "server.mjs:230 fs.existsSync()",
+          "server.mjs:235 writeFileSync()",
+          "server.mjs:235 fs.writeFileSync()",
+          "server.mjs:239 writeFileSync()",
+          "server.mjs:239 fs.writeFileSync()"
+        ],
+        "evidenceTotal": 9
+      },
+      "exec": {
+        "present": true,
+        "evidence": [
+          "server.mjs:52 import 'node:child_process'",
+          "server.mjs:205 execFile()"
+        ],
+        "evidenceTotal": 2
+      },
+      "env": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-2",
+    "agreementRuns": 1,
+    "reviewErrors": [
+      "run b: network: fetch failed"
+    ],
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it runs only pinned git commands against its own self-created repository, using execFile with argument arrays (no shell), enforcing strict allowlist validation and timeouts, and explicitly states how environment variables are inherited without being read by the server itself.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": false,
+        "text": null,
+        "error": "network: fetch failed"
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T16:19:12.739Z",
+      "finishedAt": "2026-07-25T16:20:53.976Z",
+      "durationMs": 101237,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "7653f8550949827fd33b636d21b3335b62914ffc7399474fe26d3e8115db6bc3",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 19654,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 7723,
+            "completion_tokens": 89,
+            "total_tokens": 7812
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": false,
+          "parsed": false,
+          "ms": 81575,
+          "attempts": 2,
+          "usage": null,
+          "error": "network: fetch failed"
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 2,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "sourceCoverage": {
+        "filesSupplied": 2,
+        "filesOmittedOrTruncated": 0,
+        "omitted": []
+      },
+      "notes": [
+        "one run of two produced a usable answer; a single run cannot deliver a clean verdict"
+      ]
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-2, from 1 usable run of 2 — severity is capped because the runs did not agree. No human audited this."
+  },
+  "key": "7653f8550949827fd33b636d21b3335b62914ffc7399474fe26d3e8115db6bc3",
+  "recordedAt": "2026-07-25T16:20:53.976Z"
+}

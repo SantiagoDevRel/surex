@@ -1,0 +1,109 @@
+---
+title: SXF-1 fingerprint
+description: One server, one identity, computed from its install configuration alone — never by running it.
+---
+
+import { Callout } from 'nextra/components';
+
+# SXF-1 — the install-config fingerprint
+
+A registry needs a key. SureX's key is **`SXF-1`**: a sha256 over a canonicalised form of the MCP
+server's install configuration, prefixed `sxf1_`.
+
+```
+sxf1_c6b016134fddd156bb76fce9c9e2cc8d697cbd35e311a4de50af6dbf102b761b
+```
+
+The rule that shapes everything else: **the gate never runs or connects to an MCP server to
+identify it.** It reads configuration off disk and nothing more. That is not caution for its own
+sake — it is what makes the `SessionStart` prefetch possible at all, because `SessionStart` hooks
+fire before any MCP connection exists.
+
+## What survives canonicalisation
+
+```jsonc
+// npx -y @acme/mcp-tools@2.1.0 --port 8080 --verbose
+{
+  "v": "SXF-1",
+  "transport": "stdio",
+  "runner": "npx",
+  "package": { "name": "@acme/mcp-tools", "version": "2.1.0" },
+  "args": []
+}
+```
+
+| Dropped | Why |
+|---|---|
+| `-y`, `--yes`, `-q`, `--quiet`, `--silent`, `--no-install` | runner ceremony, carries no identity |
+| `--port`, `--debug`, `--verbose`, `--log-level`, `--cwd` (with their values) | changes between machines and runs without changing what the server *is* |
+| environment variable **values** | they are the user's, and they are not the server |
+
+The version string only counts as pinned if it names exactly one artifact. `^1.2.0`, `~1.2`, `x`,
+`latest`, `next`, `beta`, a range, a git or file URL — all become `unpinned`, which is what puts
+almost every real-world server at [Tier C](/concepts/verdict-and-tier).
+
+## Two cases that are easy to get wrong
+
+**A locally-run script is identified by its entry file's content.**
+
+```jsonc
+// node ./server.js
+{ "v": "SXF-1", "transport": "stdio", "runner": "node",
+  "package": { "name": "server.mjs", "version": "local:ebfd4659bfb1e319" }, "args": [] }
+```
+
+Without that, every `node server.js` on earth is one fingerprint — and the gate would hand one
+server's verdict to another. Not a miss: a *wrong verdict*. This was found by assembling the
+end-to-end demo, not by reasoning about the code.
+
+The consequence is useful: the path is **not** part of the identity. Clone the SureX repo anywhere,
+on any platform, with forward or backward slashes, and
+`packages/fixtures/mal-rug-pull/src/server.mjs` resolves to the same registry entry — which is what
+makes the [Quickstart](/quickstart) reproducible.
+
+<Callout type="warning">
+If the entry file cannot be read, the canonical form is `local-unresolved` and the gate **refuses to
+look it up**. Resolving it anyway would fetch a verdict about somebody else's script.
+</Callout>
+
+**An MCP server config is not portable across platforms.** Windows writes `cmd /c npx <pkg>`; macOS
+writes `npx <pkg>`. Read literally, the same server never matches across the two, and the Windows
+form loses the package name entirely. `SXF-1` unwraps the `cmd /c` shell so both platforms land on
+one identity.
+
+## Versioned on purpose
+
+`SXF-1` is part of the hashed input. A change to canonicalisation changes **every key in the
+registry**, so the version travels with the key rather than being implied by it. A future `SXF-2`
+would coexist rather than silently reinterpret the existing entries.
+
+## Compute one yourself
+
+```js
+import { canonicalise, fingerprintOf } from '@surex/core/sxf1';
+
+const canonical = canonicalise({ command: 'npx', args: ['-y', '@acme/mcp-tools@2.1.0'] });
+fingerprintOf(canonical);   // → 'sxf1_…'
+```
+
+Or against your own machine, from the plugin:
+
+```
+/surex check              every configured server, its canonical form and its fingerprint
+/surex list               the same, with each one's verdict from the registry
+```
+
+`check` prints the canonical JSON next to the fingerprint deliberately: if two servers you think are
+different collapse to one key, that is the object that shows you why.
+
+## Where identification fails
+
+| Reason | What the gate says |
+|---|---|
+| `plugin-provided` | the server is defined inside another plugin, in no config scope we can read. Nameable, not fingerprintable |
+| `config-not-found` | the tool name parsed, but no scope defines that server |
+| `local-entry-unreadable` | a local script whose entry file we could not read |
+| `canonicalisation-failed` | the definition was malformed |
+
+All four warn and proceed, naming the reason. None of them resolves to a verdict, because a wrong
+fingerprint reads as `unknown` — indistinguishable from a server nobody has reviewed.

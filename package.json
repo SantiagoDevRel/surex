@@ -8,11 +8,20 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test packages/core/test/*.test.mjs packages/plugin/test/*.test.mjs packages/reviewer/test/*.test.mjs packages/fixture-mcp/test/*.test.mjs packages/worker/test/*.test.mjs apps/api/test/*.test.mjs",
+    "test": "node --test packages/core/test/*.test.mjs packages/plugin/test/*.test.mjs packages/reviewer/test/*.test.mjs packages/fixture-mcp/test/*.test.mjs packages/worker/test/*.test.mjs apps/api/test/*.test.mjs packages/fixtures/*/test/*.test.mjs apps/docs/test/*.test.mjs scripts/test/*.test.mjs",
     "sync:core": "node scripts/sync-core.mjs",
     "check:sync": "node scripts/sync-core.mjs --check",
     "demo": "node demo/chain.mjs",
     "seed": "node scripts/seed.mjs"
   },
-  "packageManager": "pnpm@9.12.3"
+  "packageManager": "pnpm@9.12.3",
+  "overridesRationale": {
+    "nextra>zod": "nextra 4.6.1 depends on zod ^4.1.12, and zod 4.4.0 made a MISSING key fail a z.custom() schema (an explicit `undefined` still passes). nextra-theme-docs destructures `children` OUT of its props before validating them against a schema that declares `children` required, so on zod >= 4.4.0 every docs page throws `expected nonoptional, received undefined -> at children` and the build fails at prerender. Pinned to the last version where it works, scoped so nothing else in the workspace is affected. FRICTION-LOG N5."
+  },
+  "pnpm": {
+    "overrides": {
+      "nextra>zod": "4.3.6",
+      "nextra-theme-docs>zod": "4.3.6"
+    }
+  }
 }

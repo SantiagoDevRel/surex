@@ -1,0 +1,7 @@
+# The workspace is created at runtime by the vendored toolkit's ensureWorkspace().
+# Scratch files this fixture owns, not source.
+#
+# `vendor/` is NOT ignored. It is the dependency this fixture exists to talk about,
+# it was authored by the SureX project rather than pulled from npm, and it has to
+# survive a clone — which is precisely why it is not called `node_modules/`.
+fixture-home/

