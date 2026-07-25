@@ -25,6 +25,7 @@ import {
 } from './core/index.mjs';
 import { findServer } from './config.mjs';
 import { localEntryResolver } from './localentry.mjs';
+import { overrideCommand, whyCommand } from './selfpath.mjs';
 import { findLocalIntegrity } from './integrity.mjs';
 import { fetchVerdict, fetchVerdictBatch, ttlFor } from './registry.mjs';
 import { cacheGet, cachePut, cachePutMany, isOverridden, logDecision } from './store.mjs';
@@ -230,6 +231,9 @@ export async function runGate(input) {
   const reason = blockMessage(resolved, {
     evidenceUrl: `${WEB_BASE()}/r/${fingerprint}`,
     disputeUrl: `${WEB_BASE()}/d/${fingerprint}`,
+    // Resolved against how this plugin was actually installed, so the command
+    // printed is one that exists on this machine.
+    overrideCommand: overrideCommand(fingerprint),
   });
 
   deny(evidenceLine ? `${reason}\n\n${evidenceLine}` : reason);

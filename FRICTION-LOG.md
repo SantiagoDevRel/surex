@@ -334,6 +334,37 @@ scopes on a working developer's machine, **not one was version-pinned** — the 
 it exists today, describing code that is not the code about to run. We grade that as Tier C and say so on
 every verdict rather than let it read as a pass.
 
+### C7 · A plugin's `bin/` does **not** join the PATH — **[VERIFIED]**
+**Severity: high for us**, because the command that does not exist is the one printed in every block.
+
+- **Expected:** the documented behaviour — executables in a plugin's `bin/` are added to the PATH while the
+  plugin is enabled, so a plugin can ship a real terminal command with no separate global install. We had
+  this written down as a verified fact and designed the override UX on it.
+- **Happened:** `surex: command not found`, exit 127. The binary is installed and present at
+  `~/.claude/plugins/cache/surex/surex/0.1.0/bin/surex`, but no plugin directory appears in `PATH` in the
+  shell the agent runs `Bash` commands in.
+- **How we found out:** installed the plugin the real way —
+  `claude plugin marketplace add https://github.com/SantiagoDevRel/surex` then
+  `claude plugin install surex@surex`, both of which succeeded and
+  `claude plugin details surex` correctly reports `Hooks (2) PreToolUse, SessionStart` — then asked a
+  session to run `surex status`. Repro:
+  ```bash
+  claude plugin install surex@surex
+  echo 'run: surex status' | claude -p --allowedTools Bash
+  # → /usr/bin/bash: line 2: surex: command not found
+  echo "$PATH" | tr ':' '\n' | grep -i plugin    # → nothing
+  ```
+- **Why it matters beyond convenience:** SureX prints an override command in every block message, and that
+  escape hatch is the entire reason blocking a tool call is defensible — a block a user cannot pass is a
+  block that gets the gate uninstalled the first time it is wrong. A printed command that does not exist is
+  worse than no command at all.
+- **Our fix:** the gate resolves its own install location and prints an invocation that works
+  (`node "<abs>/bin/surex" allow <fp>`), preferring the bare form only when `bin/` genuinely is on PATH. We
+  also ship a `/surex` slash command, which works regardless.
+- **What would have prevented it:** either add the directory to PATH as documented, or drop the claim from
+  the docs and tell plugin authors to expect `${CLAUDE_PLUGIN_ROOT}/bin`. Right now the documentation
+  describes a capability that a plugin author will build a user-facing instruction on top of.
+
 ### C5 · `session_id` stability across `/clear` and `/compact` is undocumented
 `/branch` is documented to produce a new session id. `/clear`, `/compact` and `/resume` are not described
 either way. Any hook implementing "approve once per conversation" depends on this, and it is not guessable.
@@ -410,3 +441,218 @@ catch (e) { console.log('RESULT: FAILED ->', e.message); }
 `node _probe-client.mjs "$(pwd)/_probe-bad-server.mjs"` → `RESULT: connected OK`.
 
 **What would have prevented it.** Nothing to fix in our code — this *corrects our own assumption*. The fixture still routes status to stderr as good hygiene (and because interleaved mid-session output is untested), but the belief "any stdout noise breaks a stdio MCP server" is not true for this SDK version around the handshake. Worth knowing before spending time hunting a non-existent corruption bug.
+
+---
+
+## DGX / OpenAI-compatible endpoint
+
+Building `packages/reviewer` against the on-site DGX Spark (GB10, 122 GiB unified memory) running
+**ollama 0.30.11**, reached over its `/v1` OpenAI-compatible surface. Node 22.22.3, Windows 11 client.
+Not a sponsor SDK, but the reviewer is a load-bearing dependency of every verdict and these cost real time.
+Service env on the box: `OLLAMA_HOST=0.0.0.0:11434`, `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=4`.
+
+### D1 · A 51 GiB model with a 262k declared context is killed by earlyoom mid-load, and the error blames the model — **[VERIFIED, reproduced twice]**
+**Severity: high.** Two dead ends totalling ~15 minutes, and the error message points nowhere near the cause.
+
+- **Expected:** `qwen3-coder-next:q4_K_M` (51.7 GiB on disk) loads into 122 GiB of unified memory with room
+  to spare.
+- **Happened:** the load ran for **2m55s** and then died. Ollama reported
+  `Load failed ... error="llama-server process has terminated: signal: terminated"` and returned `500` on
+  `POST /api/generate` after 2m55s. Nothing in that message suggests memory, and `ollama ps` afterwards
+  shows an empty model list — it reads as a corrupt model or an ollama bug.
+- **How we found out.** `journalctl -u earlyoom`, only after the second failure:
+  ```
+  low memory! at or below SIGTERM limits: mem 10.00%, swap 10.00%
+  mem avail: 11750 of 124610 MiB (9.43%), swap free: 207 of 16383 MiB (1.27%)
+  sending SIGTERM to process 2677144 uid 996 "llama-server": badness 1022, VmRSS 11791 MiB
+  ```
+  Note `VmRSS 11791 MiB` — earlyoom's own view of the process was 11 GiB, so the footprint was mostly
+  outside RSS (unified-memory allocation plus mmap page cache). The box's `dgx-gpu-watchdog` looked at the
+  same pressure and correctly declined to act; earlyoom got there first.
+- **Root cause:** the model declares `n_ctx_train = 262144` and ollama sizes the KV cache from that. With
+  `OLLAMA_NUM_PARALLEL=4` that is ~1M tokens of KV. Available memory went 117 GiB to 12 GiB and swap to
+  zero. The model file is 51.7 GiB; the load was reaching for roughly twice that.
+- **Fix, and it is two lines.** Cap the context in a derived model — the OpenAI-compatible API has no
+  `num_ctx`, so it cannot be done per request:
+  ```
+  FROM qwen3-coder-next:q4_K_M
+  PARAMETER num_ctx 32768
+  PARAMETER use_mmap false
+  ```
+  `ollama create qwen3-coder-next:surex32k -f Modelfile`. Ollama then reports
+  `projected to use 50250 MiB of device memory vs. 120175 MiB of free`, offloads 49/49 layers, and loads in
+  ~90 s. Measured after: **53 GiB used, 68 GiB available, swap untouched**, versus 112 GiB used and a kill.
+- **What would have prevented it:** a load-time check comparing the projected KV cache against free memory
+  *before* spending three minutes reading weights, and an error that says "killed by an external signal,
+  check the OOM killer" instead of naming the model. Ollama has the projection — it prints
+  `common_params_fit_impl` — it just prints it after committing to the load.
+- **Carry into the event:** on a shared box, `num_ctx` is not a tuning knob, it is a prerequisite. And check
+  `journalctl -u earlyoom` before believing any local-inference error message.
+
+### D2 · A reasoning model spends `max_tokens` on thinking and returns empty `content` with `finish_reason: "length"` — **[VERIFIED]**
+**Severity: high.** This is the one that could have silently produced wrong verdicts.
+
+- **Expected:** `max_tokens: 8` with a trivial prompt returns a short answer, or an error.
+- **Happened:** HTTP **200**, and:
+  ```json
+  {"choices":[{"message":{"role":"assistant","content":"",
+    "reasoning":"The user says \"say"},"finish_reason":"length"}],
+   "usage":{"prompt_tokens":69,"completion_tokens":8,"total_tokens":77}}
+  ```
+  `content` is `""`. The whole budget went to `message.reasoning`, a **non-standard field** the OpenAI schema
+  does not define, and the response is a success by every status check.
+- **Why it matters here:** a reviewer that reads `choices[0].message.content` and treats "no findings" as
+  "nothing found" would emit a `clean` verdict from a model that never answered. That is the exact
+  laundering failure the spec's hard rule exists to stop, arriving through a 200.
+- **How we found out:** our own `--ping` returned `empty_response` where a naive parser would have returned
+  a pass.
+- **Fix:** treat `finish_reason: "length"` as a **failed** review, never a result (`src/model.mjs` ->
+  `code: 'truncated'`); require non-empty content or fail; budget 8192 output tokens by default; and strip
+  inline `<think>...</think>` for servers that embed reasoning in `content` instead.
+- **Repro:**
+  ```bash
+  curl -s http://HOST:11434/v1/chat/completions -H 'content-type: application/json' \
+    -d '{"model":"gpt-oss:20b","messages":[{"role":"user","content":"say ok"}],"max_tokens":8}'
+  ```
+- **What would have prevented it:** documenting that `max_tokens` budgets reasoning *and* content on
+  reasoning models, and that `reasoning` is where the tokens went. Everything about the response says success.
+
+### D3 · `GET /v1/models` is the only liveness probe that can tell "down" from "loading" — **[VERIFIED]**
+**Severity: medium.** Not a bug; a design constraint that is easy to get wrong.
+
+- **Expected:** a one-token completion is a cheap health check.
+- **Happened:** the first completion after a cold start takes **90 s to 3 min** while weights load, so a
+  probe with any sane timeout reports the endpoint as down when it is merely loading. Ours did.
+- **Fix:** `GET /v1/models` — same OpenAI-compatible surface, so it stays swappable — answered in **371 ms**
+  and also confirms the configured model id is actually present, which catches a typo'd
+  `SUREX_REVIEWER_MODEL` before it becomes a failed review. `ollama ps` returning `{"models":[]}` during a
+  load is not evidence of a problem either.
+
+### D4 · Ollama accepts `response_format: {type:"json_object"}` and still returns fenced or prefaced JSON — **[VERIFIED]**
+**Severity: low, but it decides your parser.**
+
+- **Expected:** JSON mode means the body is a JSON object.
+- **Happened:** across the real runs, output arrived variously bare, inside a fenced block, and with a
+  sentence of preamble. No error, and no warning that the request's `response_format` was not honoured.
+- **Fix:** parse defensively but never *repair*: try `JSON.parse`, then a single fenced block, then brace
+  balancing that ignores braces inside strings. A truncated object fails. `src/schema.mjs` -> `extractJson`.
+- **What would have prevented it:** a response field stating whether `response_format` was applied. Silent
+  non-enforcement of a request parameter is worse than rejecting it.
+
+### D5 · The model shortens the file paths you gave it, which turns a real finding into an unopenable one — **[VERIFIED on the first real run]**
+**Severity: medium.** Not the model's fault, and entirely our problem to solve.
+
+- **Expected:** findings cite the paths supplied in the prompt.
+- **Happened:** asked to review `packages/fixture-mcp/src/tools/search.mjs` — the path is in the prompt's own
+  `--- FILE: ... ---` header — `gpt-oss:20b` reported every finding against `src/tools/search.mjs`. Line
+  numbers were mostly right (130 and 146 exact; 107 vs 110, 118 vs 117 off by a few). The larger
+  `qwen3-coder-next:surex32k` used the full paths correctly, so this is a capability-dependent failure that a
+  smaller endpoint will reintroduce the moment the DGX is swapped out.
+- **Why it matters:** a SureX block message tells a developer to open a file at a line. A path that does not
+  resolve is a fabricated `file:line` from the reader's point of view, whatever the model intended.
+- **Fix:** reconcile every model-reported path against the files actually supplied — exact match, else a
+  *unique* suffix match rewritten with `pathNormalisedFrom` recording what the model said, else keep the
+  finding and mark it `pathUnresolved`. Lines past the end of a file are marked `lineOutOfRange`. Nothing is
+  dropped; nothing unplaceable is quoted as *the* evidence. `src/review.mjs` -> `reconcileFindingPaths`.
+- **Carry into the event:** never render a model-supplied path or line without checking it against the input
+  you sent. This is cheap, and it is the difference between evidence and a plausible-looking string.
+
+---
+
+## Vercel / Hono
+
+Written while building `apps/api` (the read path) on 2026-07-25. Node v22.22.3, Windows 11,
+`hono@4.12.32`, `@hono/node-server@1.19.15`, `@arkiv-network/sdk@0.7.0`, `viem@2.55.8`.
+
+### V1 · Arkiv 0.7.0 `QueryResult` pagination fails three different ways, and the first two fail *silently* — **[VERIFIED, reproduced live on Braga]**
+
+> **Belongs in the Arkiv section as A6.** It is filed here only because the API lane owns this
+> section of the log; whoever owns the A-series should renumber and move it.
+
+**What we expected.** A conventional cursor loop over a query result:
+
+```js
+let result = await builder.fetch();
+const all = [...result.entities];
+while (result.hasNextPage) {          // ← wrong twice over
+  result = await result.next();        // ← wrong again
+  all.push(...result.entities);
+}
+```
+
+**What happened.** Three separate faults, in the order we hit them:
+
+1. **`hasNextPage` is a METHOD, not a getter.** `while (result.hasNextPage)` reads a function
+   reference, which is always truthy, so the loop always enters. Nothing warns; there is no type error
+   at runtime and no lint rule catches it in plain `.mjs`.
+2. **`next()` mutates the result in place and returns `undefined`.** So `result = await result.next()`
+   sets `result` to `undefined` and the next line throws `Cannot read properties of undefined`. The
+   name `next()` reads like an iterator step that yields the next page; it is a `void` mutator.
+3. **Pagination does not exist without an explicit `.limit()`.** From the shipped source,
+   `_endOfIteration = !limit || entities.length < limit`. With no limit the result declares itself
+   finished after one page — so a listing query quietly returns only the first page — and if you call
+   `next()` anyway it throws `NoCursorOrLimitError: Cursor and limit must be defined to fetch next`.
+   The error names the requirement but not the fact that **you** must set the limit; nothing on
+   `buildQuery()` suggests a limit is a pagination prerequisite rather than a cap.
+
+Fault 3 is the dangerous one for us: `GET /v1/flagged` and `GET /v1/stats` would have silently served
+only the first page of a growing registry, with no error and no truncation flag — a flagged server
+missing from the public feed because it sorted onto page two.
+
+**How we found out.** Not from the docs and not from the unit suite (which is hermetic). The live
+smoke test against Braga crashed with `NoCursorOrLimitError` on the very first listing query. Faults 1
+and 2 only became visible after reading the SDK's own `queryResult.ts` in `node_modules` — they had
+been masked because `_endOfIteration` was already `true`, so the broken loop body never ran.
+
+**Repro.** `node apps/api/test/live-arkiv.smoke.mjs` against the pre-fix `fetchAllPages`. The correct
+shape, now in `apps/api/src/arkiv.mjs`:
+
+```js
+const result = await builder.limit(PAGE_SIZE).fetch(); // the limit is REQUIRED
+const all = [...result.entities];
+while (result.hasNextPage()) {   // a call, not a property
+  await result.next();           // mutates `result`, returns undefined
+  all.push(...result.entities);
+}
+```
+
+**What would have prevented it.** Three lines of JSDoc on `QueryResult`: that `hasNextPage()` is a
+method, that `next()` mutates and returns `void`, and that `limit()` is required for pagination rather
+than optional. Better still, make `next()` return the result (`return this`) so the natural
+`result = await result.next()` works, and either default the page size or **throw at `fetch()` time**
+when a query is paginated without one — instead of returning a silently truncated first page.
+
+### V2 · `@hono/node-server/vercel` is the Node-runtime adapter and `hono/vercel` is not — the two are one character apart in an import — **[VERIFIED by inspection of both packages' exports]**
+
+**What we expected.** One documented Vercel adapter for Hono.
+
+**What happened.** There are two, they have nearly the same specifier, and they target different
+runtimes: `hono/vercel` is the Edge adapter, `@hono/node-server/vercel` is the Node one. Our API needs
+Node — `node:crypto` for the timing-safe admin compare, the Arkiv SDK's viem transport, and JSON
+import attributes for the fixtures all require it. Importing `handle` from the wrong one produces a
+function with the right name and the right signature that fails only at deploy time, on the platform,
+in whichever way the missing Node built-in surfaces first.
+
+**How we found out.** Read `exports` in both `package.json` files before writing the entry file,
+because the near-identical names looked like a trap. They were.
+
+**What would have prevented it.** A one-line note in either package's README: *"for the Node.js runtime
+on Vercel, import from `@hono/node-server/vercel`; `hono/vercel` is Edge-only."* Cheaper still, a
+runtime warning when the Edge adapter finds itself in a Node process.
+
+### V3 · Our own bug, recorded because it is a general shape: an un-cleared `AbortController` timer held the process open for 120 s — **[VERIFIED, reproduced by test]**
+
+`loadModel()` set `setTimeout(() => controller.abort(), 120_000)` for the reviewer request and cleared
+it on neither the success nor the failure path. Every call therefore left a live 120-second timer
+holding the event loop open. Symptom: `node --test` printed all 62 passing assertions in ~370 ms and
+then **sat for 100 seconds** before exiting, which reads exactly like a hanging test rather than a
+leaked handle. On a serverless invocation the same leak keeps the function alive long after it has
+answered.
+
+**Repro / guard.** `apps/api/test/admin.test.mjs` → *"loadModel leaves no pending timer behind"*,
+asserting `process.getActiveResourcesInfo()` returns to its baseline `Timeout` count after the call.
+Fix: `finally { clearTimeout(timer) }`.
+
+**Worth writing down** because the shape is generic — every fetch-with-timeout helper in this repo has
+it — and because the *symptom* points at the wrong culprit. If a test file hangs after reporting all
+its passes, look for a leaked timer, not for a slow test.

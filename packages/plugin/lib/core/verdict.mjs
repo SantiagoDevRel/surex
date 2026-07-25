@@ -153,7 +153,13 @@ export function blockMessage(head, opts = {}) {
   }
 
   lines.push('');
-  lines.push(`You can proceed anyway, at your own risk:  surex allow ${head.fingerprint}`);
+  // The override is printed in EVERY block, and the caller supplies the exact
+  // invocation because whether a bare `surex` resolves depends on how the plugin
+  // was installed — it is not on PATH from a marketplace install (FRICTION-LOG
+  // C7). Printing a command that does not exist would break the one escape hatch
+  // that makes blocking acceptable.
+  const override = opts.overrideCommand ?? `surex allow ${head.fingerprint}`;
+  lines.push(`You can proceed anyway, at your own risk:  ${override}`);
 
   return lines.join('\n');
 }

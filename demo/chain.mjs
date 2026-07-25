@@ -244,8 +244,14 @@ const blockText = toolResults
 step('the block message reached the model', Boolean(blockText));
 step('it names the finding, with file and line', blockText.includes('src/tools/search.mjs:110'));
 step('it discloses that no human audited it', blockText.includes('No human audited this'));
-step('it prints the override and says the risk is the user\'s', blockText.includes(`surex allow ${fingerprint}`)
-  && /at your own risk/i.test(blockText));
+// The override must be present AND be an invocation that exists on this machine.
+// Bare `surex` is not on PATH from a marketplace install (FRICTION-LOG C7), so
+// the gate resolves its own location and prints that instead.
+step(
+  'it prints an override that exists, and says the risk is the user\'s',
+  new RegExp(`allow ${fingerprint}`).test(blockText) && /at your own risk/i.test(blockText),
+  blockText.split('\n').find((l) => /own risk/.test(l)),
+);
 step('it does not claim the reviewed bytes are the installed bytes (tier C)',
   /may be about code that is not your code/.test(blockText));
 

@@ -228,7 +228,11 @@ test('BLOCK: a flagged server is denied, with the whole case in one string', asy
   assert.match(reason, /reads a credential file it never declares/);
   assert.match(reason, /src\/x\.ts:88/);
   assert.match(reason, /No human audited this/);
-  assert.match(reason, new RegExp(`surex allow ${id.fingerprint}`));
+  // The override must be present and must be an invocation that EXISTS on this
+  // machine — bare `surex` is not on PATH from a marketplace install
+  // (FRICTION-LOG C7), so the gate prints the resolved absolute form there.
+  assert.match(reason, new RegExp(`allow ${id.fingerprint}`), 'every block prints the override');
+  assert.match(reason, /at your own risk/, 'and says whose risk it is');
 });
 
 test('WARN: an unknown server gets a notice and NO permission decision', async () => {

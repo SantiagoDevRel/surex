@@ -136,7 +136,7 @@ unresolved — test it, do not guess.
 **Distribution — ship as a Claude Code plugin**
 - A plugin registers hooks via `hooks/hooks.json` at plugin root, same shape as settings. Bundled scripts are referenced with `${CLAUDE_PLUGIN_ROOT}`.
 - **Persistent state goes in `${CLAUDE_PLUGIN_DATA}`, never `${CLAUDE_PLUGIN_ROOT}`** — the root changes on every plugin update and the docs say to treat it as ephemeral. Put the user's overrides there or an update wipes their approvals.
-- Executables in `bin/` join the PATH while the plugin is enabled, so a real `surex` terminal command needs no separate global install.
+- ❌ **"Executables in `bin/` join the PATH while the plugin is enabled" is FALSE**, at least on 2.1.220 / Windows. Installed from a marketplace the binary lands at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/bin/surex`, and `surex` is `command not found` in the shell the agent runs commands in. This matters more than a convenience: the override command is printed in **every** block message and is the reason blocking is defensible at all. The gate therefore resolves its own location and prints an invocation that exists (`lib/selfpath.mjs`), and the plugin also ships a `/surex` slash command. (FRICTION-LOG C7)
 - Installable from a plain git repo: `/plugin marketplace add <owner>/<repo>` then `/plugin install <name>@<owner>`. Minimum manifest is `.claude-plugin/marketplace.json` with a name and a repository.
 - On install, Claude Code shows the user a "Will install" list naming the hooks and MCP servers, behind a trust gate. Plugin hooks run **unsandboxed** — say so in the README.
 
