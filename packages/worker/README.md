@@ -54,6 +54,44 @@ invisible. That looks exactly like a working seed.
 Optional: `SUREX_ARKIV_PROJECT` (defaults to `surex-lisbon`, and must match `apps/api`'s
 `DEFAULT_PROJECT`), `ARKIV_RPC_URL`, `SUREX_SUI_FULLNODE`.
 
+## Where the writer can run — `SUREX_WALRUS_PUBLISHER`
+
+**The SDK write path is not portable across uplinks**, and this is the reason the always-on writer exists in
+the shape it does. `@mysten/walrus` uploads slivers directly to all 101 committee members in parallel; a
+residential connection does not complete that. Measured 2026-07-25, same code, same funded wallet, minutes
+apart: **32 s and certified** from a European business line, **4 failures out of 4** in ~25 s from the DGX
+(`NotEnoughBlobConfirmationsError`). Balance, Node 22 vs 24, IPv6 and file descriptors were each ruled out
+with their own test — do not re-derive it (FRICTION-LOG S11).
+
+| | |
+|---|---|
+| unset | the SDK path. Our wallet registers, certifies and pays. Unchanged. |
+| `default` | the two public **testnet** publishers, tried in order |
+| `https://a,https://b` | those publishers, tried in order |
+
+```bash
+SUREX_WALRUS_PUBLISHER=default node scripts/ingest-submission.mjs …
+```
+
+**What changes is whose wallet — and every pointer now says so.** On the publisher path the *publisher's*
+wallet registers and pays, so there is no register digest of ours, the Sui object is theirs, and a
+`certifyTx` on a de-duplicated write is the certification the publisher pointed at rather than one we sent.
+Pointers carry `registeredBy: 'wallet' | 'publisher'` on **both** paths, plus `publisher`,
+`publisherOutcome` and `readbackVerified`, and `evidenceOf` carries all four into the record. Custody is
+never inferred from which fields happen to be absent.
+
+**What does not change is the property the gate acts on:** a blob ID is derived from the bytes, so anyone can
+fetch the blob and recompute it. Verified live from the DGX — blob
+`r34-L3xD8cZrpn0zX8FxQWF6bZnKsCSv5eyKC_9pAUg`, written through the publisher in 13.5 s, served back by the
+aggregator 167 ms later byte-identical, blob ID recomputed from the served bytes with the vendored encoder.
+
+Two things the publisher gives that the SDK does not: identical bytes come back `alreadyCertified` in ~1 s
+for free (the SDK re-registers and re-charges — S3), and there is a second endpoint to fail over to. Two it
+does not: **there is no public publisher on mainnet**, and public testnet publishers cap uploads at 10 MiB.
+
+⚠ **Quilts have no publisher path.** `writeQuiltOfRecords` still uses the SDK, so a quilt write from a
+residential box will fail — seed from a machine that can complete the fan-out.
+
 ## Invariants — the things that fail silently if you break them
 
 1. **A seeded head is `unknown`, never `clean`.** `buildVerdictHead` throws on `clean` without a
@@ -74,6 +112,11 @@ Optional: `SUREX_ARKIV_PROJECT` (defaults to `surex-lisbon`, and must match `app
    weaker statement, so it travels with the pointer instead of being flattened into the first.
 7. **Copy law applies to text the worker authors, not to text it quotes.** A server's own description from
    the registry is stored verbatim; `assertWorkerCopy` is for our sentences.
+8. **Custody is stated, never inferred** — `registeredBy` is on every pointer both paths produce, and
+   `evidenceOf` is a **whitelist**, so a new pointer field is invisible on chain until it is named there.
+   Measured: the first publisher-mode write carried `registeredBy: 'publisher'` the whole way and landed on
+   chain without it. A `false` also has to survive — `readbackVerified: false` means *we skipped the check*,
+   which a truthiness guard would erase into the same absence as *not applicable*.
 
 ## Storage strategy, and its cost
 

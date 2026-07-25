@@ -223,6 +223,9 @@ detour to establish.
 - **How we found out:** after our own certify, `getVerifiedBlobStatus({blobId})` returned `statusEvent.txDigest = Frk5H32…JQmd` — a digest that was **not ours**. It pointed at the earlier publisher certification of the same content. The blob was already certified before we paid to certify it.
 - **Why it matters:** dedup is a *publisher behaviour*, not a protocol guarantee, and the SDK is the path you take precisely when you care about paying for your own storage. Anyone who assumes the documented dedup applies to `writeBlob` will re-buy storage on every retry — including on crash-recovery retries, which is exactly when it will happen.
 - **Fix we'd suggest:** have `writeBlobFlow`/`writeBlob` check blob status after `encode()` and short-circuit (or expose `skipIfCertified: true`); and state explicitly in the docs that `alreadyCertified` is something the publisher does for you, not something the protocol does.
+- **Re-verified 2026-07-25 from the DGX, and the entry above stands as written** — both halves. Second write of identical bytes: `alreadyCertified` in **1.05-1.48 s** against **9-33 s** for the first, no object, no cost. Worth adding, because it changes what "publisher behaviour" means: **the dedup holds ACROSS publishers.** Bytes first stored through `publisher.walrus-testnet.walrus.space` came back `alreadyCertified` from `walrus-testnet-publisher.nodes.guru` with the *same* `event.txDigest` (`3P1uu2AV…Erx8`), so a publisher is reporting a chain fact rather than serving its own cache — and the SDK, which has the chain in hand, is the one path that does not check it.
+
+  (Noted because a handoff note in this repo said "S3 has this backwards". It does not: the publisher dedups for free, the SDK re-charges. Both measured twice.)
 
 ### S4 · `flow.executeCertify()` throws away the certify transaction digest — **[VERIFIED, from the shipped source]**
 - **Expected:** the flow's typed helpers give you the outcome of each step. `executeRegister` returns `{step:'registered', blobId, blobObjectId, txDigest}`.
@@ -355,6 +358,45 @@ and the error names neither the cause nor the way out.
   the publisher it is the **publisher's** wallet that registers the blob, so `suiObjectId` and both digests
   are theirs and "our wallet registered this" stops being true. The property the gate actually relies on —
   fetch the bytes back and recompute the blob ID — is unaffected by who paid.
+
+### S12 · The publisher says `certifiedEpoch: null` for a blob it has just certified — **[VERIFIED, response against chain]**
+**Severity: medium.** It is the one field that answers "is this blob actually stored", and it answers wrong.
+
+- **Expected:** the `newlyCreated.blobObject` a publisher returns describes the blob it just stored, so
+  `certifiedEpoch` tells you whether certification happened.
+- **Happened:** it is **`null` on every successful write**, on both public testnet publishers, while the
+  chain says the blob is certified in the same epoch it was registered.
+  ```
+  PUT …/v1/blobs?epochs=53&permanent=true   →  "registeredEpoch":470, "certifiedEpoch":null,
+                                                "id":"0x5497984e…8c18", "deletable":false
+  getObject(0x5497984e…8c18).json           →  "registered_epoch":470, "certified_epoch":470,
+                                                "deletable":false, "encoding_type":1
+  ```
+- **Why it matters:** `certifiedEpoch: null` is exactly what an *uncertified* blob would report, so the
+  obvious defensive check — "did the publisher certify it?" — rejects perfectly good writes, and the obvious
+  recovery is to re-store bytes that are already stored. We record the field as null and never render a
+  certified epoch from a publisher write; the certification is confirmed by reading the Blob object instead.
+- **How we found out:** reading the object back on chain to check who owned it, and noticing the two
+  disagreed. Note that `client.core.getObject` needs `include: { json: true }` for this — without it
+  `object.json` is silently `undefined` rather than an error, which costs a round of confusion of its own.
+- **Fix we'd suggest:** populate the field after certification, or omit it entirely. A field that is always
+  null is worse than a missing one: it looks like an answer.
+
+### S13 · Publisher facts worth having before you design around them — **[VERIFIED from the DGX, 2026-07-25]**
+- **`send_object_to=<address>` really does transfer custody, on both public testnet publishers.** The `Blob`
+  object came back owned by *our* address (`0x79d8e806…ff35`) while the publisher's wallet paid for it;
+  without the parameter the object stays with the publisher (`0x1eecb53f…e3b5` for Mysten's,
+  `0xfe41bb76…5de4` for nodes.guru's). This is the difference between evidence we can later extend and
+  evidence we merely point at, and it costs one query parameter.
+- **`permanent=true` is honoured and confirmed on chain** (`deletable:false` in both the response and the
+  object). Without it new blobs are deletable by their owner — which for a registry means evidence that can
+  quietly disappear.
+- **Latency is wildly variable and is not about size.** The same 73-160 B write took **9.2 s, 10.2 s, 18.3 s
+  and 33.5 s** across four runs on the same endpoint within an hour. Anything with a timeout budget must be
+  told this; 30 s is not a safe ceiling.
+- **A rejected query parameter returns a plain-text body, not JSON:** `?surex_nonsense=1` →
+  `HTTP 400 Failed to deserialize query string: unknown field 'surex_nonsense'`. Any client that assumes
+  `res.json()` on an error path throws a parse error over the top of a perfectly clear message.
 
 ---
 

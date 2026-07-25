@@ -61,7 +61,9 @@ the demo runs from a laptop that is NOT the one this was built on.
   `SUREX_WALRUS_PUBLISHER`, use HTTP when set and the SDK when not. Two things to be honest about in the
   record: with the publisher it is the PUBLISHER's wallet that registers the blob, so `suiObjectId` and the
   digests are theirs and the wording "our wallet registered this" stops being true; and the public publisher
-  DOES return `alreadyCertified` for free, unlike the SDK (S3 has this backwards).
+  DOES return `alreadyCertified` for free, unlike the SDK. S3 had BOTH halves right; the parenthetical
+  that used to sit here saying otherwise was mine and was wrong. Re-measured twice, and the dedup holds
+  ACROSS publishers — same `event.txDigest` from a different one — so it is a chain fact, not a cache.
   Test: write a blob from the DGX, fetch it from the aggregator, recompute the blob ID from the bytes and
   check it matches — that is the property the gate relies on and it is unaffected by who paid.
 

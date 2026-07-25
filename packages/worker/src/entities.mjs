@@ -157,6 +157,13 @@ function attrs(list) {
  * aggregator serves to the Arkiv record, and the only one that runs with nothing
  * but node's crypto. `nShards` is mandatory for the same reason a serial number
  * is — blob IDs are deterministic over content AND network configuration.
+ *
+ * This is a WHITELIST, not a spread, so a field the writer invents does not
+ * silently become part of the on-chain record. The consequence is that a new
+ * pointer field is invisible until it is named here — measured on 2026-07-25,
+ * when a blob written through the HTTP publisher carried `registeredBy:
+ * 'publisher'` all the way to this function and arrived on chain without it,
+ * leaving a record that could not say whose wallet had registered its evidence.
  */
 export function evidenceOf(pointer) {
   if (!pointer) return undefined;
@@ -184,6 +191,35 @@ export function evidenceOf(pointer) {
   // but it is a weaker statement, so it travels with the pointer rather than
   // being flattened into the first.
   if (pointer.digestFrom) out.digestFrom = pointer.digestFrom;
+
+  // ── custody: WHOSE wallet registered this blob ─────────────────────────────
+  //
+  // 'wallet' means ours — we reserved the space, signed both transactions and
+  // paid, so `suiObjectId`, `registerTx` and `certifyTx` above are ours to stand
+  // behind. 'publisher' means an HTTP publisher's wallet did all of that, which
+  // is how the always-on writer stores anything at all: the SDK's direct-to-node
+  // upload cannot complete from a residential uplink (FRICTION-LOG S11). On that
+  // path there is no register digest, the Sui object is the publisher's, and a
+  // `certifyTx` is the certification the publisher POINTED AT rather than one we
+  // sent. Carried here so a reader never has to infer custody from which fields
+  // happen to be absent.
+  //
+  // What is unaffected, and it is the part the gate acts on: a blob ID is derived
+  // from the bytes. Fetch the blob, recompute the ID, compare — that check does
+  // not care who paid.
+  //
+  // Absent on records written before 2026-07-25: read absence as "not stated",
+  // never as "ours".
+  if (pointer.registeredBy) out.registeredBy = pointer.registeredBy;
+  if (pointer.publisher) out.publisher = pointer.publisher;
+  // 'alreadyCertified' explains, rather than leaves a reader to wonder, why a
+  // publisher-written record has no object id, size or encoding type: these bytes
+  // were already stored, so the write cost nothing and returned almost nothing.
+  if (pointer.publisherOutcome) out.publisherOutcome = pointer.publisherOutcome;
+  // Explicitly `!== undefined`: `false` means "we skipped the read-back", which a
+  // truthiness guard would erase into the same absence as "field not applicable".
+  // A check we did not run must never be indistinguishable from one that did.
+  if (pointer.readbackVerified !== undefined) out.readbackVerified = pointer.readbackVerified;
   return out;
 }
 

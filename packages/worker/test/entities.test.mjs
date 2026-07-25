@@ -54,6 +54,53 @@ test('an evidence pointer without contentSha256 or nShards is refused', () => {
   assert.throws(() => evidenceOf({ contentSha256: 'a', nShards: 1 }), /blobId/);
 });
 
+/**
+ * Custody has to reach the RECORD, not just the pointer.
+ *
+ * `evidenceOf` is a whitelist, and that is how the first publisher-mode write
+ * produced a pointer saying `registeredBy: 'publisher'` and an on-chain payload
+ * that said nothing at all — verified live from the DGX on 2026-07-25 against
+ * blob `lw_kbQSmqditWMKzPMFsFVTaWlljkD8Hk6tBop4j-uE`. A record that cannot say
+ * whose wallet registered its evidence is exactly the sentence this project
+ * refuses to let anyone assume.
+ */
+test('a publisher-written pointer carries its custody into the payload', () => {
+  const e = evidenceOf({
+    ...POINTER,
+    suiObjectId: '0xtheirs',
+    registerTx: undefined,
+    certifyTx: undefined,
+    registeredBy: 'publisher',
+    publisher: 'https://publisher.walrus-testnet.walrus.space',
+    publisherOutcome: 'newlyCreated',
+    readbackVerified: true,
+  });
+  assert.equal(e.registeredBy, 'publisher');
+  assert.equal(e.publisher, 'https://publisher.walrus-testnet.walrus.space');
+  assert.equal(e.publisherOutcome, 'newlyCreated');
+  assert.equal(e.readbackVerified, true);
+  assert.equal(e.registerTx, undefined, 'we signed nothing on this path');
+});
+
+test('a wallet-written pointer says so too, so custody is never inferred', () => {
+  const e = evidenceOf({ ...POINTER, registeredBy: 'wallet' });
+  assert.equal(e.registeredBy, 'wallet');
+  assert.equal(e.publisher, undefined);
+  assert.equal(e.registerTx, 'reg', 'the digests on this path are ours');
+});
+
+test('readbackVerified:false survives — a skipped check is not the same as no check', () => {
+  const e = evidenceOf({ ...POINTER, registeredBy: 'publisher', readbackVerified: false });
+  assert.equal(e.readbackVerified, false);
+  assert.ok('readbackVerified' in e, 'false must not be erased into absence by a truthiness guard');
+});
+
+test('a pointer written before custody was recorded stays silent rather than claiming ours', () => {
+  const e = evidenceOf(POINTER);
+  assert.equal(e.registeredBy, undefined);
+  assert.ok(!('readbackVerified' in e));
+});
+
 test('a quilt patch pointer keeps its addressing, patch id and quilt blob visible', () => {
   const e = evidenceOf({
     ...POINTER,
