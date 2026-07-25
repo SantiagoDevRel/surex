@@ -210,11 +210,10 @@ export interface RegistryView {
   rows: RegistryRow[];
   stats: RegistryStats;
   /**
-   * True when the live rows are the flagged feed only. `/v1` freezes
-   * `/v1/flagged` (the public feed for org-level gateways, FR-14) and
-   * `/v1/verdict`, but no route that lists the whole registry — so a live
-   * browse screen can honestly show the flagged feed and must say that is what
-   * it is showing rather than implying it is everything.
+   * True when the live rows are the flagged feed only, rather than the whole
+   * registry — which happens when the API predates `/v1/registry` and this page
+   * had to fall back to `/v1/flagged`. The screen must then say that is what it
+   * is showing rather than implying it is everything.
    */
   partial: boolean;
 }
@@ -258,7 +257,20 @@ function statsFromRows(rows: RegistryRow[], illustrative: boolean): RegistryStat
 }
 
 export async function getRegistry(): Promise<Sourced<RegistryView>> {
-  const res = await getJson<unknown>(ROUTES.flagged());
+  // `/v1/registry` lists every state and is what a browse page needs. It was
+  // added after this screen surfaced the gap: seeded entries are written
+  // `unknown` and never `clean`, so a flagged-only feed renders an EMPTY
+  // registry as soon as seeding is what populates it.
+  //
+  // `/v1/flagged` remains the fallback so this page still works against an API
+  // deployed before the route existed — in which case it is showing the flagged
+  // feed only, and `partial` makes it say so.
+  let res = await getJson<unknown>(ROUTES.registry({ limit: 200 }));
+  let partialLive = false;
+  if (!res.ok && res.kind !== 'unreachable') {
+    res = await getJson<unknown>(ROUTES.flagged());
+    partialLive = true;
+  }
 
   if (!res.ok && res.kind === 'unreachable') {
     return fixture(
@@ -282,7 +294,7 @@ export async function getRegistry(): Promise<Sourced<RegistryView>> {
     ? normaliseStats(statsRes.data, rows, illustrative)
     : statsFromRows(rows, illustrative);
 
-  return live({ rows, stats, partial: true }, illustrative || stats.illustrative === true);
+  return live({ rows, stats, partial: partialLive }, illustrative || stats.illustrative === true);
 }
 
 /**
