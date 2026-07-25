@@ -138,11 +138,15 @@ the whole gate is exercisable today even from a machine that has never registere
 
 ## Status, stated plainly
 
-The agent path is live and has been exercised end to end against the deployed API — signature
-recovered, AgentBook read, honest `403` for a wallet nobody registered. **SureX's own agent is not
-registered yet**: the on-chain registration reverts `NonExistentRoot()` because World Chain's
-identity tree has not bridged the Orb proof's root. That is outside SureX's code; when the bridge
-advances, the same live dispute flips `403 → 202`.
+**The agent path is live, end to end, both ways.** Against the deployed API: a registered agent gets
+`202` with AgentBook standing and the head moves `flagged → disputed` — still blocking — while a
+wallet nobody registered gets an honest `403`. SureX's own agent wallet is registered on World Chain
+480; `lookupHuman` returns a non-zero human id for it.
+
+Getting there took one wait that was not a bug in anything: registration reverted `NonExistentRoot()`
+for a while because World Chain's identity tree had not yet bridged the Orb proof's root. The proof
+was valid the whole time. It cleared when the bridge advanced, with no change on this side — worth
+knowing if you hit the same revert, because it looks exactly like a rejected proof and is not one.
 
 The human path is built and **not provable yet** on this deployment: it needs a World Developer
 Portal relying party. Until it is set, every human dispute fails with an explicit configuration

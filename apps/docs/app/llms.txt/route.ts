@@ -206,8 +206,8 @@ anyone else's code. Live counts: ${DEFAULT_API_BASE}${ROUTES.stats()}
 Known gaps, stated rather than discovered: /v1/verdict responses are not signed; a verdict does
 not cover the dependency tree; Walrus storage renewal is unbuilt, so a head can outlive the
 bytes it points at; the human dispute path needs a World ID relying party this deployment does
-not have; SureX's own agent is not registered in AgentBook yet (World Chain has not bridged the
-proof's root).
+not have. The AGENT dispute path is live both ways — registered agent -> 202 with AgentBook
+standing (head flagged -> disputed, still blocking), unregistered wallet -> 403.
 
 ## Pages
 
