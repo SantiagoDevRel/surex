@@ -37,6 +37,20 @@
 - The docs and every summary we found say AgentBook is World Chain mainnet only.
 - **Impact:** a possible no-Orb, no-phone testing path exists and is invisible. If it is supported, document it — it would remove the biggest onboarding blocker in the product. If it is not supported, say that too, because it is discoverable and teams will find it and trust it.
 
+### W14 · AgentBook registration reverts `NonExistentRoot()` on World Chain — a valid Orb proof the target tree does not have — **[VERIFIED on chain]**
+**Severity: high.** It is the last step of the whole AgentKit flow, everything upstream of it works, and the error is undecodable by the CLI itself.
+
+- **Expected:** with an Orb-verified World ID, `npx @worldcoin/agentkit-cli register <address>` verifies the human, the hosted relay pays, and the agent is registered. The DevRel confirmed any wallet works — it need not be the human's own.
+- **Happened:** the World ID verify **succeeded** — real Orb scan, valid Merkle root, nullifier `0x1f2fe25…`, a full 8-element ZK proof. Then the on-chain `register()` **reverted**, and the CLI could not decode the error: `The contract function "register" reverted … 0xddae3b71 … not found on the provided ABI`. Registration did not land; `status` still reports `unregistered`.
+- **Decoded and diagnosed against chain state** (the CLI does not): `keccak256("NonExistentRoot()")[:4] = 0xddae3b71`. So World Chain's World ID router does not recognise the Merkle root the proof was built against. Read live on World Chain 480:
+  - `AgentBook.worldIdRouter()` = `0x17B354dD2595411ff79041f930e491A4Df39A278`
+  - `router.routeFor(1)` = `0xdFCa0A882eF7793485B3d052142B60647E82009E` (the group-1 identity manager)
+  - its `latestRoot()` = `12796…349`, the proof's root = `13007…511`, and `checkValidRoot(proofRoot)` **reverts**.
+  - The tree is live (it has a different, valid latest root) and a real third-party registration exists on the same contract — so the router works. The specific proof's root is simply not in World Chain's group-1 history. World App anchored the proof on a root the state bridge to World Chain has not propagated, or on a different tree.
+- **How we found out:** the CLI printed the raw revert and a "likely causes" list that pointed at "not Orb-verified" — which was wrong; the proof was accepted. Decoding the selector and reading the router's `latestRoot`/`checkValidRoot` against the proof's root is what isolated it.
+- **Why it matters:** this is the exact last mile of the World track's novel use, and the failure surfaces as an undecodable selector with a misleading "maybe not Orb-verified" hint. A team that trusts that hint burns hours re-scanning a perfectly good Orb ID.
+- **What would fix it:** the relay should verify against — or wait for — a root already bridged to World Chain, and its error should decode `NonExistentRoot` and say "the proof root has not propagated to World Chain yet, retry shortly" instead of a generic ABI-decode failure. Documenting the World Chain root-propagation delay next to the AgentBook quickstart would remove the whole class.
+
 ### W5 · `createAgentBookVerifier` defaults to a shared public RPC
 - No `rpcUrl` means viem's public World Chain endpoint. Under demo load a rate-limit throw surfaces as an exception in the middle of the identity check, which reads exactly like a rejected agent. Docs should recommend passing `rpcUrl` explicitly, next to the first code sample.
 
