@@ -182,7 +182,11 @@ export async function runGate(input) {
 
   // 4. Tier, from the local install.
   const { tier, local } = resolveTier(canonical, head, cwd);
-  const resolved = { ...head, tier, name: displayName, fingerprint };
+  // Captured before the merge: the API populates `name` only when an entry exists,
+  // and the line below overwrites it with the local display name — so "is it in the
+  // registry at all" has to be answered first or it cannot be answered.
+  const listed = Boolean(head?.name);
+  const resolved = { ...head, tier, name: displayName, fingerprint, listed };
 
   const decision = decide(resolved);
   logDecision({

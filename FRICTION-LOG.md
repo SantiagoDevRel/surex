@@ -102,6 +102,56 @@ Follow-up to W4, resolving the "is there a no-Orb path?" question as far as it c
 
 ---
 
+## MCP Registry (registry.modelcontextprotocol.io)
+
+### R1 · The official registry does not contain the canonical `@modelcontextprotocol` servers — **[VERIFIED]**
+**Severity: medium**, and it quietly misrepresents the ecosystem to anyone building on the registry.
+
+- **Expected:** the official MCP registry lists the servers people actually run, so a crawl of it produces a
+  recognisable set — github, filesystem, postgres, playwright, slack.
+- **Happened:** it does not. We crawled **795 active rows over 8 pages** and seeded 50 real servers, and not
+  one was a name anyone would recognise: `@certscore/mcp`, `@circulara/plugin`, `borealhost-mcp`,
+  `fodda-mcp`. The first reaction on seeing the result was *"are these placeholders?"* — real data that reads
+  as fabricated, which for a registry is just as damaging.
+- **Confirmed by search, not inferred from the crawl order.** `?search=github` returns
+  `ai.smithery/Hint-Services-obsidian-github-mcp`, `ai.smithery/saidsef-mcp-github-pr-issue-analyser`,
+  `ai.smithery/smithery-ai-github`. `?search=filesystem` → `com.pulsemcp/remote-filesystem`,
+  `io.github.Digital-Defiance/mcp-filesystem`. `?search=playwright` → `com.pulsemcp/playwright-stealth`,
+  `com.thenextgennexus/playwright-mcp-server`. The `@modelcontextprotocol/*` packages themselves are absent;
+  what dominates is Smithery mirrors and one-off forks. Two genuinely canonical entries do exist
+  (`io.github.upstash/context7`, `io.github.getsentry/sentry-mcp`), which is what makes the gap look like an
+  onboarding gap rather than policy.
+- **Repro:**
+  ```bash
+  curl -s 'https://registry.modelcontextprotocol.io/v0/servers?search=github&version=latest&limit=5'     | jq -r '.servers[].name'
+  ```
+- **Why it matters to anyone else building on it:** a registry is the natural source for a tool that needs to
+  identify servers, and a crawl of this one produces a corpus that neither matches real user configs nor
+  looks credible. We had to seed the well-known servers from **npm** instead, and record `seedSource` as npm
+  rather than the registry, because an entry that lies about where it came from is worse than one nobody
+  recognises.
+- **What would fix it:** publish the first-party `@modelcontextprotocol/*` servers, or make the ranking
+  surface official/verified publishers above mirrors. Right now the front page of the ecosystem's own index
+  is forks of itself.
+
+### R2 · The canonical MCP servers switched from `MIT` to `SEE LICENSE IN LICENSE` — **[VERIFIED]**
+Not a bug, but it silently breaks any tool that requires an SPDX identifier, and it took a real debugging
+detour to establish.
+
+- `@modelcontextprotocol/server-filesystem@2026.7.10` declares `"license": "SEE LICENSE IN LICENSE"`, as do
+  `server-memory`, `server-sequential-thinking` and `server-everything` at their 2026 versions. The older
+  publishes of the same packages (`2025.*`, `0.6.2`) declare plain `MIT`.
+- Our licence gate treats an unmatched licence expression as **ineligible** on purpose — guessing wrong
+  writes someone else's code to permanent storage with no delete — so those four came back blocked while
+  their own older versions passed. Resolving the repo `LICENSE` (MIT) is what clears them.
+- **Repro:** `curl -s https://registry.npmjs.org/@modelcontextprotocol%2Fserver-filesystem | jq -r '.versions[."dist-tags".latest].license'`
+- Worth noting alongside: npm's **abbreviated** metadata format
+  (`Accept: application/vnd.npm.install-v1+json`) strips `license`, `description` and `repository` — 6 keys
+  instead of 24 — so a tool that requests it sees no licence at all and, if it fails closed, marks
+  MIT packages ineligible. That one was ours, and it cost a false negative on four well-known servers.
+
+---
+
 ## Sui / Walrus
 
 > Context for every entry below: `@mysten/sui@2.22.1` + `@mysten/walrus@1.2.9` on Node 22.22.3 /

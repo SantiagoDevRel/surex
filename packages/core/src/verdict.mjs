@@ -191,7 +191,18 @@ export function warnMessage(head, ctx = {}) {
       return `⚠ SureX: ${name} has a finding below the blocking threshold (severity ${head.severity}). Proceeding.`;
     case 'unknown':
     default:
-      return `⚠ SureX: ${name} is not in the registry. Proceeding unreviewed.`;
+      // `unknown` covers two different facts and they must not read the same. An
+      // entry that exists carries a name; a fingerprint nobody has ever submitted
+      // does not. Telling a user a server "is not in the registry" when it is
+      // listed and simply unreviewed is a false statement about our own data —
+      // and it is the difference between "nobody has looked" and "nobody has even
+      // heard of this".
+      // `listed` is set by the caller from the API's own answer, BEFORE any local
+      // display name is merged in — the gate always fills `name` from the local
+      // config, so `name` cannot tell these two apart.
+      return head?.listed
+        ? `⚠ SureX: ${name} is listed but has not been reviewed. Proceeding unreviewed.`
+        : `⚠ SureX: ${name} is not in the registry — nobody has submitted this install configuration. Proceeding unreviewed.`;
   }
 }
 

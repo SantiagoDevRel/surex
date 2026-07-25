@@ -115,12 +115,26 @@ test('tier C never claims more than it knows', () => {
   assert.match(tierSentence('MISMATCH'), /changed after we reviewed it/);
 });
 
+test('"unknown" distinguishes listed-but-unreviewed from never-submitted', () => {
+  // Seeding 18 well-known servers made this a live problem: they are in the
+  // registry, unreviewed, and the gate was telling users they were "not in the
+  // registry" — a false statement about our own data.
+  const listed = warnMessage({ state: 'unknown', listed: true }, { name: '@playwright/mcp' });
+  assert.match(listed, /listed but has not been reviewed/);
+  assert.ok(!/not in the registry/.test(listed));
+
+  const never = warnMessage({ state: 'unknown' }, { name: 'something-nobody-submitted' });
+  assert.match(never, /not in the registry/);
+  assert.match(never, /nobody has submitted this install configuration/);
+});
+
 test('copy law holds across every string the product can emit', () => {
   const surfaces = [
     blockMessage(head(), { evidenceUrl: 'https://x', disputeUrl: 'https://y' }),
     blockMessage(head({ state: 'disputed', disputeSummary: 'not a real finding' })),
     blockMessage(head({ enforceAfter: Date.now() - 1 })),
     warnMessage(head({ state: 'unknown' })),
+    warnMessage({ state: 'unknown' }, { name: 'x' }),
     warnMessage(head({ state: 'stale' })),
     warnMessage(head({ state: 'unreviewable', reason: 'licence' })),
     warnMessage(head({ state: 'flagged', severity: 1 })),
