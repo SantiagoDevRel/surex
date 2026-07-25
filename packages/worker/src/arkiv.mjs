@@ -219,6 +219,51 @@ export function createArkivWriter(options = {}) {
     }
   }
 
+  /**
+   * Remove entities by key. Returns `{ removed, txHashes, failures }`.
+   *
+   * **Read AGENTS.md §4 before reaching for this.** A verdict is *superseded,
+   * never deleted* — corrections have to be as durable as the claim they correct,
+   * or a registry becomes a place where inconvenient findings quietly stop
+   * existing. So this exists for exactly two things and the caller has to be able
+   * to say which:
+   *
+   *   · seeding placeholders, which are not verdicts. A head in state `unknown`
+   *     asserts "there is no head" (core defines `unknown` as the ABSENCE of an
+   *     entry), so leaving them on chain publishes a contradiction, not a record.
+   *   · verdicts about OUR OWN fixtures, where we are the subject. Nothing is
+   *     hidden from anyone by retiring a review of a server we wrote to be
+   *     reviewed.
+   *
+   * Never for a verdict about a third party. There is no flag here that enforces
+   * that — a flag would just get passed — so it is the calling script's job to
+   * name what it is removing and why, and to refuse anything else.
+   *
+   * One transaction per entity: `mutateEntities` batches creates and updates, and
+   * the failure mode that matters here is a partial run, so each result is
+   * recorded separately rather than a chunk failing as a unit.
+   */
+  async function remove(entityKeys, { onEach } = {}) {
+    const keys = Array.isArray(entityKeys) ? entityKeys : [entityKeys];
+    const txHashes = [];
+    const failures = [];
+    let removed = 0;
+    for (const entityKey of keys) {
+      try {
+        const res = await wallet.deleteEntity({ entityKey });
+        removed += 1;
+        if (res?.txHash) txHashes.push(res.txHash);
+        onEach?.({ entityKey, ok: true, txHash: res?.txHash });
+      } catch (err) {
+        // Recorded and carried on: a key that is already gone, or expired, must
+        // not abandon the rest of a cleanup half-done.
+        failures.push({ entityKey, error: err?.shortMessage ?? err?.message ?? String(err) });
+        onEach?.({ entityKey, ok: false, error: err?.message });
+      }
+    }
+    return { removed, txHashes, failures };
+  }
+
   /** Count, scoped and creator-filtered. Used by the seed's own final tally. */
   async function count(entityType, extra = []) {
     return pub
@@ -240,6 +285,7 @@ export function createArkivWriter(options = {}) {
     update,
     createMany,
     updateMany,
+    remove,
     readBackScoped,
     readAllScoped,
     waitForIndexed,
