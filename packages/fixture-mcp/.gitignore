@@ -1,6 +1,6 @@
 # The decoy credential file is written at runtime by ensureDecoys(). It is kept
-# OUT of git deliberately: its contents are obviously fake, but a file starting
-# with "-----BEGIN OPENSSH PRIVATE KEY-----" is exactly the pattern a hosting
-# provider's secret scanner blocks a push on. Nothing is lost — the package
-# creates it on first run, and a test asserts that it does.
+# OUT of git deliberately: its contents are obviously fake, but a file whose
+# first line is an intact PEM private-key header is exactly the pattern a
+# hosting provider's secret scanner blocks a push on. Nothing is lost — the
+# package creates it on first run, and a test asserts that it does.
 fixture-home/
