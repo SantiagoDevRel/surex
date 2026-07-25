@@ -26,8 +26,16 @@
    this file did exactly that and `--sx-faint` measured 4.04:1 in the corners.
 
    Measured floor, worst composed pixel, every text token, both themes:
-   dark 4.75:1 · light 4.78:1 — both times `faint` on the tangerine wash under
-   a dot. Panels are opaque enough to sit above the texture, so their pairs are
+   dark 4.75:1 · light 4.61:1. In dark the binding pair is `faint` on the
+   tangerine wash under a dot. In LIGHT it is not the wash at all — it is
+   `faint` on a state TINT over `panel-2`: the line-number gutter of an
+   implicated row in a finding's code excerpt, where `bg-flagged-t` (or the
+   disputed tint, within 0.01) sits on the well. That pair was missed when this
+   ladder was first measured — the audit walked page-level surfaces and never
+   composited a state tint onto a well — and it shipped at 4.30:1, i.e. failing.
+   `--sx-faint` in the light theme is one step darker than the hue it started
+   at for exactly that reason; the wash pairs it also has to clear are looser.
+   Panels are opaque enough to sit above the texture, so their pairs are
    higher. Do not raise `--sx-dot` or the wash without re-running the numbers,
    and do not nudge a hue here without re-measuring: `--sx-stale` in particular
    is Sunbeam Yellow only in the dark theme, because Sunbeam on a light surface
@@ -127,7 +135,9 @@
   --sx-ink: #4b3b40;
   --sx-ink-2: #58464c;
   --sx-ink-3: #615156;
-  --sx-faint: #6c5a60;
+  /* one step down from #6c5a60: that value is 4.30:1 on a state tint over
+     panel-2 (the implicated row's gutter in a code excerpt) — see the header. */
+  --sx-faint: #635358;
 
   --sx-accent: #403035;
   --sx-accent-t: rgba(75, 59, 64, 0.07);
@@ -173,7 +183,8 @@
     --sx-ink: #4b3b40;
     --sx-ink-2: #58464c;
     --sx-ink-3: #615156;
-    --sx-faint: #6c5a60;
+    /* keep in lockstep with :root[data-theme="light"] above */
+    --sx-faint: #635358;
 
     --sx-accent: #403035;
     --sx-accent-t: rgba(75, 59, 64, 0.07);

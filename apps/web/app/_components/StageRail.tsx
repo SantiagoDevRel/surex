@@ -81,7 +81,7 @@ const TILE: Record<StagePhase, string> = {
 
 /** The detail panel, tinted in the phase of the step it is describing. */
 const TONE: Record<StagePhase, { box: string; ink: string }> = {
-  pending: { box: 'border-line bg-panel-2', ink: 'text-faint' },
+  pending: { box: 'border-line bg-panel-2', ink: 'text-ink-3' },
   active: { box: 'border-accent bg-accent-t', ink: 'text-accent' },
   done: { box: 'border-line bg-panel-2', ink: 'text-ink-3' },
   stopped: { box: 'border-flagged-l bg-flagged-t', ink: 'text-flagged' },
@@ -301,7 +301,13 @@ function StepTile({
       <span className="min-w-0 md:w-full">
         <span className="flex items-baseline justify-start gap-1 md:justify-center">
           <span
-            className={cn('text-row font-semibold', phase === 'pending' ? 'text-faint' : 'text-ink')}
+            /* `ink-3`, not `faint`, for a step that has not started.
+               `faint` measured 4.32:1 on the dark surface — under AA for text —
+               and the design system is explicit that faint is for borders and
+               outlines, never type. A step nobody has reached still has to be
+               readable; that is the whole point of showing six of them before
+               anything happens. */
+            className={cn('text-row font-semibold', phase === 'pending' ? 'text-ink-3' : 'text-ink')}
           >
             {COPY.pipeline.rail.flow.name[step]}
           </span>
@@ -313,7 +319,10 @@ function StepTile({
             </span>
           ) : null}
         </span>
-        <span className="mt-0.5 block text-mini leading-snug text-faint">
+        {/* Same correction as the name above: this caption is type, at 4.32:1
+            on dark under `faint`. It says what the step is for, which is the
+            one line a first-time reader actually needs. */}
+        <span className="mt-0.5 block text-mini leading-snug text-ink-3">
           {COPY.pipeline.rail.flow.caption[step]}
         </span>
         {/* The tick, in words. The border already carries the phase, but a border
@@ -354,7 +363,10 @@ const SUB_GLYPH: Record<StagePhase, string> = {
 };
 
 const SUB_INK: Record<StagePhase, string> = {
-  pending: 'text-faint',
+  // `ink-3` rather than `faint`: this is the phase IN WORDS, and the comment on
+  // the tick below says it exists because a border is not a statement. A
+  // statement nobody can read is not one either — `faint` is 4.32:1 on dark.
+  pending: 'text-ink-3',
   active: 'text-accent',
   done: 'text-ink-2',
   stopped: 'text-flagged',

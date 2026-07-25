@@ -101,7 +101,15 @@ export function Chrome() {
         >
           {COPY.nav.install}
         </a>
-        <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
+        {/*
+          Below 512px the nav wraps onto a second row, and measured at 368px and
+          375px — the most common phone width there is — this hairline was the
+          FIRST thing on that row: a lone vertical tick with nothing to its left,
+          which reads as leftover debris rather than as a separator. A separator
+          that separates nothing is noise, so it is dropped exactly where it
+          stops doing its job. 512px is the measured wrap point, not a guess.
+        */}
+        <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line max-[512px]:hidden" />
         <ThemeToggle />
       </nav>
     </header>
