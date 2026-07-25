@@ -15,6 +15,16 @@ const LINKS = [
 ];
 
 /**
+ * The docs live on their own deployment, so this is an absolute URL and it is
+ * pinned here rather than spelled inline at the call site.
+ *
+ * Verified 200 before shipping. A dead install link in the chrome is the worst
+ * possible dead link on this site: it is the only control that leads to the
+ * thing actually being installed.
+ */
+const INSTALL_URL = 'https://surex-docs.vercel.app/guides/install';
+
+/**
  * Two clusters, not one run of text.
  *
  * The tagline used to sit between the mark and the nav links, at the same size
@@ -60,6 +70,25 @@ export function Chrome() {
             </Link>
           );
         })}
+        {/*
+          The only ACTION in the chrome, so it is the only thing here with a
+          border. The nav links are destinations inside the site and stay plain;
+          this one leaves for the docs and ends with the gate running on your
+          machine, which is a different kind of click and should not look like
+          a third tab.
+
+          `rel="noreferrer"` alongside `noopener` because the target is a
+          separate deployment: same project, different origin.
+        */}
+        <a
+          href={INSTALL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={COPY.nav.installTitle}
+          className="rounded-input border border-accent bg-accent-t px-3 py-1.5 text-row font-semibold text-accent no-underline transition-colors duration-[140ms] ease-out hover:bg-accent hover:text-panel"
+        >
+          {COPY.nav.install}
+        </a>
         <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
         <ThemeToggle />
       </nav>

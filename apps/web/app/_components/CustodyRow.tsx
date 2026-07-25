@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { COPY } from '@/lib/copy.ts';
 import { cn } from '@/lib/cn.ts';
-import { isoDate } from '@/lib/format.ts';
+import { isoMinute } from '@/lib/format.ts';
 import { STANDING_TONE, stateStyle } from '@/lib/state-styles.ts';
 import type { RegistryRow, Tier } from '@/lib/types.ts';
 
@@ -45,8 +45,13 @@ const COL = {
   state: 'w-[104px] shrink-0',
   tier: 'w-[66px] shrink-0',
   standing: 'flex-1',
-  /** A date, not a timestamp: `2026-07-25` is 10 mono chars ≈ 62px. */
-  reviewed: 'w-[104px] shrink-0 whitespace-nowrap',
+  /**
+   * `2026-07-25 14:31Z` — 17 mono chars ≈ 106px, plus the same breathing room the
+   * date-only version had. `shrink-0` and `whitespace-nowrap` are load-bearing
+   * here for the reason recorded above: this is the cell that wrapped and doubled
+   * every row's height, and it now carries six more characters.
+   */
+  reviewed: 'w-[148px] shrink-0 whitespace-nowrap',
   /** Fits the widest capability line the scanner can emit, `net fs proc env cred`. */
   capabilities: 'w-[132px] shrink-0 whitespace-nowrap text-right',
 } as const;
@@ -72,9 +77,20 @@ export function CustodyRow({ row }: { row: RegistryRow }) {
   // absent here; the entry's own page is where a missing version is explained.
   const version = row.version && row.version !== '—' ? row.version : null;
 
-  // A date is what a list needs. The recorded timestamp is not thrown away — it
-  // is on the hover title, and in full on the verdict page's provenance panel.
+  // Date AND time, to the minute, in UTC.
+  //
+  // This column used to show the date alone, on the argument that a list wants a
+  // date. That argument does not survive a registry that publishes several
+  // verdicts in an afternoon: a demo where three servers are reviewed minutes
+  // apart renders three identical cells, and "when was this reviewed" — the
+  // question the column exists to answer — stops being answerable from the list.
+  //
+  // The two are rendered at different weights rather than as one 16-character
+  // run, so the date still scans down the column and the time reads as its
+  // qualifier. The full recorded timestamp stays on the hover title and on the
+  // verdict page's provenance panel.
   const reviewedFull = row.reviewedAt && row.reviewedAt !== '—' ? row.reviewedAt : null;
+  const reviewed = isoMinute(row.reviewedAt);
 
   const body = (
     <>
@@ -114,7 +130,13 @@ export function CustodyRow({ row }: { row: RegistryRow }) {
         className={cn(COL.reviewed, 'text-mini text-ink-3')}
         title={reviewedFull ? `${COPY.browse.reviewedAtTitle}: ${reviewedFull}` : undefined}
       >
-        {isoDate(row.reviewedAt) ?? '—'}
+        {reviewed ? (
+          <>
+            {reviewed.date} <span className="text-faint">{reviewed.time}</span>
+          </>
+        ) : (
+          '—'
+        )}
       </span>
       <span className={cn(COL.capabilities, 'text-mini text-ink-3')}>{row.capabilities}</span>
     </>

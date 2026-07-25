@@ -26,6 +26,30 @@ export function isoDate(value: string | number | undefined | null): string | nul
   return Number.isNaN(d.getTime()) ? String(value) : d.toISOString().slice(0, 10);
 }
 
+/**
+ * ISO or epoch → `{ date: '2026-07-23', time: '14:31Z' }`, split so a row can
+ * render the two at different weights instead of one 16-character run.
+ *
+ * **UTC, and it says so with the `Z`.** A registry entry is a claim about when a
+ * specific commit was reviewed, and readers of this page are not in one timezone.
+ * Rendering local time would make two people quoting the same verdict disagree
+ * about when it happened, and neither would be able to tell which of them was
+ * shifted. The trailing `Z` is four pixels that remove that entire conversation.
+ *
+ * Minutes, not seconds: seconds imply a precision the pipeline does not have —
+ * `reviewedAt` is stamped when the record is built, and the Arkiv write lands
+ * seconds later.
+ */
+export function isoMinute(
+  value: string | number | undefined | null,
+): { date: string; time: string } | null {
+  if (value === undefined || value === null || value === '') return null;
+  const d = new Date(typeof value === 'number' ? value : String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  const iso = d.toISOString();
+  return { date: iso.slice(0, 10), time: `${iso.slice(11, 16)}Z` };
+}
+
 /** `stripe-mcp-tools@1.0.4` → `{ name, version }`. Scoped names keep their `@`. */
 export function splitName(name: string | undefined): { name: string; version: string } {
   if (!name) return { name: 'unnamed entry', version: '' };
