@@ -4,14 +4,13 @@ description: How submission is meant to work, what is built today, and what a va
 ---
 
 import { Callout } from 'nextra/components';
+import { StatusLine } from '../../components/status.tsx';
 
 # Submit a server
 
 <Callout type="warning">
-**Read this before you spend a proof.** The identity half of submission is built and load-bearing.
-The ingest half is not. A **valid** World ID proof today gets `501`, not `202` — and the nullifier
-is deliberately **not spent**, so nobody loses their one lifetime submission to a pipeline that
-never ran. This is stated here rather than discovered at the end of a form.
+**Read this before you spend a proof.** <StatusLine of="submissions" /> This is stated here rather
+than discovered at the end of a form.
 </Callout>
 
 ## The endpoint

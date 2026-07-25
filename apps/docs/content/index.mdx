@@ -4,6 +4,7 @@ description: MCP tool calls run with no gate. SureX puts one in the path, and sh
 ---
 
 import { StateList } from '../components/contract.tsx';
+import { KnownGaps, StatusLine, VerifiedOn } from '../components/status.tsx';
 
 # A gate on MCP tool calls
 
@@ -81,9 +82,18 @@ Read [The copy law](/concepts/copy-law) before writing anything that surfaces a 
 
 ## Honest status
 
-SureX was built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026). The chain runs
-end to end with no mocks, and the registry holds real reviews — but **every server flagged in the
-registry is a fixture the SureX project wrote itself**. Nothing published is a claim about anyone
-else's code. Live counts, including how many entries have never been reviewed at all, are served
-raw at [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats); this site quotes no numbers,
-because they drift and a stale count on a documentation page is a small fabrication.
+SureX was built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
+<StatusLine of="chain" /> The registry holds real reviews — and **<StatusLine of="whatIsFlagged" />**
+
+Live counts, including how many entries have never been reviewed at all, are served raw at
+[`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats); this site quotes no numbers, because
+they drift and a stale count on a documentation page is a small fabrication.
+
+**What is not built**, named rather than left to be discovered:
+
+<KnownGaps />
+
+Every claim on this page was checked against the live product on <VerifiedOn />, and they all live
+in one file — [`components/status.tsx`](https://github.com/SantiagoDevRel/surex/blob/main/apps/docs/components/status.tsx) —
+so a correction happens once instead of in four places. That file exists because this page was
+already wrong once, hours after it was written.

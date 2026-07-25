@@ -11,6 +11,7 @@ import { BANNED, CLEAN_MEANS, NO_HUMAN_AUDIT } from '@surex/core/copy';
 import { BLOCK_SEVERITY_THRESHOLD, BLOCKING_STATES, STATES, decide, tierSentence } from '@surex/core/verdict';
 
 import { PROMPTS } from '../../components/prompts';
+import { KNOWN_GAPS, STATUS, VERIFIED_ON } from '../../components/status';
 
 export const dynamic = 'force-static';
 
@@ -197,17 +198,21 @@ ${PROMPTS.install}
 
 ${PROMPTS.verify}
 
-## Honest status
+## Honest status  (checked against the live product on ${VERIFIED_ON})
 
-Built at ETHGlobal Lisbon 2026. The chain runs end to end with no mocks. EVERY server flagged in
-the registry is a fixture the SureX project wrote itself — nothing published is a claim about
-anyone else's code. Live counts: ${DEFAULT_API_BASE}${ROUTES.stats()}
+Built at ETHGlobal Lisbon 2026. ${STATUS.chain}
 
-Known gaps, stated rather than discovered: /v1/verdict responses are not signed; a verdict does
-not cover the dependency tree; Walrus storage renewal is unbuilt, so a head can outlive the
-bytes it points at; the human dispute path needs a World ID relying party this deployment does
-not have. The AGENT dispute path is live both ways — registered agent -> 202 with AgentBook
-standing (head flagged -> disputed, still blocking), unregistered wallet -> 403.
+${STATUS.whatIsFlagged}
+Live counts: ${DEFAULT_API_BASE}${ROUTES.stats()}
+
+Agent disputes:  ${STATUS.agentDispute}
+
+Human disputes:  ${STATUS.humanDispute}
+
+Submissions:     ${STATUS.submissions}
+
+Known gaps, stated rather than discovered:
+${KNOWN_GAPS.map((g) => `  - ${g}`).join('\n')}
 
 ## Pages
 
