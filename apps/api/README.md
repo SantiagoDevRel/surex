@@ -179,20 +179,38 @@ has served a single lookup there is no `hitRate` key at all — not a zero.
 ### `POST /v1/disputes` — the AgentKit gate
 
 ```jsonc
-// agent
-{ "fingerprint": "sxf1_…", "agentAddress": "0x…", "evidence": "…" }
+// agent — the address is NOT taken from the body; it is recovered from the signature
+// header: agentkit: <base64 payload signed by the agent wallet>
+{ "fingerprint": "sxf1_…", "evidence": "…", "contestantType": "agent" }
 // human
-{ "fingerprint": "sxf1_…", "proof": { … }, "statement": "…" }
+{ "fingerprint": "sxf1_…", "proof": { …the IDKit result, unmodified… }, "evidence": "…" }
 ```
 
-The agent path is taken from an explicit `contestantType: "agent"`, an `agentAddress`, or an x402
-payment header. Then:
+The agent path is taken from an explicit `contestantType: "agent"`, an **`agentkit` header**, an
+`agentAddress`, or an x402 payment header. Then:
 
-- **agent** → `verifyAgentStanding()`; a null `humanId` (what `lookupHuman` returns for an agent no
-  human stands behind) is **`403 agent_not_human_backed`**. That is the gate.
-- **human** → `verifyHumanProof()`; failure is `401 unauthenticated`.
+- **agent** → `verifyAgentStanding()`; a confirmed `lookupHuman → 0` is **`403 agent_not_human_backed`**.
+  That is the gate.
+- **human** → `verifyHumanProof()`; a proof that does not check out is `401 unauthenticated`.
 - There must be something to contest: a fingerprint with no live verdict is a `404`, checked **before**
   the identity check so valid standing cannot be used to create registry rows for free.
+
+**Not every refusal is the gate, and the codes say which is which.** With the real verifiers wired, a
+refusal is classified by `REFUSAL_STATUS` in `src/verifiers.mjs`:
+
+| what actually happened | code | status |
+|---|---|---|
+| AgentBook really has no registration for the signer | `agent_not_human_backed` | 403 |
+| no `agentkit` header, bad signature, replayed nonce, body/address mismatch | `unauthenticated` | 401 |
+| **AgentBook could not be read** (rate limit, dead RPC) | `upstream_unavailable` | 503 |
+| this deployment has no World ID relying party configured | `internal` | 500 |
+
+The 503 row is the one that matters. `lookupHuman()` returns `null` for a throttled RPC exactly as it
+does for an unregistered agent (FRICTION-LOG **W7**, verified), so a naive implementation tells an
+honest human-backed agent that no human stands behind it because *our* RPC was throttled. This API never
+does: a `null` is re-read through its own viem client, where a transport failure is an exception, and
+only a confirmed `0` becomes a 403. A 401 refusal also carries a `challenge` the agent can sign, so the
+refusal is actionable rather than a dead end.
 
 On acceptance, `202` with the state machine stated explicitly:
 
@@ -210,22 +228,57 @@ and the absence of any entity key or tx digest are deliberate: this process cann
 no identifier implying it did. `dispute.id` is a deterministic content hash of the submission, not a
 chain key.
 
-> **World integration is a separate lane.** `@worldcoin/*` is **not** installed and must not be
-> installed here. `src/verifiers.mjs` defines the `Verifiers` interface (`verifyHumanProof`,
-> `verifyAgentStanding`) and ships a **stub that refuses everything and says loudly that it is a stub**
-> — including `stub: true` and a `detail` in the 403 body, so a stub refusal can never be mistaken for a
-> real AgentBook lookup. The World lane replaces those two functions and passes them to
-> `createApp({ verifiers })`; the route, the state machine and the codes are already tested and do not
-> change. There is a `TODO(world-lane)` at the top of the file naming the interface.
->
-> `SUREX_MOCK=1` + `SUREX_MOCK_ACCEPT_DISPUTES=1` swaps in an *illustrative* verifier so the web lane
-> can build the accept path standalone. It grants standing to nobody real, marks everything
-> `illustrative: true`, still reports itself as a stub, and refuses to activate outside mock mode.
+**Three verifier implementations, and the default is still the stub.** `src/verifiers.mjs`:
+
+| `resolveVerifiers()` sees | picks | behaviour |
+|---|---|---|
+| nothing | `stub` | refuses both paths, `stub: true` + a `detail` in every refusal so it can never be mistaken for a real lookup |
+| `SUREX_MOCK=1` + `SUREX_MOCK_ACCEPT_DISPUTES=1` | `illustrative` | mock-only accept path, grants standing to nobody real, marks everything `illustrative: true` |
+| `SUREX_WORLD=1` | `agentbook+idkit` | **the real one.** Wins over the illustrative verifier if both are set — a build configured to check identity will not fake it. A configuration error here falls back to the **stub**, loudly, never to "no check at all" |
+
+#### The agent path, in order
+
+1. `agentkit` header → `parseAgentkitHeader()` → `validateAgentkitMessage()` (domain, resource URI,
+   5-minute freshness, single-use nonce).
+2. Signature → address. For `eip191` this is **local** `recoverMessageAddress()`: no RPC, so no network
+   condition can turn a good signature into a rejected agent. (The SDK's own path routes `eip191`
+   through `publicClient.verifyMessage`, which needs a working RPC and returns `{valid:false}` without
+   one — the same conflation as W7, one layer up.)
+3. An `agentAddress` in the body is a **claim**; if it disagrees with the signature, the signature wins
+   and the request is refused. A body-only address never reaches AgentBook at all.
+4. Optional `requestId` binds the signature to **this** rebuttal. The AgentKit SIWE message covers
+   domain, uri, nonce and time — not the evidence — so without it a captured header could file a
+   different dispute until the nonce expires. `scripts/agent-dispute.mjs` always sets it.
+5. `lookupHuman(address)` → non-null grants **standing to be heard**. Not access, not a discount, and
+   no claim the rebuttal is right. The nonce is burned only on success.
+
+#### The human path, in order
+
+`proof.action` must match the route's action · `proof.environment` must match
+`WORLD_ID_ENVIRONMENT` (**a staging proof is a simulator identity; a production deployment refuses it
+before it is ever forwarded**) · `signal_hash` must equal `hashToField()` of the signal this request
+implies, so one proof cannot be replayed across the registry · then the payload is forwarded
+**byte-for-byte** to `POST https://developer.world.org/api/v4/verify/{rp_id}` · then uniqueness ·
+then, and only then, acceptance. The nullifier is stored as a **decimal string** and is the only thing
+retained about the person.
+
+Uniqueness rules, per tech spec §7.1: `maintainer-submit` is **one per person, ever**;
+`contest-verdict` is **N per rolling window** (default 5 / 24 h) — being right twice is not a Sybil, and
+one-shot would silence a maintainer. ⚠️ The store is **in-memory, per process**, and says so in the
+response: a durable `NUMERIC(78,0) UNIQUE(nullifier, action)` table belongs with the worker, which is
+the process that can write.
 
 ### `POST /v1/submissions`
 
-In the frozen contract, **not built in this lane** — it needs a writer, which this process does not
-have. Returns `501` saying exactly that rather than a misleading 404.
+**The identity half is built and load-bearing; the ingest half is not.** With the World verifiers wired,
+the World ID gate runs first and for real — no proof, wrong action, or a staging proof against a
+production deployment never reaches the pipeline. A **valid** proof then gets `501`, not `202`, because
+the repo-ownership proof, licence gate, Walrus upload and Arkiv write all need a wallet this process does
+not have. The nullifier is deliberately **not spent** in that case: nobody loses their one submission to
+a pipeline that never ran.
+
+With the stub verifier the route is unchanged — a flat `501` "not built", which is the whole truth when
+no identity implementation exists either.
 
 ---
 
@@ -299,7 +352,51 @@ Mechanism: a minimal ollama/OpenAI-compatible `POST <reviewer>/v1/chat/completio
 | `SUREX_CORS_ORIGIN` | `*` | it is a public read API |
 | `SUREX_WALRUS_AGGREGATOR` / `SUREX_SUI_EXPLORER_BASE` / `SUREX_ARKIV_EXPLORER_BASE` | public defaults | link and evidence-fetch bases |
 
-**No private key. Ever.** If you find yourself wanting one here, the change belongs in the worker.
+### World
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SUREX_WORLD` | — | `1` → the real verifiers. Without it the stub refuses everything |
+| `SUREX_WORLD_RPC_URL` | `https://worldchain-mainnet.g.alchemy.com/public` | **set this before any demo.** The default is the shared public endpoint. It is passed *explicitly* rather than left to viem's chain default (W5), and a throttled read is reported as `upstream_unavailable` rather than as a refused agent (W7) — but that is still a failed dispute |
+| `SUREX_AGENTBOOK_NETWORK` | `worldchain-480` | `worldchain-480` or `base-sepolia-84532`. An unknown value fails to the stub rather than silently using the canonical one |
+| `SUREX_AGENTBOOK_ADDRESS` | `0xA23aB2712eA7BBa896930544C7d6636a96b944dA` | same address on both deployed networks |
+| `SUREX_RESOURCE_URI` | derived from the `Host` header | the resource an agent signs over. **Set it behind a proxy**, or the signed domain will not match and every agent gets a 401 |
+| `SUREX_AGENTKIT_NETWORKS` | the network's CAIP-2 | chains the challenge advertises, comma-separated |
+| `WORLD_RP_ID` | *none* | `rp_…` from developer.world.org. **Unset → human disputes fail with a configuration error (500), never a pass** |
+| `WORLD_APP_ID` | *none* | `app_…`, accepted by the verify endpoint for backward compatibility. Used only if `WORLD_RP_ID` is unset |
+| `WORLD_ID_ENVIRONMENT` | `production` | proofs from any other environment are refused. Set it to `staging` only on a deployment where simulator identities are acceptable |
+| `SUREX_DISPUTES_PER_WINDOW` / `SUREX_DISPUTE_WINDOW_MS` | `5` / `86400000` | the rolling window for `contest-verdict` |
+| `SUREX_WORLD_VERIFY_TIMEOUT_MS` | `8000` | timeout on the World verify call |
+
+**No private key. Ever.** If you find yourself wanting one here, the change belongs in the worker. The
+World lane keeps this true: the agent signs its own requests in its own process, and the World ID relying
+party signing key lives in the **web** app, not here — this process holds no World secret at all.
+
+#### Is there a no-Orb testnet path? Read this before hoping.
+
+Registering an agent needs an **Orb-verified World ID** on a phone: the contract checks `groupId = 1` and
+only Orb credentials exist on chain. **Reading** AgentBook needs nothing, which is why the whole agent
+gate is testable today (`node apps/api/test/world-live.smoke.mjs`).
+
+There *is* a second AgentBook, and the "World Chain mainnet only" claim everyone repeats is false. What
+we could confirm on 2026-07-25, by RPC and explorer:
+
+- **Base Sepolia 84532, same address `0xA23aB…944dA`** — deployed, verified on Blockscout as `AgentBook`,
+  `groupId() = 1`, `worldIdRouter() = 0x42FF98C4E85212a5D31358ACbFe76a621b50fC02` (the documented Base
+  Sepolia **testnet** router). So it really is wired to the World ID test tree.
+- **And it has never been used.** Its entire log history is two deployment events. **Zero
+  `AgentRegistered`.**
+- **Base mainnet 8453 has no contract at that address.** If a Base mainnet deployment exists it is
+  elsewhere and we could not find it — **UNVERIFIED**.
+
+**Verdict: not usable as a no-Orb path today, and we did not get it to work.** Three blockers, only the
+first of which is ours: the CLI cannot target it (no `--network` in 0.2.0 — W2), so you would reimplement
+`register(agent, root, nonce, nullifierHash, proof)`; the proof must satisfy an `externalNullifierHash`
+derived from **World's own** app id and `agentbook-registration` action, and whether a simulator will
+issue a staging proof for someone else's app is not something we could establish; and `lookupHuman`
+resolves against World Chain 480 unless a custom client is injected, so a Base Sepolia registration is
+invisible to a default integration. `SUREX_AGENTBOOK_NETWORK=base-sepolia-84532` exists so the question
+stays testable, not because it works. FRICTION-LOG **W8** has the reads.
 
 ---
 

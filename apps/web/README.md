@@ -159,20 +159,54 @@ choice before first paint.
 | Variable | Default | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_SUREX_API` | `http://localhost:4310` | set to the deployed API in production |
+| `NEXT_PUBLIC_WORLD_APP_ID` | *none* | `app_…` from developer.world.org |
+| `NEXT_PUBLIC_WORLD_RP_ID` | *none* | `rp_…` from the same app |
+| `RP_SIGNING_KEY` | *none* | **server only, and it must stay that way.** Shown exactly once by the portal. Never `NEXT_PUBLIC_*`, never logged, never sent to the browser — whoever holds it can forge proof requests in SureX's name. A test asserts the prefix never appears |
+| `NEXT_PUBLIC_WORLD_ID_ENVIRONMENT` | `production` | `staging` / `sandbox` produce simulator identities, and every screen that uses one says **SIMULATED IDENTITY — NOT A PERSON** |
+
+With none of the three World variables set, `POST /api/world/rp-signature` answers `503` naming exactly
+which are missing, and the screen renders that. There is no demo mode: nothing here ever behaves as though
+a person had been checked when no proof exists.
 
 The client's own timeout is 2500 ms — more generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on
 purpose. That budget exists because the gate sits in front of every tool call; a page render can afford to
 wait a little longer before giving up on live data.
 
+## World ID, on both screens that need it
+
+`app/_components/WorldIdProof.tsx` is the shared step, used by `/submit` (`maintainer-submit`) and
+`/d/<fp>` (`contest-verdict`). Three rules it exists to keep:
+
+1. **Nothing is signed in the browser.** The relying-party signature *and* the signal come from
+   `POST /api/world/rp-signature`, server-side (`lib/world.ts`, which no client component may import — a
+   test enforces it).
+2. **A proof in hand is not an accepted claim.** IDKit returning a result means World produced a proof.
+   The registry checks it server-side on submit, and only its answer is rendered as an outcome — so the
+   success state here reads *"PROOF IN HAND — THE REGISTRY HAS NOT SEEN IT YET"*.
+3. **A non-production proof says so, loudly.** Staging and sandbox proofs come from a simulator, not a
+   person, and a screen that looked identical either way would be the most misleading thing on the site.
+
+The preset is `deviceLegacy({ signal })` — the 4.x replacement for `verification_level: "device"`, which no
+longer exists (FRICTION-LOG **W11**). It returns the person's highest legacy credential, so an Orb holder
+still verifies with their Orb credential; requiring an Orb of a maintainer defending their own code would
+exclude almost every maintainer there is.
+
+Editing the repository (on `/submit`) or the rebuttal (on `/d/<fp>`) **drops a held proof**, because the
+signal is derived from those fields and a proof bound to the old value would be refused with
+`signal_mismatch`.
+
 ## What is not wired up
 
-- **World ID on `/submit`.** The form makes the real `POST /v1/submissions` call with no proof, so a real
-  registry refuses it — and the refusal is rendered exactly as the API sends it (`HTTP 401 ·
-  unauthenticated`). A screen claiming to have queued a review it did not queue is precisely what this
-  project exists to make impossible.
-- **World ID / AgentKit on `/d/<fp>`.** Both standing panels are present and both buttons are disabled.
-- Filing a dispute, and the `open → under_review → upheld | overturned` transitions. The timeline renders
-  whichever status the record carries; nothing here moves it.
+- **The agent side of `/d/<fp>` is not a browser control, and the panel no longer pretends it is.** An
+  agent signs its own request with the wallet a human registered in AgentBook, which a page cannot do on
+  its behalf, so the panel shows the real registration command and the real request instead of a button
+  that could not work. `scripts/agent-dispute.mjs` is that client.
+- **`POST /v1/submissions` behind the gate.** The World ID proof is checked for real; everything after it
+  — repo-ownership proof, licence gate, blob upload, index write — is not built, so a good proof returns
+  `501` and the screen says *"PROOF CHECKED — THE REST IS NOT BUILT"*. Not a failure and not a success.
+- The `open → under_review → upheld | overturned` transitions. A filed dispute is accepted by the API but
+  not persisted (the API has no wallet); the timeline renders whichever status the record carries and
+  nothing here moves it.
 
 ## Cross-lane notes
 

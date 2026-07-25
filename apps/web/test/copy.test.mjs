@@ -14,12 +14,21 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { assertCopy, copyViolations, isFingerprint } from '@surex/core';
 
 import { COPY } from '../lib/copy.ts';
 import { FIXTURE_FINGERPRINTS, FIXTURE_PROSE, FIXTURE_ROWS } from '../lib/fixtures.ts';
+import {
+  WORLD_ACTIONS,
+  disputeSignal,
+  evidenceHashOf,
+  normaliseRepo,
+  submitSignal,
+  worldConfig,
+} from '../lib/world.ts';
 
 /** Every string leaf, with the path that leads to it, so a failure names itself. */
 function leaves(node, path = '') {
@@ -118,4 +127,104 @@ test('every fixture record is marked illustrative', () => {
   for (const row of FIXTURE_ROWS) {
     assert.equal(row.illustrative, true, `${row.name} is not marked illustrative`);
   }
+});
+
+/* ─────────────────────────────────────────────────────────── the World lane ──*/
+
+test('the signal formulas match the API, byte for byte', () => {
+  // ⚠️ THE SAME VECTORS ARE PINNED IN apps/api/test/world.test.mjs.
+  //
+  // The browser has to choose a signal before a proof exists; the API recomputes it
+  // from the request afterwards and refuses a proof bound to anything else. So the
+  // formula lives in two packages, and if either side drifts the demo dies with a
+  // signal_mismatch that looks like a World bug. It has to break a test instead.
+  assert.equal(disputeSignal('k', 'e'), 'b5f67945e835eb5b6e7f68bce9590a7eed867341b0155dcaa1679dfa22238ad9');
+  assert.equal(submitSignal('https://github.com/acme/acme-mcp'), 'f65c55b952154a9e743b0d92f05ce944f9d888dc1d47f9cb323da43e35eec6e9');
+  assert.equal(evidenceHashOf('e'), '3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea');
+  assert.equal(normaliseRepo('https://GitHub.com/Acme/acme-mcp.git/'), 'github.com/acme/acme-mcp');
+  // The COMPOSITION, which is what the route actually computes — and the thing that
+  // disagreed first in testing. Read out of the live route on 2026-07-25 and pinned
+  // identically in the API suite; matching leaves do not imply matching pipelines.
+  assert.equal(
+    disputeSignal('k', evidenceHashOf('e')),
+    '7ea73226509bede9017b5b765048fe654cdf554e3198e543f7e968bf60d50b46',
+  );
+  // one rebuttal, one signal
+  assert.notEqual(disputeSignal('k', evidenceHashOf('a')), disputeSignal('k', evidenceHashOf('b')));
+  // and the two actions are the ones the API expects
+  assert.deepEqual({ ...WORLD_ACTIONS }, { submit: 'maintainer-submit', dispute: 'contest-verdict' });
+});
+
+test('an unconfigured relying party is reported, never faked', () => {
+  const missing = worldConfig({});
+  assert.equal(missing.ok, false);
+  assert.deepEqual(missing.missing, ['NEXT_PUBLIC_WORLD_APP_ID', 'NEXT_PUBLIC_WORLD_RP_ID', 'RP_SIGNING_KEY']);
+  assert.match(missing.detail, /developer\.world\.org/);
+
+  // a malformed id is caught here rather than by the live endpoint
+  assert.equal(worldConfig({ NEXT_PUBLIC_WORLD_APP_ID: 'nope', NEXT_PUBLIC_WORLD_RP_ID: 'rp_x', RP_SIGNING_KEY: 'k' }).ok, false);
+  assert.equal(worldConfig({ NEXT_PUBLIC_WORLD_APP_ID: 'app_x', NEXT_PUBLIC_WORLD_RP_ID: 'nope', RP_SIGNING_KEY: 'k' }).ok, false);
+
+  const ok = worldConfig({ NEXT_PUBLIC_WORLD_APP_ID: 'app_x', NEXT_PUBLIC_WORLD_RP_ID: 'rp_x', RP_SIGNING_KEY: 'k' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.config.environment, 'production', 'the default must be production, so staging is always deliberate');
+});
+
+test('the signing key is never exposed to the browser', () => {
+  // A NEXT_PUBLIC_ prefix on the signing key would ship it in the JS bundle, and
+  // whoever has it can forge proof requests in SureX's name.
+  const source = readFileSync(new URL('../lib/world.ts', import.meta.url), 'utf8');
+  assert.ok(!/NEXT_PUBLIC_[A-Z_]*SIGNING/.test(source), 'the signing key must not be read from a NEXT_PUBLIC_ variable');
+  assert.match(source, /env\.RP_SIGNING_KEY/);
+  for (const file of ['../app/_components/WorldIdProof.tsx', '../app/_components/StandingPanels.tsx', '../app/_components/SubmitForm.tsx']) {
+    const client = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.ok(client.includes("'use client'"), `${file} should be a client component`);
+    assert.ok(!/RP_SIGNING_KEY|signRequest/.test(client), `${file} must not touch the signing key or sign anything`);
+    assert.ok(!/lib\/world/.test(client), `${file} must not import the server-only World helpers`);
+  }
+});
+
+test('the World copy holds the two distinctions it exists for', () => {
+  // a proof in the browser is not an accepted claim
+  assert.match(COPY.world.heldLabel, /NOT SEEN|NOT YET/i);
+  assert.match(COPY.world.heldBody, /not acceptance/i);
+  // a non-production proof is not a person
+  assert.match(COPY.world.simulatedLabel, /NOT A PERSON/i);
+  assert.match(COPY.world.simulatedBody, /simulator/i);
+  // an unconfigured deployment says so instead of behaving as though it worked
+  assert.match(COPY.world.unconfiguredBody, /nothing was sent/i);
+});
+
+test('nothing agent-shaped is described as reputation, a score, or past behaviour', () => {
+  // The World track excludes agent reputation explicitly, so this is a
+  // track-disqualifying word and the ban is enforced beyond the generic copy law.
+  const agentCopy = Object.entries(COPY.dispute)
+    .filter(([k]) => k.toLowerCase().includes('agent') || k === 'standingNote')
+    .map(([, v]) => v)
+    .join('\n');
+  for (const banned of [/\breputation/i, /\bscore\b/i, /\bcall volume\b/i, /\btrack record\b/i, /\bhistory of\b/i]) {
+    // "not a score" and "says nothing about how this agent has behaved" are the
+    // approved way to raise these — so only an affirmative use is a failure.
+    const match = agentCopy.match(banned);
+    if (!match) continue;
+    const sentence = agentCopy.split(/\n|(?<=[.;])\s/).find((s) => banned.test(s)) ?? '';
+    assert.match(sentence, /\bnot\b|\bnothing\b/i, `agent copy claims ${match[0]}: "${sentence}"`);
+  }
+  // and it states positively what standing does mean
+  assert.match(COPY.dispute.standingNote, /a human registered this wallet/i);
+});
+
+test('the agent panel never promises a browser button that cannot work', () => {
+  assert.match(COPY.dispute.agentAction, /not in this browser/i);
+  // …and it tells the truth about the two refusals
+  assert.match(COPY.dispute.agentRefusedNote, /403 agent_not_human_backed/);
+  assert.match(COPY.dispute.agentRefusedNote, /503/);
+  assert.match(COPY.dispute.agentRefusedNote, /never told/i);
+});
+
+test('the submit screen no longer claims World ID is unwired, and does not claim a review was queued', () => {
+  assert.ok(!/not wired into this form/i.test(COPY.submit.worldIdNote), 'stale copy: the gate is wired now');
+  assert.match(COPY.submit.worldIdNote, /before a submission is looked at/i);
+  assert.match(COPY.submit.resultNotBuiltBody, /nothing was queued/i);
+  assert.match(COPY.submit.resultNotBuiltBody, /not spent/i);
 });

@@ -1,6 +1,15 @@
-import { COPY } from '@/lib/copy.ts';
+'use client';
 
+import type { IDKitResult } from '@worldcoin/idkit';
+import { useActionState, useState } from 'react';
+
+import { COPY } from '@/lib/copy.ts';
+import { fileDispute, type DisputeOutcome } from '@/lib/dispute-action.ts';
+
+import { Banner, type BannerTone } from './Banner.tsx';
+import { CopyCommand } from './CopyCommand.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
+import { WorldIdProof } from './WorldIdProof.tsx';
 
 /**
  * The two kinds of standing. Same panel, same size, same three steps.
@@ -12,12 +21,22 @@ import { Panel, SectionLabel } from './Panel.tsx';
  *
  * Never described as agent reputation: the World track excludes that
  * explicitly, and SureX reviews servers.
+ *
+ * The human panel is a working form. The agent panel is NOT a button, because an
+ * agent signs its own request with the wallet a human registered in AgentBook and a
+ * browser cannot do that on its behalf — so it shows the actual request instead of a
+ * control that could not work.
  */
 
-const AGENT_PAYLOAD = `{ "subject": "<fingerprint>",
-  "claim": "finding_incorrect",
-  "evidence": "walrus:<blobId>",
-  "agent": "wld:agent:<address>" }`;
+const INITIAL: DisputeOutcome = { kind: 'idle' };
+
+/** The real request. Not a mock-up — this is the shape POST /v1/disputes accepts. */
+const AGENT_REQUEST = `POST /v1/disputes
+agentkit: <base64 payload signed by the agent wallet>
+
+{ "fingerprint": "<sxf1_…>",
+  "evidence": "<the rebuttal, pointing at file and line>",
+  "contestantType": "agent" }`;
 
 function Steps({ items }: { items: string[] }) {
   return (
@@ -31,7 +50,43 @@ function Steps({ items }: { items: string[] }) {
   );
 }
 
-export function StandingPanels() {
+function HumanOutcome({ outcome }: { outcome: DisputeOutcome }) {
+  if (outcome.kind === 'idle') return null;
+  const view: { tone: BannerTone; label: string; body: string } =
+    outcome.kind === 'filed'
+      ? {
+          tone: 'disputed',
+          label: COPY.dispute.resultFiledLabel,
+          body: [outcome.enforcement, outcome.note].filter(Boolean).join(' ') || COPY.dispute.stageOpenBody,
+        }
+      : outcome.kind === 'refused'
+        ? {
+            tone: 'flagged',
+            label: `${COPY.dispute.resultRefusedLabel} · HTTP ${outcome.status}`,
+            body: [outcome.code, outcome.message, outcome.detail].filter(Boolean).join(' — ') || 'no reason given',
+          }
+        : outcome.kind === 'unreachable'
+          ? {
+              tone: 'stale',
+              label: COPY.dispute.resultUnreachableLabel,
+              body: `${COPY.dispute.resultUnreachableBody} (${outcome.detail})`,
+            }
+          : { tone: 'neutral', label: COPY.submit.resultMissingLabel, body: COPY.dispute.resultMissingBody };
+
+  return (
+    <div className="mt-3">
+      <Banner tone={view.tone} label={view.label}>
+        {view.body}
+      </Banner>
+    </div>
+  );
+}
+
+export function StandingPanels({ fingerprint }: { fingerprint?: string }) {
+  const [outcome, action, pending] = useActionState(fileDispute, INITIAL);
+  const [evidence, setEvidence] = useState('');
+  const [proof, setProof] = useState<IDKitResult | null>(null);
+
   return (
     <section className="mt-8">
       <SectionLabel>{COPY.dispute.fileLabel}</SectionLabel>
@@ -54,13 +109,46 @@ export function StandingPanels() {
           <Steps
             items={[COPY.dispute.humanStep1, COPY.dispute.humanStep2, COPY.dispute.humanStep3]}
           />
-          <button
-            type="button"
-            disabled
-            className="mt-3.5 rounded-input border border-line-2 px-3.5 py-2 text-row text-faint"
-          >
-            {COPY.dispute.humanAction}
-          </button>
+
+          <form action={action} className="mt-3.5 grid gap-2.5">
+            <input type="hidden" name="fingerprint" value={fingerprint ?? ''} />
+            <label className="grid gap-1.5">
+              <span className="text-label uppercase text-faint">{COPY.dispute.humanRebuttalLabel}</span>
+              <textarea
+                name="evidence"
+                rows={4}
+                value={evidence}
+                onChange={(e) => {
+                  // The proof's signal is bound to this exact rebuttal, so editing it
+                  // invalidates the proof. Drop it rather than send a mismatch.
+                  setEvidence(e.target.value);
+                  if (proof) setProof(null);
+                }}
+                placeholder={COPY.dispute.humanRebuttalPlaceholder}
+                className="rounded-input border border-line bg-panel-2 px-3 py-2 text-row text-ink placeholder:text-faint"
+              />
+            </label>
+
+            <WorldIdProof
+              context={{ action: 'contest-verdict', verdictKey: fingerprint ?? '', evidence }}
+              onProof={setProof}
+              label={COPY.dispute.humanAction}
+              disabled={!fingerprint || !evidence.trim()}
+            />
+
+            <input type="hidden" name="proof" value={proof ? JSON.stringify(proof) : ''} />
+
+            <button
+              type="submit"
+              disabled={pending || !proof || !evidence.trim() || !fingerprint}
+              className="justify-self-start rounded-input border border-accent bg-accent-t px-3.5 py-2 text-row font-semibold text-accent disabled:border-line-2 disabled:bg-transparent disabled:text-faint"
+            >
+              {pending ? 'filing…' : COPY.dispute.humanFileAction}
+            </button>
+            <p className="text-mini text-ink-3">{COPY.dispute.humanFilingNote}</p>
+          </form>
+
+          <HumanOutcome outcome={outcome} />
         </Panel>
 
         <Panel className="px-5 py-4">
@@ -79,17 +167,15 @@ export function StandingPanels() {
           <Steps
             items={[COPY.dispute.agentStep1, COPY.dispute.agentStep2, COPY.dispute.agentStep3]}
           />
+          <p className="mt-3 text-mini text-ink-3">{COPY.dispute.agentAction}</p>
+          <div className="mt-2">
+            <CopyCommand command="npx @worldcoin/agentkit-cli register <agent-wallet-address>" />
+          </div>
           <pre className="mt-2.5 overflow-x-auto rounded-input border border-line bg-panel-2 px-3 py-2.5 font-mono text-mini leading-relaxed text-ink-2">
-            {AGENT_PAYLOAD}
+            {AGENT_REQUEST}
           </pre>
           <p className="mt-2.5 text-mini text-ink-3">{COPY.dispute.standingNote}</p>
-          <button
-            type="button"
-            disabled
-            className="mt-3 rounded-input border border-line-2 px-3.5 py-2 text-row text-faint"
-          >
-            {COPY.dispute.agentAction}
-          </button>
+          <p className="mt-2 text-mini text-faint">{COPY.dispute.agentRefusedNote}</p>
         </Panel>
       </div>
     </section>

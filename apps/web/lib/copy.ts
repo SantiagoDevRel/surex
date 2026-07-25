@@ -189,20 +189,58 @@ export const COPY = {
     humanStep3:
       'Attach evidence — repo link, test, config. Stored as a blob, hashed, and linked from the index.',
     humanAction: 'Prove personhood with World ID',
+    humanRebuttalLabel: 'THE REBUTTAL',
+    humanRebuttalPlaceholder: 'Which file, which line, which commit — and what the model got wrong about it.',
+    humanFileAction: 'File the rebuttal',
+    humanFilingNote:
+      'The proof is checked by the registry, server-side, before the rebuttal is taken. Whatever the registry answers is shown below exactly as it arrives.',
+    resultFiledLabel: 'REBUTTAL ACCEPTED',
+    resultRefusedLabel: 'REFUSED BY THE REGISTRY',
+    resultUnreachableLabel: 'REGISTRY UNREACHABLE',
+    resultUnreachableBody:
+      'Nothing was filed. Whatever you typed stayed in this browser — the request never left it.',
+    resultMissingBody: 'A rebuttal needs both a World ID proof and something to say.',
     agentTitle: 'You are an agent',
     agentBadge: 'WORLD AGENTKIT',
-    agentStep1: 'Authenticate with your AgentKit credential; your operator co-signs once.',
+    agentStep1:
+      'A human registers this agent’s wallet in AgentBook once, from World App. That step needs an Orb-verified World ID, and it costs nothing — a hosted relay pays the transaction, so the wallet needs no balance.',
     agentStep2:
-      'Your standing is legible: call volume through this server is read from your attestation, not asserted.',
-    agentStep3: 'Submit the machine-readable rebuttal — same schema, same weight as a human wrote it.',
-    agentAction: 'Authenticate agent',
+      'The agent signs each dispute request with that wallet. SureX recovers the address from the signature — an address typed into the request body proves nothing — and then asks AgentBook whether a human stands behind it.',
+    agentStep3:
+      'A non-null answer grants standing to be heard: same endpoint, same schema, same weight as a rebuttal a person filed.',
+    agentAction: 'This step runs in the agent, not in this browser:',
     /** World track exclusion: never describe this as agent reputation. */
     standingNote:
-      'Standing is a claim about calls this agent actually made through this server. It is not a score, and it is not about the agent — SureX reviews servers.',
+      'Standing means one thing: a human registered this wallet. It is not a score, it says nothing about how this agent has behaved, and it does not make the rebuttal right — SureX reviews servers.',
+    agentRefusedNote:
+      'If AgentBook has no registration for the wallet, the request is refused with 403 agent_not_human_backed. If the lookup itself could not be completed, the answer is 503 and standing is reported as unknown — an agent is never told a human does not stand behind it because a lookup failed.',
     filedBy: 'filed by',
     evidence: 'evidence',
     onChain: 'on-chain',
     standing: 'standing',
+  },
+
+  /**
+   * The World ID step, shared by /submit and /d/[fp].
+   *
+   * The distinction these strings exist to hold: a proof arriving in the browser is
+   * not a claim the registry accepted, and a non-production proof is not a person.
+   */
+  world: {
+    preparing: 'preparing the request…',
+    again: 'prove personhood again',
+    unconfiguredLabel: 'WORLD ID NOT CONFIGURED IN THIS DEPLOYMENT',
+    unconfiguredBody:
+      'There is no World ID relying party configured here, so no proof can be requested. Nothing was sent, and nothing on this screen is behaving as though a person had been checked.',
+    failedLabel: 'NO PROOF OBTAINED',
+    failedBody:
+      'World ID did not return a proof, so there is nothing to send. The error is shown as it arrived rather than replaced with a screen that claims otherwise.',
+    heldLabel: 'PROOF IN HAND — THE REGISTRY HAS NOT SEEN IT YET',
+    heldBody:
+      'World ID returned a proof to this browser. That is not acceptance: the registry checks the proof server-side when you submit, and only its answer decides anything.',
+    simulatedLabel: 'SIMULATED IDENTITY — NOT A PERSON',
+    simulatedBody:
+      'This deployment points at a non-production World ID environment, where proofs come from a simulator rather than from a phone. Anything proven here is a test of the plumbing, not a human.',
   },
 
   submit: {
@@ -224,10 +262,13 @@ export const COPY = {
     releasePlaceholder: 'v2.3.0',
     action: 'Queue the review',
     worldIdNote:
-      'World ID personhood is not wired into this form yet, so the registry will refuse the submission — POST /v1/submissions requires a proof. The refusal is shown below exactly as the API sends it, rather than a screen pretending the submission went through.',
+      'World ID personhood is checked by the registry before a submission is looked at, so the proof comes first and the release second. What is NOT built yet is everything after that gate — repo-ownership proof, licence gate, blob upload and the index write — so a submission with a good proof still comes back as not built. That answer is shown below exactly as the API sends it, rather than a screen pretending a review was queued.',
     resultAcceptedLabel: 'ACCEPTED',
     resultAcceptedBody:
       'The registry queued the release. A verdict blob publishes to the index when the run completes.',
+    resultNotBuiltLabel: 'PROOF CHECKED — THE REST IS NOT BUILT',
+    resultNotBuiltBody:
+      'The registry checked the World ID proof and stopped there: the ingest path behind the gate does not exist in this deployment. Nothing was queued, no review will run, and the proof was not spent — the same person can submit once the pipeline is built.',
     resultRefusedLabel: 'REFUSED BY THE REGISTRY',
     resultUnreachableLabel: 'REGISTRY UNREACHABLE',
     resultUnreachableBody:

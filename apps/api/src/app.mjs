@@ -25,7 +25,7 @@ import {
 
 import { createMockStore } from './mock.mjs';
 import { createArkivStore } from './arkiv.mjs';
-import { resolveVerifiers } from './verifiers.mjs';
+import { AGENTKIT_HEADER, REFUSAL_STATUS, WORLD_ACTIONS, resolveVerifiers } from './verifiers.mjs';
 import { mountAdmin } from './admin.mjs';
 import { withLinks } from './links.mjs';
 import { createHash } from 'node:crypto';
@@ -526,15 +526,19 @@ export function createApp(options = {}) {
       );
     }
 
-    // Who is contesting. An agent is identified by an explicit contestantType, an
-    // agentAddress, or an x402 payment header.
-    // NOTE(world-lane): the exact AgentKit/x402 request header is yours to confirm
-    // — AGENTS.md records that x402 2.19 puts the CHALLENGE in a base64
-    // `payment-required` response header, which is the other direction. All
-    // request headers are handed to the verifier so this route never has to guess.
+    // Who is contesting. An agent is identified by an explicit contestantType, a
+    // signed AgentKit header, an agentAddress, or an x402 payment header.
+    //
+    // The AgentKit request header is `agentkit` — confirmed by reading
+    // @worldcoin/agentkit@0.2.0, not inferred. It was missing from this list, so a
+    // correctly signed agent with no `agentAddress` field in its JSON body was
+    // classified as a HUMAN and refused for having no World ID proof. All request
+    // headers are handed to the verifier, so the verifier never has to guess either.
     const headers = Object.fromEntries(c.req.raw.headers.entries());
     const agentAddress = body?.agentAddress ?? null;
-    const looksLikeAgent = Boolean(agentAddress || headers['x-payment'] || headers['payment']);
+    const looksLikeAgent = Boolean(
+      agentAddress || headers[AGENTKIT_HEADER] || headers['x-payment'] || headers['payment'],
+    );
     const contestantType = body?.contestantType ?? (looksLikeAgent ? 'agent' : 'human');
     if (contestantType !== 'agent' && contestantType !== 'human') {
       return c.json(apiError(ERROR_CODES.INVALID_BODY, "contestantType must be 'human' or 'agent'"), 400);
@@ -560,49 +564,107 @@ export function createApp(options = {}) {
       body._headState = head.state;
     }
 
+    // Shared shape for every refusal, so the caller always learns which verifier
+    // refused and whether any check actually ran.
+    const refusalDetails = (check) => ({
+      verifier: verifiers.name,
+      ...(verifiers.isStub ? { stub: true } : {}),
+      ...(check?.detail ? { detail: check.detail } : {}),
+      ...(check?.reason ? { reason: check.reason } : {}),
+      ...(check?.challenge ? { challenge: check.challenge } : {}),
+    });
+
+    /**
+     * A refusal is not automatically "no human stands behind this agent".
+     *
+     * `REFUSAL_STATUS` (verifiers.mjs) classifies the reasons that mean something
+     * else, and anything unclassified keeps the path's original code — which is why
+     * the stub's `verifier_not_wired` still produces the 403 it always has.
+     *
+     * The case this exists for: our RPC gets rate-limited mid-check. Reporting that
+     * as `agent_not_human_backed` tells an honest, registered agent it is not
+     * human-backed because OUR infrastructure was throttled. It is the worst thing
+     * this route could say, and it is the default failure mode of the SDK.
+     */
+    const refuse = (check, fallbackCode, fallbackStatus, fallbackMessage) => {
+      switch (REFUSAL_STATUS[check?.reason]) {
+        case 'upstream':
+          return c.json(
+            apiError(
+              ERROR_CODES.UPSTREAM_UNAVAILABLE,
+              'the identity check could not be completed, so standing is UNKNOWN — this is not a refusal of the ' +
+                'contestant. Retry.',
+              refusalDetails(check),
+            ),
+            503,
+          );
+        case 'internal':
+          return c.json(
+            apiError(
+              ERROR_CODES.INTERNAL,
+              'this deployment is not configured to check identity for this path, so it cannot accept the dispute. ' +
+                'That is our misconfiguration, not a judgement about the contestant.',
+              refusalDetails(check),
+            ),
+            500,
+          );
+        case 'unauthenticated':
+          return c.json(
+            apiError(
+              ERROR_CODES.UNAUTHENTICATED,
+              'the request carried no usable proof of who is asking. That is a different claim from "no human ' +
+                'stands behind this agent" — nothing has been decided about standing.',
+              refusalDetails(check),
+            ),
+            401,
+          );
+        default:
+          return c.json(apiError(fallbackCode, fallbackMessage, refusalDetails(check)), fallbackStatus);
+      }
+    };
+
     let check;
     if (contestantType === 'agent') {
-      check = await verifiers.verifyAgentStanding({ agentAddress, headers, body });
+      check = await verifiers.verifyAgentStanding({
+        agentAddress,
+        headers,
+        body,
+        path: `/${API_VERSION}/disputes`,
+      });
       // THE AGENTKIT GATE. lookupHuman returned null → no human stands behind this
       // agent → no standing to dispute. This is the 403 the whole track fit rests
       // on, and it is the same code path whether the refusal comes from the stub
       // or from a real AgentBook lookup.
       if (!check?.ok || !check?.humanId) {
-        return c.json(
-          apiError(
-            ERROR_CODES.AGENT_NOT_HUMAN_BACKED,
-            'no human stands behind this agent, so it has no standing to contest a verdict. Register the ' +
-              'agent wallet in AgentBook (one-time, by a human, in World App) and retry.',
-            {
-              verifier: verifiers.name,
-              ...(verifiers.isStub ? { stub: true } : {}),
-              ...(check?.detail ? { detail: check.detail } : {}),
-              ...(check?.reason ? { reason: check.reason } : {}),
-            },
-          ),
+        return refuse(
+          check,
+          ERROR_CODES.AGENT_NOT_HUMAN_BACKED,
           403,
+          'no human stands behind this agent, so it has no standing to contest a verdict. Register the ' +
+            'agent wallet in AgentBook (one-time, by a human, in World App) and retry.',
         );
       }
     } else {
       check = await verifiers.verifyHumanProof({
         proof: body?.proof ?? body?.worldIdProof ?? null,
-        action: 'contest-verdict',
+        action: WORLD_ACTIONS.dispute,
         signal: body?.signal ?? null,
         body,
         headers,
       });
       if (!check?.ok) {
-        return c.json(
-          apiError(ERROR_CODES.UNAUTHENTICATED, 'a human dispute needs a World ID proof for action contest-verdict', {
-            verifier: verifiers.name,
-            ...(verifiers.isStub ? { stub: true } : {}),
-            ...(check?.detail ? { detail: check.detail } : {}),
-            ...(check?.reason ? { reason: check.reason } : {}),
-          }),
+        return refuse(
+          check,
+          ERROR_CODES.UNAUTHENTICATED,
           401,
+          'a human dispute needs a World ID proof for action contest-verdict',
         );
       }
     }
+
+    // The nullifier is spent only now that the dispute is accepted. Spending it on
+    // a refused request would lock a real person out of a dispute they never filed.
+    check.commit?.();
 
     // Accepted. A deterministic content id — NOT a chain key and not a tx digest,
     // because this process cannot write and will not hand back an identifier that
@@ -634,7 +696,19 @@ export function createApp(options = {}) {
           contestantType,
           state: 'open',
           receivedAt,
-          standing: contestantType === 'agent' ? { humanId: check.humanId } : { nullifier: check.nullifier ?? null },
+          standing:
+            contestantType === 'agent'
+              ? {
+                  humanId: check.humanId,
+                  ...(check.agentAddress ? { agentAddress: check.agentAddress } : {}),
+                  ...(check.network ? { agentBookNetwork: check.network } : {}),
+                  ...(check.standing ? { proved: check.standing.proved, notProved: check.standing.notProved } : {}),
+                }
+              : {
+                  nullifier: check.nullifier ?? null,
+                  ...(check.action ? { action: check.action } : {}),
+                  ...(check.uniqueness ? { uniqueness: check.uniqueness } : {}),
+                },
         },
         // Say the enforcement consequence out loud so no client implements the
         // wrong one: a dispute changes the wording, never the block (tech spec §9).
@@ -651,19 +725,93 @@ export function createApp(options = {}) {
     );
   });
 
-  // ── declared, not built ───────────────────────────────────────────────────
-  app.post(`/${API_VERSION}/submissions`, (c) =>
-    c.json(
+  // ── the identity half is built; the ingest half is not ────────────────────
+  //
+  // The World ID gate runs FIRST and for real. A submission with no proof, a proof
+  // for the wrong action, or a staging proof against a production deployment never
+  // reaches the pipeline — which is the point of the gate, and is true today even
+  // though the pipeline behind it does not exist yet.
+  //
+  // What is honestly NOT built: the repo-ownership proof, the licence gate, the
+  // Walrus upload and the Arkiv write. Those need a wallet this process does not
+  // have. So a VALID proof gets 501, not 202 — and the nullifier is deliberately
+  // NOT spent, because nothing was queued and a person must not lose their one
+  // submission to a pipeline that never ran.
+  const NOT_BUILT =
+    'POST /v1/submissions is in the frozen contract but is NOT built in this lane. The submission path ' +
+    '(World ID + repo-ownership proof + licence gate + Walrus upload) belongs to the web/identity lane ' +
+    'and needs a writer, which this process does not have.';
+
+  app.post(`/${API_VERSION}/submissions`, async (c) => {
+    // With no identity implementation wired in, "not built" is the whole truth and
+    // validating a body before saying so would be theatre. Unchanged from before
+    // the World lane existed, deliberately.
+    if (verifiers.isStub) {
+      return c.json(apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, NOT_BUILT, { built: false }), 501);
+    }
+
+    let body = null;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, release, proof }'), 400);
+    }
+    if (!body?.repo || !body?.release) {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repo and a release'), 400);
+    }
+
+    const check = await verifiers.verifyHumanProof({
+      proof: body?.proof ?? body?.worldIdProof ?? null,
+      action: WORLD_ACTIONS.submit,
+      signal: body?.signal ?? null,
+      body,
+      headers: Object.fromEntries(c.req.raw.headers.entries()),
+    });
+    if (!check?.ok) {
+      const cls = REFUSAL_STATUS[check?.reason];
+      const details = {
+        verifier: verifiers.name,
+        ...(verifiers.isStub ? { stub: true } : {}),
+        ...(check?.detail ? { detail: check.detail } : {}),
+        ...(check?.reason ? { reason: check.reason } : {}),
+      };
+      if (cls === 'internal') {
+        return c.json(
+          apiError(ERROR_CODES.INTERNAL, 'this deployment cannot check World ID personhood, so it cannot accept a submission', details),
+          500,
+        );
+      }
+      if (cls === 'upstream') {
+        return c.json(
+          apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, 'the World ID check could not be completed — unchecked, not rejected. Retry.', details),
+          503,
+        );
+      }
+      return c.json(
+        apiError(
+          ERROR_CODES.UNAUTHENTICATED,
+          `a submission needs a World ID proof for action ${WORLD_ACTIONS.submit}, one per person`,
+          details,
+        ),
+        401,
+      );
+    }
+
+    return c.json(
       apiError(
-        ERROR_CODES.UPSTREAM_UNAVAILABLE,
-        'POST /v1/submissions is in the frozen contract but is NOT built in this lane. The submission path ' +
-          '(World ID + repo-ownership proof + licence gate + Walrus upload) belongs to the web/identity lane ' +
-          'and needs a writer, which this process does not have.',
-        { built: false },
+        ERROR_CODES.NOT_IMPLEMENTED,
+        'World ID personhood checked out for this submission. The rest of POST /v1/submissions is NOT built in ' +
+          'this deployment: repo-ownership proof, licence gate, Walrus upload and the Arkiv write all need a ' +
+          'writer, and this process has no wallet. Nothing was queued and no review will run.',
+        {
+          built: false,
+          identity: { action: check.action, checked: true, nullifierSpent: false, verifier: verifiers.name },
+          missing: ['repo-ownership proof', 'licence gate', 'Walrus upload', 'Arkiv write'],
+        },
       ),
       501,
-    ),
-  );
+    );
+  });
 
   // ── the demo-recovery control ─────────────────────────────────────────────
   const admin = mountAdmin(app, { env, logger, fetchImpl: options.fetchImpl, ...(options.admin ?? {}) });

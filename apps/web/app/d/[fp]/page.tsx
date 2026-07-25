@@ -71,7 +71,7 @@ export default async function DisputePage({ params }: { params: Promise<{ fp: st
           <Link href={`/r/${decoded}`} className="mt-4 inline-block text-row text-accent">
             ← read the verdict
           </Link>
-          <StandingPanels />
+          <StandingPanels fingerprint={decoded} />
           <Footer />
         </main>
       </>
@@ -138,7 +138,7 @@ export default async function DisputePage({ params }: { params: Promise<{ fp: st
           </Link>
         </p>
 
-        <StandingPanels />
+        <StandingPanels fingerprint={dispute.fingerprint} />
         <Footer />
       </main>
     </>

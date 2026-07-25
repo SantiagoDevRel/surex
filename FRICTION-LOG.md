@@ -43,6 +43,63 @@
 ### W6 · Name collision with Coinbase AgentKit
 - Searching "agentkit testnet" lands on `@coinbase/agentkit`. Cost us time before we knew to distrust the results. Worth a disambiguation line in the docs and a note in the npm description.
 
+### W7 · 🐛 `lookupHuman()` swallows every error and returns `null` — **[VERIFIED, live + from source]**
+**Severity: high, and it is a correctness bug in an authorization primitive, not a DX annoyance.**
+**This also corrects our own W5, which was wrong about the failure mode.**
+
+- **Expected (and what W5 assumed):** a rate-limited or unreachable RPC makes `lookupHuman` *throw*, so a caller can tell "this agent is not registered" from "we could not ask".
+- **Happened:** it never throws. `@worldcoin/agentkit-core@0.2.0`, `src/agent-book.ts`, ends the read with a bare `} catch { return null }`. **Every** failure — HTTP 429, dead endpoint, wrong contract address, and even a mis-checksummed input address — returns exactly what an unregistered agent returns.
+- **Why it matters more than it looks:** `null` is the deny signal. A resource server following the quickstart (`if (!humanId) return 403`) tells an honest, registered, human-backed agent that no human stands behind it **because the server's own RPC was throttled**. On a demo day with one shared public RPC, that is the single most likely way an AgentKit integration fails, and it fails *silently and wrongly* rather than loudly.
+- **Repro** (live World Chain 480, 2026-07-25; `0xea7d…4171` is a real registration read off `AgentRegistered` logs):
+  ```js
+  import { createAgentBookVerifier } from '@worldcoin/agentkit';
+  const ok     = createAgentBookVerifier({ rpcUrl: 'https://480.rpc.thirdweb.com' });
+  const broken = createAgentBookVerifier({ rpcUrl: 'http://127.0.0.1:9' });
+  await ok.lookupHuman('0xeA7D8B94F6e8044a22738FFe78a2CB356D114171');      // 0x249394758bdbf66…  ✅
+  await broken.lookupHuman('0xeA7D8B94F6e8044a22738FFe78a2CB356D114171');  // null              ❌ RPC down
+  await ok.lookupHuman('0xea7d8b94f6E8044A22738fFE78a2cb356D114171');      // null              ❌ bad checksum
+  ```
+  Ours, runnable: `node apps/api/test/world-live.smoke.mjs`.
+- **Workaround we shipped:** never believe a `null`. On null we re-read `lookupHuman` through our own viem client, where a transport error is an exception, and only a confirmed `0` becomes `403 agent_not_human_backed`; a throw becomes `503 upstream_unavailable` with "standing is UNKNOWN — this is not a refusal". `apps/api/src/verifiers.mjs` → `lookupHumanStrict()`.
+- **Fix we'd suggest:** return `{ humanId | null, error? }`, or throw on transport failures and reserve `null` for `0n`. Whichever — a library whose deny answer is indistinguishable from its error answer cannot be used safely for authorization, and the quickstart's `if (!humanId) reject()` line teaches exactly the unsafe usage. A one-line `catch (e) { throw e }` would be a strict improvement over today's behaviour.
+
+### W8 · Base Sepolia's AgentBook is real, correctly wired, and has never been used — **[VERIFIED]**
+Follow-up to W4, resolving the "is there a no-Orb path?" question as far as it can be resolved from outside.
+
+- Read on 2026-07-25: `eth_getCode` at `0xA23aB…944dA` on Base Sepolia returns 3,569 bytes; Blockscout has it verified as `AgentBook`; `worldIdRouter()` = `0x42FF98C4E85212a5D31358ACbFe76a621b50fC02` (the documented Base **Sepolia testnet** WorldIDRouter) and `groupId()` = `1`. So it is genuinely pointed at the World ID testnet tree. Base **mainnet** 8453 has **no contract at that address** — if a Base mainnet deployment exists it is elsewhere, and we could not confirm it. **UNVERIFIED.**
+- **But its entire log history is two events**, both from deployment: `AgentBookInitialized` and `OwnershipTransferred`. **Zero `AgentRegistered`.** Nobody has ever registered an agent there.
+- So: **not usable as a no-Orb path today**, and we are saying that plainly rather than leaving it as a rumour. Three things block it, and only the first is ours to solve: the CLI cannot target it (W2, no `--network`), so you would reimplement `register(agent, root, nonce, nullifierHash, proof)` yourself; the proof must satisfy `externalNullifierHash`, which is derived from **World's own** `app_id` + `agentbook-registration` action, and whether the simulator will issue a staging proof for someone else's app is not something we could establish; and `lookupHuman` in the SDK resolves against World Chain 480 unless you inject a custom client, so a Base Sepolia registration is invisible to a default integration anyway.
+- **Ask for the booth:** is the Base Sepolia deployment supported, abandoned, or a staging artifact? It is discoverable, it is verified on a public explorer, and teams *will* find it and assume it is the testnet path. Either document it as one — which would remove the biggest onboarding blocker AgentKit has — or say it is not, because the current silence is the worst of the three options.
+
+### W9 · The AgentKit request header is `agentkit`, and nothing says so where you look
+- **Expected:** the docs or the quickstart to name the request header an agent sends, the way x402 documents `x-payment`.
+- **Happened:** no page we found names it. The only source of truth is `@worldcoin/agentkit@0.2.0`, where the client does `headers.set(AGENTKIT, header)` and the server hook does `getHeader(AGENTKIT)`, with `AGENTKIT = 'agentkit'` in `agentkit-core`. Cost us a route that classified a correctly signed agent as a *human* — it only looked for `x-payment` — and refused it for having no World ID proof. A wrong-and-confident 401.
+- **Worth stating explicitly** in the SDK reference next to `createHeader`, because anyone not using `@x402/hono` (which is anyone doing identity without payment) has to wire the header themselves. Same for the fact that `createHeader` is usable standalone: the docs only show it via `agentkit.fetch`, which is broken (W1), so the working path is currently the undocumented one.
+
+### W10 · Two documented test environments that contradict each other, and an OpenAPI enum that omits one — **[VERIFIED against the live endpoint]**
+- `world-id/idkit/integrate` step 4 says: *"To test during development, use the simulator and set `environment` to `"staging"`"*. The `world-id/sandbox/*` pages say Sandbox is the integration-testing environment, `environment: "sandbox"`, installed via TestFlight (iOS) or a Firebase link you must ask a World contact for (Android). Nothing on either page mentions the other. A team has no way to tell which is blessed, and they have very different setup costs — one is a web page, the other is a mobile build and a human contact.
+- **And the published contract disagrees with both:** the `POST /api/v4/verify/{rp_id}` OpenAPI spec documents `environment` as `production | staging` only. `IDKitRequestConfig` in `@worldcoin/idkit-core@4.2.2` types it as `production | staging | sandbox`. The **live endpoint accepts `sandbox`** — we sent it and it passed validation through to proof verification. So a client generated from the published spec rejects the value the Sandbox guide tells you to send.
+  ```bash
+  # 400 all_verifications_failed → the envelope was accepted, only our synthetic proof failed
+  curl -s -X POST https://developer.world.org/api/v4/verify/app_a7c3e2b6b83927251a0db5345bd7146a \
+    -H 'content-type: application/json' \
+    -d '{"protocol_version":"3.0","nonce":"1","action":"agentbook-registration","environment":"sandbox","responses":[{"identifier":"orb","merkle_root":"0x0","nullifier":"0x1","proof":"0x2"}]}'
+  ```
+- **Impact on us, concretely:** it is the reason this project cannot claim a completed simulator round trip. Add `environment` to the verify enum, and put one line at the top of both pages saying which environment a new integration should use in July 2026.
+
+### W11 · `verification_level` is gone, and every third-party snippet still uses it
+- **Expected:** `verification_level: "device"`, which is what our own tech spec §7.1 was written against and what every blog post and LLM answer still produces.
+- **Happened:** IDKit 4.x has no `verification_level`. The replacement is a preset — `deviceLegacy({ signal })` — and it additionally requires `allow_legacy_proofs: true` on the request or TypeScript fails on a missing prop. The mapping table exists, but only on `world-id/from-idkit-standalone`, a *migration* page a new integration has no reason to open.
+- **What would have prevented it:** the mapping table (or at least `deviceLegacy`) on `world-id/idkit/credentials` and in the integration prompt, which currently shows only `orbLegacy` and `proofOfHuman`. Requiring Orb of a maintainer defending their own code is not realistic, so `deviceLegacy` is the preset a lot of real integrations need and it is the hardest one to find.
+
+### W12 · `hashSignal` is not importable server-side without pulling in a browser SDK
+- Enforcing the `signal` binding server-side means recomputing `hashToField(signal)` and comparing it to `signal_hash`. The docs say *"the backend should enforce the same value"* but the only shipped implementation, `hashSignal`, lives in `@worldcoin/idkit-core` — a browser SDK a read-only backend has no other reason to depend on.
+- We reimplemented it (`keccak256(bytes) >> 8`, left-padded to 32 bytes) and cross-checked it against `hashSignal` on four vectors including the documented empty-signal default `0x00c5d246…85a4`. It matches. But every backend team will either redo this or skip the check, and skipping it is the difference between a proof bound to one dispute and a proof replayable across the whole registry.
+- **Fix we'd suggest:** publish it in a server-shaped package (`@worldcoin/idkit-server` already exists and already carries `signRequest`), and state the shift-right-8 formula in the verify reference so it can be implemented in any language. Two lines of prose.
+
+### W13 · A minor sharp edge: `humanId` is returned unpadded
+- `lookupHuman` returns `toHex(uint256)`, which drops leading zeros: the same registration reads as `0x1c2d8c2a0abcd…` from the SDK and `0x01c2d8c2a0abcd…` from the `AgentRegistered` event topic. Anyone using `humanId` as a map key, a database key, or a cross-check against the event will get two identities for one human depending on where they read it. Return it zero-padded to 32 bytes, or document it as a numeric value rather than a hash-shaped string.
+
 ---
 
 ## Sui / Walrus
