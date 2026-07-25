@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;
+--serif:Georgia,'Times New Roman',serif;--sans:system-ui,-apple-system,'Segoe UI',sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+--bg:#f2eee5;--panel:#faf8f2;--panel2:#eae4d4;--ink:#211d15;--muted:#6f6754;--line:#d6cfbe;--dot:#ada37f;
+--ok:#3d6b4f;--ok-bg:#e3eae0;--warn:#8a6a2f;--warn-bg:#f0e7cf;--flag:#8c3f32;--flag-bg:#eeddd6;}
+body[data-theme="dark"]{
+--bg:#161310;--panel:#1e1a15;--panel2:#26211a;--ink:#eae4d6;--muted:#9a9080;--line:#3a342a;--dot:#6a5f48;
+--ok:#8fb89d;--ok-bg:#20281f;--warn:#cfa964;--warn-bg:#2c2515;--flag:#cc8071;--flag-bg:#2f1f1a;}
+a{color:var(--ink)} a:hover{color:var(--muted)}
+</style>
+</helmet>
+<div style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--sans);transition:background .3s">
+<div style="max-width:1220px;margin:0 auto;padding:0 36px 90px">
+
+<sc-if value="{{tipOn}}" hint-placeholder-val="{{false}}">
+  <div style="position:fixed;left:{{tipX}}px;top:{{tipY}}px;transform:{{tipTf}};max-width:320px;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.55;padding:10px 13px;border-radius:3px;z-index:50;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:var(--sans)">{{tipText}}</div>
+</sc-if>
+
+<header data-screen-label="Header" style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding:44px 0 24px;border-bottom:2px solid var(--ink)">
+  <div>
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted)">TRUST REGISTRY FOR AI ASSISTANT PLUG-INS · A VISUAL EXPLAINER</div>
+    <h1 style="font-family:var(--serif);font-weight:500;font-size:38px;line-height:1.12;letter-spacing:-0.01em;margin:12px 0 0;max-width:820px;text-wrap:pretty">Every plug-in, checked before it acts. On the record.</h1>
+  </div>
+  <button onClick="{{toggleTheme}}" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:9px 14px;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--muted)">{{themeLabel}}</button>
+</header>
+<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:14px 0 0">◌ anything with a <span data-tip="Like this. Every technical term gets one plain sentence." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">dotted underline</span> has a plain-language note — hover or tap it</div>
+
+<section data-screen-label="The problem" style="display:grid;grid-template-columns:1fr 390px;gap:48px;align-items:start;margin-top:44px">
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted)">THE PROBLEM, IN THREE LINES</div>
+    <div style="font-family:var(--serif);font-size:21px;line-height:1.45;text-wrap:pretty">AI assistants can be handed plug-ins that do real things — read your files, send your email, query your database.</div>
+    <div style="font-family:var(--serif);font-size:21px;line-height:1.45;text-wrap:pretty">These plug-ins are called <span data-tip="MCP (Model Context Protocol) is the standard way to give an AI assistant an extra ability — an 'MCP server' is one such plug-in." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">MCP servers</span>. Anyone can publish one — and once added, it runs with every permission your assistant has.</div>
+    <div style="font-family:var(--serif);font-size:30px;line-height:1.3;font-weight:600">Nothing checks it first.</div>
+  </div>
+  <aside style="background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--flag);border-radius:3px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--flag)">CASE FILE · A REAL INCIDENT</div>
+    <div style="font-size:14px;line-height:1.6;text-wrap:pretty">One package behaved perfectly for fifteen versions. In the sixteenth, it quietly began copying every outgoing email to a stranger.</div>
+    <div style="font-size:14px;line-height:1.6">It ran for weeks.</div>
+    <div style="padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">the kind of change the review below is built to catch</div>
+  </aside>
+</section>
+
+<section data-screen-label="Flow 1 — the check" style="margin-top:56px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:1px solid var(--line);padding-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;border:1px solid var(--ink);padding:3px 8px;border-radius:2px">FLOW 1</span>
+      <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;margin:0">The check</h2>
+      <span style="font-size:13px;color:var(--muted)">what happens on your machine, every time</span>
+    </div>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap">before every action · takes milliseconds</span>
+  </div>
+  <div style="overflow-x:auto"><div style="min-width:1000px;padding-bottom:16px">
+  <div style="display:grid;grid-template-columns:1fr 26px 1fr 26px 1fr 26px 1fr;align-items:stretch;margin-top:24px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">STEP 01</div>
+      <div style="font-size:15px;font-weight:600">The assistant reaches for a plug-in</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">Your AI assistant is about to use one of its tools — say, a calendar plug-in that can read and create events.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">STEP 02</div>
+      <div style="font-size:15px;font-weight:600">A guard on your machine steps in</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">A small program <span data-tip="It sits between the assistant and the plug-in and briefly holds the action while the registry is consulted." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">intercepts</span> the action before anything runs. It works locally, in the moment.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">STEP 03</div>
+      <div style="font-size:15px;font-weight:600">Identified — without being run</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">The guard reads the plug-in's <span data-tip="The small configuration file created when a plug-in is added — enough to identify it exactly, without running it." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">installation settings</span>: its name, version, and where it came from. The code itself never runs to find out.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">STEP 04</div>
+      <div style="font-size:15px;font-weight:600">The registry is asked</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">One lookup in the <span data-tip="A fast lookup table that points at the sealed records — like a card catalogue for the evidence room." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">index</span>: what do we know about this exact plug-in, at this exact version?</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">reads → the shared record store, below</div>
+    </div>
+  </div>
+  <div style="width:1px;height:22px;background:var(--dot);margin:16px auto 0"></div>
+  <div style="text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--muted);margin:5px 0">ONE OF THREE OUTCOMES</div>
+  <div style="height:1px;background:var(--dot);margin-left:calc(22.22% - 8.9px);margin-right:calc(13.89% - 5.6px)"></div>
+  <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:20px">
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:20px;align-items:start">
+    <div style="opacity:{{oClean}};transition:opacity .3s;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--ok);border-radius:3px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+      <div><span style="display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;padding:4px 9px;border:1.5px solid var(--ok);color:var(--ok);background:var(--ok-bg);border-radius:2px">REVIEWED · NOTHING FOUND</span></div>
+      <div style="font-family:var(--serif);font-size:20px;font-weight:600">The action simply proceeds — silently</div>
+      <div style="font-size:13.5px;line-height:1.6;color:var(--muted);max-width:420px;text-wrap:pretty">This exact version was reviewed and nothing was found. Nothing appears on screen, nothing slows down. The user never notices the system exists — and this is the overwhelmingly common case.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">what you see — nothing at all</div>
+    </div>
+    <div style="opacity:{{oUnknown}};transition:opacity .3s;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--warn);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+      <div><span style="display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;padding:4px 9px;border:1.5px solid var(--warn);color:var(--warn);background:var(--warn-bg);border-radius:2px">UNKNOWN · OR OUTDATED</span></div>
+      <div style="font-size:15px;font-weight:600">A caution — and it still proceeds</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">Never reviewed, or reviewed too long ago. You're told so. The action goes ahead.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">what you see — one short caution</div>
+    </div>
+    <div style="opacity:{{oFlagged}};transition:opacity .3s;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--flag);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+      <div><span style="display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;padding:4px 9px;border:1.5px solid var(--flag);color:var(--flag);background:var(--flag-bg);border-radius:2px">FLAGGED</span></div>
+      <div style="font-size:15px;font-weight:600">The action stops — and you decide</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">You're shown exactly what was found:</div>
+      <div style="font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--panel2);border:1px dashed var(--line);padding:9px 11px;border-radius:2px">finding · send.js, line 214 — every outgoing email is also copied to an address the plug-in never mentions<br>reach · your email · the network</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">The system never takes the decision away from you. One command proceeds anyway:</div>
+      <div style="font-family:var(--mono);font-size:11.5px;background:var(--panel2);border:1px dashed var(--line);padding:8px 10px;border-radius:2px">override calendar-sync --once</div>
+    </div>
+  </div>
+  <div style="margin-top:20px">
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">HOW OFTEN EACH HAPPENS — ILLUSTRATIVE</div>
+    <div style="display:flex;height:10px;border:1px solid var(--line);border-radius:2px;overflow:hidden;margin-top:6px">
+      <div style="width:86%;background:var(--ok);opacity:.7"></div>
+      <div style="width:11%;background:var(--warn);opacity:.7"></div>
+      <div style="width:3%;background:var(--flag);opacity:.8"></div>
+    </div>
+    <div style="display:flex;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px">
+      <div style="width:86%">almost every check — silent pass</div>
+      <div style="width:11%">occasional</div>
+      <div style="width:3%;white-space:nowrap">rare</div>
+    </div>
+  </div>
+  </div></div>
+</section>
+<section data-screen-label="The shared record store" style="margin-top:56px">
+  <div style="text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">▲ the check reads the index — every action, in milliseconds</div>
+  <div style="width:1px;height:20px;background:var(--dot);margin:6px auto"></div>
+  <div style="background:var(--panel2);border-top:3px double var(--ink);border-bottom:3px double var(--ink);padding:26px 28px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:baseline;gap:14px">
+        <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;margin:0">The shared record store</h2>
+        <span style="font-size:13px;color:var(--muted)">one store — the review writes it, the check reads it. This is the point of the design.</span>
+      </div>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap"><span data-tip="Stored so that any later change, even one character, is immediately detectable by anyone — nothing about it is secret." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">tamper-evident</span> · public</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:20px;margin-top:20px;align-items:stretch">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">EXHIBIT A · THE CODE</div>
+        <div style="font-size:15px;font-weight:600">A sealed copy of the source code</div>
+        <div style="font-size:13px;line-height:1.55;color:var(--muted)">The exact code that was reviewed, kept under seal. Alter one character later and the seal no longer matches.</div>
+        <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">record #S-1847 · sealed</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">EXHIBIT B · THE JUDGEMENT</div>
+        <div style="font-size:15px;font-weight:600">A sealed verdict — kept separate</div>
+        <div style="font-size:13px;line-height:1.55;color:var(--muted)">The review's conclusion is its own record, apart from the code it judges — so each can be checked independently.</div>
+        <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">record #V-1847 · sealed</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">THE CARD CATALOGUE · THE INDEX</div>
+        <div style="font-size:15px;font-weight:600">A searchable index pointing at both</div>
+        <div style="font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--panel2);border:1px dashed var(--line);padding:9px 11px;border-radius:2px">calendar-sync&nbsp;&nbsp;v2.4.1 → code #S-1847 · verdict #V-1847<br>mail-merge&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v1.0.2 → code #S-2011 · verdict #V-2011</div>
+        <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">answers in milliseconds — this is what Flow 1 reads</div>
+      </div>
+    </div>
+  </div>
+  <div style="width:1px;height:20px;background:var(--dot);margin:6px auto"></div>
+  <div style="text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">▼ the review writes new records — every submission and release, in minutes</div>
+</section>
+<section data-screen-label="Flow 2 — the review" style="margin-top:56px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:1px solid var(--line);padding-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;border:1px solid var(--ink);padding:3px 8px;border-radius:2px">FLOW 2</span>
+      <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;margin:0">The review</h2>
+      <span style="font-size:13px;color:var(--muted)">how anything earns a verdict</span>
+    </div>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap">on submission · on every new release · takes minutes</span>
+  </div>
+  <div style="overflow-x:auto"><div style="min-width:1040px;padding-bottom:16px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:24px;align-items:stretch">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">WAY IN 01</div>
+      <div style="font-size:14.5px;font-weight:600">The author submits their own</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">A plug-in's maker sends it in for review.</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">WAY IN 02</div>
+      <div style="font-size:14.5px;font-weight:600">A crawler finds it</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">An automated <span data-tip="A program that walks public plug-in directories on its own and submits what it finds for review." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">crawler</span> walks public plug-in directories and submits what it finds.</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">WAY IN 03</div>
+      <div style="font-size:14.5px;font-weight:600">A listener catches new releases</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">When a known plug-in ships a <span data-tip="Plug-ins update over time; each numbered release is new code — and new code means a fresh review." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">new version</span>, the new code is pulled in automatically.</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+    <div style="width:1px;height:16px;background:var(--dot);margin:0 auto"></div>
+  </div>
+  <div style="height:1px;background:var(--dot);margin-left:calc(9.2% - 9.5px);margin-right:calc(16.67% - 6.7px)"></div>
+  <div style="width:1px;height:18px;background:var(--dot);margin-left:calc(9.2% - 9.5px)"></div>
+  <div style="display:grid;grid-template-columns:1fr 26px 1fr 26px 1.45fr 26px 1fr 26px 1fr;align-items:stretch">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">GATE</div>
+      <div style="font-size:14.5px;font-weight:600">A <span data-tip="A quick legal check: some code's terms don't allow keeping a copy, and the registry never stores what it can't legally hold." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">licence check</span></div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">Can a copy legally be kept? The registry never stores what it isn't allowed to hold.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--flag)">✕ if not — it stops here, unreviewed</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">EVIDENCE IN</div>
+      <div style="font-size:14.5px;font-weight:600">The code is sealed into storage</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">An exact copy is written to tamper-evident storage — Exhibit A, above.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">→ record #S-1847</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="border:1px dashed var(--dot);border-radius:3px;padding:10px;display:flex;flex-direction:column;gap:8px;background:transparent">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);text-align:center">IN PARALLEL — THE SPLIT MATTERS</div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:11px 13px;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:14px;font-weight:600">An AI reads the code…</div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--muted)">…against what the plug-in claims to do. Does a "calendar helper" quietly read your email?</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:11px 13px;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:14px;font-weight:600">A <span data-tip="A fixed, rule-based reading of the code — same input, same answer every time, with no AI judgement involved." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">mechanical scan</span> lists its reach</div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--muted)">What the code can actually touch: the network, your files, other programs, your passwords. Nothing written in the file can talk it out of its conclusion.</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">JUDGEMENT</div>
+      <div style="font-size:14.5px;font-weight:600">One verdict is sealed</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">Both readings become one verdict — its own record, Exhibit B, separate from the code it judges.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">→ record #V-1847</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">PUBLISHED</div>
+      <div style="font-size:14.5px;font-weight:600">The index is updated</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">It now points at both records. The very next check — Flow 1 — sees it.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">publishes ▲ to the store above</div>
+    </div>
+  </div>
+  </div></div>
+</section>
+<section data-screen-label="The appeal — a returning loop" style="margin-top:56px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:1px solid var(--line);padding-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;border:1px solid var(--ink);padding:3px 8px;border-radius:2px">THE APPEAL</span>
+      <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;margin:0">A returning loop</h2>
+      <span style="font-size:13px;color:var(--muted)">what happens when someone says the verdict is wrong</span>
+    </div>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap">open to anyone — people and AI agents alike</span>
+  </div>
+  <div style="overflow-x:auto"><div style="min-width:1000px;padding-bottom:16px">
+  <div style="display:grid;grid-template-columns:1fr 26px 1fr 26px 1fr 26px 1fr;align-items:stretch;margin-top:24px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">CONTEST</div>
+      <div style="font-size:14.5px;font-weight:600">Anyone can contest a verdict</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">A person — or an <span data-tip="A program that acts on its own toward a goal — here, one whose work depends on the plug-in in question." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">autonomous AI agent</span> that depends on the plug-in and has a real stake in it not being wrongly flagged.</div>
+      <div style="margin-top:auto;padding-top:8px;border-top:1px dotted var(--line);font-family:var(--mono);font-size:10.5px;color:var(--muted)">requires — a real human behind it · see World, below</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">ON THE RECORD</div>
+      <div style="font-size:14.5px;font-weight:600">The objection is filed beside the accusation</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">From then on, whoever is shown the verdict is shown the contest too — side by side.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">UNCHANGED</div>
+      <div style="font-size:14.5px;font-weight:600">The block does not lift</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">A contest changes what people are told. It never changes what is blocked.</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;color:var(--dot);font-family:var(--mono);font-size:14px">→</div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:14px 16px;display:flex;flex-direction:column;gap:7px">
+      <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">RESOLUTION</div>
+      <div style="font-size:14.5px;font-weight:600">Only a human review clears it</div>
+      <div style="font-size:13px;line-height:1.55;color:var(--muted)">A person re-reads the evidence. Their decision is sealed as a new record — the old verdict stays on file: corrected, never erased.</div>
+    </div>
+  </div>
+  <div style="width:1px;height:16px;background:var(--dot);margin-left:auto;margin-right:calc(12.5% - 10px)"></div>
+  <div style="display:flex;align-items:center">
+    <div style="width:calc(12.5% - 15px)"></div>
+    <div style="color:var(--dot);font-family:var(--mono);font-size:12px;line-height:1">▲</div>
+    <div style="flex:1;border-top:1px dashed var(--dot)"></div>
+    <div style="width:calc(12.5% - 10px)"></div>
+  </div>
+  <div style="text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:8px">the settled verdict returns to the shared record store — written as record #V-1847·r2 — and every future check sees the correction</div>
+  </div></div>
+</section>
+<section data-screen-label="The three technologies underneath" style="margin-top:56px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-bottom:1px solid var(--line);padding-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;border:1px solid var(--ink);padding:3px 8px;border-radius:2px">UNDERNEATH</span>
+      <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;margin:0">Three technologies, three jobs</h2>
+    </div>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap">the third question is the one that matters</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:24px;align-items:stretch">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">ARKIV · THE INDEX</div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT IS IT?</div><div style="font-size:13px;line-height:1.55">A searchable index built for instant answers.</div></div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT DOES IT DO HERE?</div><div style="font-size:13px;line-height:1.55">Answers "what is the state of this plug-in right now?" fast enough to run before every single action.</div></div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:2px;padding:12px 14px"><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">WHAT IF YOU REMOVED IT?</div><div style="font-size:13.5px;line-height:1.55;font-weight:600">The check becomes too slow to sit in the path of every action — so it would simply be skipped.</div></div>
+      <div style="margin-top:auto;padding-top:10px;border-top:1px dotted var(--line);font-family:var(--serif);font-style:italic;font-size:14.5px;line-height:1.5">"It answers 'what do we know about this plug-in?' before you finish blinking."</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">WALRUS, ON SUI · THE RECORD STORE</div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT IS IT?</div><div style="font-size:13px;line-height:1.55">Tamper-evident storage where every record's <span data-tip="The storage address is computed from the bytes themselves — change the bytes and you get a different address." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">address is derived from its exact contents</span>.</div></div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT DOES IT DO HERE?</div><div style="font-size:13px;line-height:1.55">Holds every sealed copy of code and every sealed verdict. Change a single byte and the address no longer matches — the swap is obvious to everyone.</div></div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:2px;padding:12px 14px"><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">WHAT IF YOU REMOVED IT?</div><div style="font-size:13.5px;line-height:1.55;font-weight:600">You'd have to trust whoever runs the registry — which defeats the entire point of a registry.</div></div>
+      <div style="margin-top:auto;padding-top:10px;border-top:1px dotted var(--line);font-family:var(--serif);font-style:italic;font-size:14.5px;line-height:1.5">"Change one byte of the evidence, and everyone can see the seal is broken."</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">WORLD · THE HUMAN BEHIND EACH APPEAL</div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT IS IT?</div><div style="font-size:13px;line-height:1.55">A way to <span data-tip="A cryptographic proof that one unique person is present — without revealing who they are." onMouseEnter="{{tipShow}}" onMouseLeave="{{tipHide}}" onClick="{{tipTap}}" style="border-bottom:1px dotted var(--muted);cursor:help">prove a real, unique human is present</span> — without saying who they are.</div></div>
+      <div><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:3px">WHAT DOES IT DO HERE?</div><div style="font-size:13px;line-height:1.55">Every contest — even one filed by an AI agent — must have one real human standing behind it.</div></div>
+      <div style="background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:2px;padding:12px 14px"><div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">WHAT IF YOU REMOVED IT?</div><div style="font-size:13.5px;line-height:1.55;font-weight:600">Anyone could flood the appeals process with thousands of fake objections — and real ones would drown.</div></div>
+      <div style="margin-top:auto;padding-top:10px;border-top:1px dotted var(--line);font-family:var(--serif);font-style:italic;font-size:14.5px;line-height:1.5">"Every appeal has one real human behind it — no matter who files it."</div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="What this system does not claim" style="margin-top:56px">
+  <div style="border:1px solid var(--ink);border-radius:3px;background:var(--panel);padding:22px 26px">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted)">READ THIS BEFORE YOU TRUST IT — WHAT THE SYSTEM DOES NOT CLAIM</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:16px">
+      <div style="font-size:13.5px;line-height:1.6;text-wrap:pretty"><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">1 · </span>The review is done by an AI model. No human audited it.</div>
+      <div style="font-size:13.5px;line-height:1.6;text-wrap:pretty"><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">2 · </span>"Reviewed" means: what the code appeared to do when it was read — not that the plug-in is safe.</div>
+      <div style="font-size:13.5px;line-height:1.6;text-wrap:pretty"><span style="font-family:var(--mono);font-size:11px;color:var(--muted)">3 · </span>It cannot always prove that the code reviewed is the exact code now on your machine.</div>
+    </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px dotted var(--line);font-family:var(--serif);font-size:16px">The system says <span style="font-weight:600">reviewed</span> — never <span style="color:var(--muted);text-decoration:line-through">safe</span>, <span style="color:var(--muted);text-decoration:line-through">trusted</span>, <span style="color:var(--muted);text-decoration:line-through">verified</span> or <span style="color:var(--muted);text-decoration:line-through">secure</span>.</div>
+  </div>
+  <div style="margin-top:26px;font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:center">an explainer, not a promise · every record cited above is illustrative</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;highlight&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;clean&quot;,&quot;unknown&quot;,&quot;flagged&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Focus on one outcome&quot;}}">
+class Component extends DCLogic {
+  state = { theme: null, tip: null };
+  effTheme() { return this.state.theme ?? this.props.theme ?? 'light'; }
+  applyTheme() { document.body.dataset.theme = this.effTheme(); }
+  componentDidMount() {
+    this.applyTheme();
+    this._doc = () => this.state.tip && this.setState({ tip: null });
+    document.addEventListener('click', this._doc);
+  }
+  componentWillUnmount() { document.removeEventListener('click', this._doc); }
+  componentDidUpdate() { this.applyTheme(); }
+  showTipFor(el) {
+    const r = el.getBoundingClientRect();
+    const below = r.top < 130;
+    this.setState({ tip: {
+      text: el.dataset.tip,
+      x: Math.min(Math.max(r.left + r.width / 2, 180), window.innerWidth - 180),
+      y: below ? r.bottom + 10 : r.top - 10,
+      tf: below ? 'translate(-50%,0)' : 'translate(-50%,-100%)',
+    }});
+  }
+  renderVals() {
+    const theme = this.effTheme();
+    const h = this.props.highlight ?? 'none';
+    const dim = k => (h === 'none' || h === k ? '1' : '0.3');
+    const tip = this.state.tip;
+    return {
+      themeLabel: theme === 'dark' ? 'SWITCH TO LIGHT' : 'SWITCH TO DARK',
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
+      tipShow: e => this.showTipFor(e.currentTarget),
+      tipHide: () => this.setState({ tip: null }),
+      tipTap: e => { e.stopPropagation(); this.showTipFor(e.currentTarget); },
+      tipOn: !!tip, tipText: tip ? tip.text : '', tipX: tip ? tip.x : 0, tipY: tip ? tip.y : 0, tipTf: tip ? tip.tf : '',
+      oClean: dim('clean'), oUnknown: dim('unknown'), oFlagged: dim('flagged'),
+    };
+  }
+}
+</script>
+</body>
+</html>

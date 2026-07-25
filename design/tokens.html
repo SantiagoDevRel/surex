@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#141310;color:#e8e4da;font-family:'IBM Plex Mono',ui-monospace,monospace;
+--bg:#141310;--panel:#1c1a16;--panel2:#181713;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.06);
+--ink:#e8e4da;--ink2:#b5afa0;--ink3:#8b8578;--faint:#5c584e;--accent:#7aa3cc;
+--clean:#6aa87c;--clean-t:rgba(106,168,124,.14);--clean-l:rgba(106,168,124,.5);
+--flagged:#c95b4d;--flagged-t:rgba(201,91,77,.14);--flagged-l:rgba(201,91,77,.55);
+--disputed:#9c86c9;--disputed-t:rgba(156,134,201,.14);--disputed-l:rgba(156,134,201,.55);
+--stale:#c9a15a;--stale-t:rgba(201,161,90,.14);--stale-l:rgba(201,161,90,.55)}
+a{color:#7aa3cc;text-decoration:none}a:hover{color:#9dbcdd;text-decoration:underline}
+@keyframes dashFlow{to{background-position:24px 0}}
+@keyframes pulseC{0%,100%{box-shadow:0 0 0 0 rgba(106,168,124,.45)}55%{box-shadow:0 0 0 8px rgba(106,168,124,0)}}
+@keyframes blink{50%{opacity:0}}
+</style>
+</helmet>
+<div style="max-width:1160px;padding:44px;display:grid;gap:30px">
+
+<div>
+  <div style="font-size:9px;letter-spacing:.22em;color:var(--ink3)">SUREX · DESIGN TOKENS + COMPONENTS · V1</div>
+  <div style="font-size:22px;font-weight:600;letter-spacing:.02em;margin-top:8px">Everything the six screens compose from</div>
+  <div style="font-size:11.5px;color:var(--ink2);margin-top:8px;max-width:760px;line-height:1.6">Locked system: <b>2c linkage chain</b> primary · <b>2b stamp</b> hero · <b>1c custody row</b> compact. State owns hue; tier and confirmation own form. Accent never appears in a verdict. The word is <b>reviewed</b> — never safe, trusted, verified, secure.</div>
+</div>
+
+<!-- ===== COLOR ===== -->
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">01 · COLOR — BY ROLE · tailwind key → dark / light</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 36px;font-size:10.5px">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#141310;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#f5f2ea;flex:none"></span><b style="width:96px">bg</b><span style="color:var(--ink3)">#141310 / #f5f2ea — page</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#1c1a16;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#fdfbf6;border:1px solid #d5cfc0;flex:none"></span><b style="width:96px">panel</b><span style="color:var(--ink3)">#1c1a16 / #fdfbf6 — cards</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#181713;border:1px solid var(--line);flex:none"></span><span style="width:15px;height:15px;background:#efece2;flex:none"></span><b style="width:96px">panel-2</b><span style="color:var(--ink3)">#181713 / #efece2 — wells, code</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#e8e4da;flex:none"></span><span style="width:15px;height:15px;background:#22201a;flex:none"></span><b style="width:96px">ink</b><span style="color:var(--ink3)">#e8e4da / #22201a — primary text</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#b5afa0;flex:none"></span><span style="width:15px;height:15px;background:#4a463c;flex:none"></span><b style="width:96px">ink-2</b><span style="color:var(--ink3)">#b5afa0 / #4a463c — secondary</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#8b8578;flex:none"></span><span style="width:15px;height:15px;background:#6e6a5e;flex:none"></span><b style="width:96px">ink-3</b><span style="color:var(--ink3)">#8b8578 / #6e6a5e — labels, meta</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#5c584e;flex:none"></span><span style="width:15px;height:15px;background:#a09a8c;flex:none"></span><b style="width:96px">faint</b><span style="color:var(--ink3)">#5c584e / #a09a8c — disabled, hints</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#7aa3cc;flex:none"></span><span style="width:15px;height:15px;background:#33608f;flex:none"></span><b style="width:96px">accent</b><span style="color:var(--ink3)">#7aa3cc / #33608f — links, focus, actions. NEVER in verdicts</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#6aa87c;flex:none"></span><span style="width:15px;height:15px;background:#2e7047;flex:none"></span><b style="width:96px">clean</b><span style="color:var(--ink3)">#6aa87c / #2e7047 + tint 14% / line 50%</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#c95b4d;flex:none"></span><span style="width:15px;height:15px;background:#a33d2f;flex:none"></span><b style="width:96px">flagged</b><span style="color:var(--ink3)">#c95b4d / #a33d2f — also severity·high</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#9c86c9;flex:none"></span><span style="width:15px;height:15px;background:#6b4fa0;flex:none"></span><b style="width:96px">disputed</b><span style="color:var(--ink3)">#9c86c9 / #6b4fa0 — contest, rebuttal</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--line2)"><span style="width:15px;height:15px;background:#c9a15a;flex:none"></span><span style="width:15px;height:15px;background:#8a6a24;flex:none"></span><b style="width:96px">stale</b><span style="color:var(--ink3)">#c9a15a / #8a6a24 — also severity·medium, warnings</span></div>
+  </div>
+  <div style="font-size:10px;color:var(--ink3);margin-top:12px;line-height:1.6">unknown / unreviewable use <b>ink-3</b> — no reserved hue: gray is the honest color of ignorance. Hairlines: <b>line</b> rgba(255,255,255,.09) / rgba(30,28,20,.12); <b>line-2</b> .06 / .07.</div>
+</div>
+
+<!-- ===== TYPE + SPACE ===== -->
+<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:26px">
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">02 · TYPE — IBM PLEX MONO (STRUCTURE) + SOURCE SERIF 4 (EVIDENCE PROSE)</div>
+  <div style="display:grid;gap:9px">
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line2);padding-bottom:8px"><span style="font-size:28px;font-weight:600;letter-spacing:.02em">FLAGGED</span><span style="font-size:9.5px;color:var(--ink3)">mono-hero · 28/600 · stamps, page titles</span></div>
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line2);padding-bottom:8px"><span style="font-size:18px;font-weight:600">stripe-mcp-tools 1.0.4</span><span style="font-size:9.5px;color:var(--ink3)">mono-xl · 18/600 · subjects</span></div>
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line2);padding-bottom:8px"><span style="font-size:12.5px">credentials read on init · src/init.ts:214</span><span style="font-size:9.5px;color:var(--ink3)">mono-base · 12.5/400 · body data, terminal</span></div>
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line2);padding-bottom:8px"><span style="font-size:11px">clean · A digest match · confirmed 84d</span><span style="font-size:9.5px;color:var(--ink3)">mono-sm · 11/400 · rows, chips</span></div>
+    <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line2);padding-bottom:8px"><span style="font-size:9px;letter-spacing:.16em;color:var(--ink3)">PROVENANCE · REVIEWED 2026-07-23</span><span style="font-size:9.5px;color:var(--ink3)">mono-label · 9/400/+.16em/caps</span></div>
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font-family:'Source Serif 4',serif;font-size:15px;line-height:1.55">The initialization routine reads every variable matching STRIPE_* and posts them to an external host before the first tool call completes.</span><span style="font-size:9.5px;color:var(--ink3);flex:none">serif-base · 15/1.55 · findings, rebuttals, long-form</span></div>
+  </div>
+</div>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">03 · SPACE · RADIUS · BORDER · MOTION</div>
+  <div style="display:flex;align-items:flex-end;gap:6px;margin-bottom:14px">
+    <div style="width:2px;height:2px;background:var(--ink2)"></div><div style="width:4px;height:4px;background:var(--ink2)"></div><div style="width:8px;height:8px;background:var(--ink2)"></div><div style="width:12px;height:12px;background:var(--ink2)"></div><div style="width:16px;height:16px;background:var(--ink2)"></div><div style="width:24px;height:24px;background:var(--ink2)"></div><div style="width:32px;height:32px;background:var(--ink2)"></div><div style="width:44px;height:44px;background:var(--ink2)"></div>
+  </div>
+  <div style="font-size:10.5px;color:var(--ink2);line-height:1.8">space: 2 4 8 12 16 24 32 44 (px)<br>radius: 3 (chips) · 4 (inputs, wells) · 6 (panels) · <b>0 on stamps</b><br>border: 1px hairline · 1.5px chips · 2px stamp<br>motion: 140ms ease-out (hover) · 450ms cubic-bezier(.2,.8,.2,1) (stamp-in) · 250ms stagger (chain draw) · 1.2s linear loop (dash flow)<br>focus: 2px offset outline in accent</div>
+</div>
+</div>
+
+<!-- ===== STAMP ===== -->
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">04 · VERDICT STAMP — HERO, ONE PER PAGE</div>
+  <div style="font-size:10.5px;color:var(--ink3);margin-bottom:20px">Tier = impression: A double-struck (inset ring) · B single 2px · C dashed. Rotation −2°. Counter-stamp = confirmation, +2°, overlapping bottom-right. Slams in once on page arrival, then it is a document.</div>
+  <div style="display:flex;flex-wrap:wrap;gap:34px 44px;align-items:flex-start;margin-bottom:8px">
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px solid var(--clean);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--clean);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:600;letter-spacing:.22em;color:var(--clean)">CLEAN</div><div style="font-size:8px;letter-spacing:.09em;color:var(--ink3);margin-top:5px">TIER A · DIGEST MATCH</div></div><div style="position:absolute;right:-14px;bottom:-11px;background:var(--bg);border:1px solid var(--clean);padding:3px 8px;font-size:8px;letter-spacing:.08em;color:var(--clean);transform:rotate(2deg)">UNCONTESTED · 84 DAYS</div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px solid var(--flagged);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--flagged);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:600;letter-spacing:.22em;color:var(--flagged)">FLAGGED</div><div style="font-size:8px;letter-spacing:.09em;color:var(--ink3);margin-top:5px">TIER A · DIGEST MATCH</div></div><div style="position:absolute;right:-14px;bottom:-11px;background:var(--bg);border:1px dashed var(--ink3);padding:3px 8px;font-size:8px;letter-spacing:.08em;color:var(--ink2);transform:rotate(2deg)">AUTOMATED · NO HUMAN AUDIT</div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px solid var(--flagged);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:600;letter-spacing:.22em;color:var(--flagged)">FLAGGED</div><div style="font-size:8px;letter-spacing:.09em;color:var(--ink3);margin-top:5px">TIER B · VERSION PINNED</div></div><div style="position:absolute;right:-16px;bottom:-11px;background:var(--bg);border:1px solid var(--disputed);padding:3px 8px;font-size:8px;letter-spacing:.08em;color:var(--disputed);transform:rotate(-3deg)">CONTESTED · REBUTTAL ON FILE</div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px dashed var(--stale);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:600;letter-spacing:.22em;color:var(--stale)">STALE</div><div style="font-size:8px;letter-spacing:.09em;color:var(--ink3);margin-top:5px">TIER C · REVIEWED 0.5.1 ≠ 0.6.2</div></div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px dashed var(--ink3);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:500;letter-spacing:.22em;color:var(--ink3)">UNREVIEWABLE</div><div style="font-size:8px;letter-spacing:.09em;color:var(--faint);margin-top:5px">CLOSED SOURCE · REMOTE</div></div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:1px dotted var(--faint);transform:rotate(-2deg)"><div style="font-size:17px;font-weight:400;letter-spacing:.22em;color:var(--ink3)">UNKNOWN</div><div style="font-size:8px;letter-spacing:.09em;color:var(--faint);margin-top:5px">NOT IN THE REGISTRY</div></div></div>
+    <div style="position:relative;display:inline-block"><div style="padding:11px 18px 13px;border:2px solid var(--flagged);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--flagged);transform:rotate(-2deg);opacity:.45"><div style="font-size:17px;font-weight:600;letter-spacing:.22em;color:var(--flagged)">FLAGGED</div><div style="font-size:8px;letter-spacing:.09em;color:var(--ink3);margin-top:5px">TIER A · DIGEST MATCH</div></div><div style="position:absolute;left:-10px;top:34%;background:var(--bg);border:2px solid var(--ink2);padding:4px 10px;font-size:11px;font-weight:600;letter-spacing:.18em;color:var(--ink);transform:rotate(-8deg)">SUPERSEDED → v2</div></div>
+  </div>
+</div>
+
+<!-- ===== CHAIN ===== -->
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">05 · LINKAGE CHAIN — PRIMARY TIER DISPLAY</div>
+  <div style="font-size:10.5px;color:var(--ink3);margin-bottom:18px">Segments: 30×8, r4, gap 6, draw in at 250ms stagger. Filled = checked · outlined = asserted, unchecked · flowing dashes = nothing to check. Hue = state. Endpoints: panel-2 wells, 9px. The right well tells the truth about the local side.</div>
+  <div style="display:grid;gap:14px">
+    <div style="display:flex;align-items:center"><span style="flex:none;border:1px solid var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink2)">REVIEWED BLOB<br><span style="color:var(--faint)">walrus:0x91f4…be22</span></span><span style="width:30px;height:8px;background:var(--clean);border-radius:4px;margin:0 3px"></span><span style="width:30px;height:8px;background:var(--clean);border-radius:4px;margin:0 3px"></span><span style="width:30px;height:8px;background:var(--clean);border-radius:4px;margin:0 3px"></span><span style="flex:none;border:1px solid var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink2)">YOUR INSTALL<br><span style="color:var(--clean)">sha256 match</span></span><span style="margin-left:14px;font-size:10.5px;color:var(--clean);font-weight:600">A</span><span style="margin-left:10px;font-size:9.5px;color:var(--ink3)">the reviewed bytes are the installed bytes</span></div>
+    <div style="display:flex;align-items:center"><span style="flex:none;border:1px solid var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink2)">REVIEWED BLOB<br><span style="color:var(--faint)">walrus:0x2c7a…09d1</span></span><span style="width:30px;height:8px;background:var(--clean);border-radius:4px;margin:0 3px"></span><span style="width:30px;height:8px;background:var(--clean);border-radius:4px;margin:0 3px"></span><span style="width:30px;height:8px;border:1.5px solid var(--clean-l);border-radius:4px;box-sizing:border-box;margin:0 3px"></span><span style="flex:none;border:1px solid var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink2)">YOUR INSTALL<br><span style="color:var(--stale)">pinned 1.0.4 · digest unchecked</span></span><span style="margin-left:14px;font-size:10.5px;color:var(--clean);font-weight:600">B</span><span style="margin-left:10px;font-size:9.5px;color:var(--ink3)">same version string — bytes not compared</span></div>
+    <div style="display:flex;align-items:center"><span style="flex:none;border:1px solid var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink2)">REVIEWED BLOB<br><span style="color:var(--faint)">walrus:0x88e0…4c17</span></span><span style="width:30px;height:8px;background:repeating-linear-gradient(90deg,var(--clean-l) 0 6px,transparent 6px 12px);animation:dashFlow 1.2s linear infinite;margin:0 3px"></span><span style="width:30px;height:8px;background:repeating-linear-gradient(90deg,rgba(106,168,124,.3) 0 6px,transparent 6px 12px);animation:dashFlow 1.2s linear infinite;margin:0 3px"></span><span style="width:30px;height:8px;margin:0 3px;display:inline-grid;place-items:center;font-size:9px;color:var(--faint)">✕</span><span style="flex:none;border:1px dashed var(--line);background:var(--panel2);padding:5px 10px;font-size:9px;line-height:1.5;color:var(--ink3)">YOUR INSTALL<br><span style="color:var(--faint)">unpinned — nothing was checked</span></span><span style="margin-left:14px;font-size:10.5px;color:var(--ink3);font-weight:500">C</span><span style="margin-left:10px;font-size:9.5px;color:var(--ink3)">the verdict is about code that may not be your code</span></div>
+  </div>
+</div>
+
+<!-- ===== ROW + CHIPS ===== -->
+<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:26px">
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">06 · CUSTODY ROW — TABLES, LISTS, TERMINALS</div>
+  <div style="font-size:10.5px;color:var(--ink3);margin-bottom:14px">state (hue, 600) · tier (letter 600 + 3-cell meter) · standing (plain) · meta right-aligned. 32px row, line-2 separators.</div>
+  <div style="border:1px solid var(--line);border-radius:4px;font-size:11px">
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line2)"><span style="color:var(--ink);width:220px">mcp-server-postgres <span style="color:var(--ink3)">0.6.2</span></span><span style="color:var(--clean);font-weight:600;width:88px">clean</span><span style="width:25px;height:7px;flex:none;background:linear-gradient(90deg,var(--ink2) 0 7px,transparent 7px 9px,var(--ink2) 9px 16px,transparent 16px 18px,var(--ink2) 18px 25px)"></span><span style="color:var(--ink);font-weight:600">A</span><span style="color:var(--ink2)">confirmed 84d</span><span style="color:var(--ink3);font-size:10px;margin-left:auto">net fs</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line2)"><span style="color:var(--ink);width:220px">stripe-mcp-tools <span style="color:var(--ink3)">1.0.4</span></span><span style="color:var(--flagged);font-weight:600;width:88px">flagged</span><span style="width:25px;height:7px;flex:none;background:linear-gradient(90deg,var(--ink2) 0 7px,transparent 7px 9px,var(--ink2) 9px 16px,transparent 16px 18px,var(--ink2) 18px 25px)"></span><span style="color:var(--ink);font-weight:600">A</span><span style="color:var(--stale)">automated only</span><span style="color:var(--ink3);font-size:10px;margin-left:auto">net env cred</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line2)"><span style="color:var(--ink);width:220px">browserbase-mcp <span style="color:var(--ink3)">2.1.0</span></span><span style="color:var(--disputed);font-weight:600;width:88px">disputed</span><span style="width:25px;height:7px;flex:none;background:linear-gradient(90deg,var(--ink2) 0 7px,transparent 7px 9px,var(--ink2) 9px 16px,transparent 16px 18px,var(--line) 18px 25px)"></span><span style="color:var(--ink);font-weight:600">B</span><span style="color:var(--disputed)">rebuttal on file</span><span style="color:var(--ink3);font-size:10px;margin-left:auto">net proc</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 12px"><span style="color:var(--ink);width:220px">redis-mcp <span style="color:var(--ink3)">5.0.1</span></span><span style="color:var(--ink2);width:88px">review running<span style="animation:blink 1s step-end infinite">…</span></span><span style="width:25px;height:7px;flex:none;background:linear-gradient(90deg,var(--line) 0 7px,transparent 7px 9px,var(--line) 9px 16px,transparent 16px 18px,var(--line) 18px 25px)"></span><span style="color:var(--faint);font-weight:600">—</span><span style="color:var(--ink3)">pass 2/3</span><span style="color:var(--ink3);font-size:10px;margin-left:auto">queued 14:02</span></div>
+  </div>
+</div>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">07 · CHIPS</div>
+  <div style="font-size:9px;color:var(--faint);margin-bottom:6px">state — 1.5px border, tint fill</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+    <span style="border:1.5px solid var(--clean-l);background:var(--clean-t);color:var(--clean);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">CLEAN</span>
+    <span style="border:1.5px solid var(--flagged-l);background:var(--flagged-t);color:var(--flagged);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">FLAGGED</span>
+    <span style="border:1.5px solid var(--disputed-l);background:var(--disputed-t);color:var(--disputed);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">DISPUTED</span>
+    <span style="border:1.5px dashed var(--stale-l);background:var(--stale-t);color:var(--stale);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">STALE</span>
+    <span style="border:1.5px dashed var(--line);color:var(--ink3);font-size:10px;font-weight:500;letter-spacing:.08em;padding:2px 8px">UNREVIEWABLE</span>
+    <span style="border:1px dotted var(--faint);color:var(--ink3);font-size:10px;letter-spacing:.08em;padding:2px 8px">UNKNOWN</span>
+  </div>
+  <div style="font-size:9px;color:var(--faint);margin-bottom:6px">severity — hue family, weight steps</div>
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <span style="background:var(--flagged);color:var(--bg);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">HIGH</span>
+    <span style="border:1.5px solid var(--stale-l);background:var(--stale-t);color:var(--stale);font-size:10px;font-weight:600;letter-spacing:.08em;padding:2px 8px">MEDIUM</span>
+    <span style="border:1px solid var(--line);color:var(--ink2);font-size:10px;letter-spacing:.08em;padding:2px 8px">LOW</span>
+  </div>
+  <div style="font-size:9px;color:var(--faint);margin-bottom:6px">confirmation</div>
+  <div style="display:grid;gap:5px;font-size:10.5px;margin-bottom:12px">
+    <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--clean);vertical-align:-1px"></span> confirmed — uncontested since date</span>
+    <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink3);box-sizing:border-box;vertical-align:-1px"></span> unconfirmed — automated only, no human audit</span>
+    <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:linear-gradient(90deg,var(--disputed) 50%,transparent 50%);border:1.5px solid var(--disputed);box-sizing:border-box;vertical-align:-1px"></span> contested — rebuttal on file, both claims stand</span>
+  </div>
+  <div style="font-size:9px;color:var(--faint);margin-bottom:6px">capabilities — lowercase letters, present = ink, absent = faint</div>
+  <div style="font-size:11px;color:var(--ink2)">net · fs · proc · env · cred &nbsp;<span style="color:var(--faint)">→ net fs <s>proc</s> env cred</span></div>
+</div>
+</div>
+
+<!-- ===== CONTROLS + BANNERS ===== -->
+<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:26px">
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">08 · CONTROLS</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <span style="border:1px solid var(--accent);color:var(--accent);background:rgba(122,163,204,.1);font-size:11px;font-weight:600;padding:7px 14px;border-radius:4px;cursor:pointer">File a dispute</span>
+    <span style="border:1px solid var(--line);color:var(--ink2);font-size:11px;padding:7px 14px;border-radius:4px;cursor:pointer">View on-chain</span>
+    <span style="border:1px solid var(--flagged-l);color:var(--flagged);font-size:11px;font-weight:600;padding:7px 14px;border-radius:4px;cursor:pointer">Proceed anyway</span>
+    <span style="border:1px solid var(--line2);color:var(--faint);font-size:11px;padding:7px 14px;border-radius:4px">Disabled</span>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:8px 12px;font-size:11.5px;color:var(--faint);margin-bottom:14px">search by name, fingerprint, capability…</div>
+  <div style="font-size:9px;color:var(--faint);margin-bottom:6px">command block — copy affordance top-right</div>
+  <div style="position:relative;border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:10px 12px;font-size:11.5px;color:var(--ink)">surex allow sx:9f2e4c81@1.0.4<span style="position:absolute;top:7px;right:9px;font-size:9px;color:var(--accent);border:1px solid var(--line);padding:2px 7px;border-radius:3px;cursor:pointer">copy</span></div>
+</div>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:14px">09 · AWKWARD-STATE BANNERS — full-width, above content, never modal</div>
+  <div style="display:grid;gap:8px;font-size:11px">
+    <div style="border:1px solid var(--stale-l);background:var(--stale-t);border-radius:4px;padding:8px 12px;color:var(--ink2)"><b style="color:var(--stale)">REGISTRY UNREACHABLE</b> — showing cache from 2026-07-25 09:14 UTC. The hook fails open with a warning; it never silently blocks.</div>
+    <div style="border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:8px 12px;color:var(--ink2)"><b style="color:var(--ink)">SUPERSEDED</b> — this verdict was replaced on 2026-07-02 by <span style="color:var(--accent)">sx:9f2e4c81/v2</span>. It remains on record and on chain. Verdicts are never deleted.</div>
+    <div style="border:1px solid var(--stale-l);background:var(--stale-t);border-radius:4px;padding:8px 12px;color:var(--ink2)"><b style="color:var(--stale)">EVIDENCE EXPIRED</b> — the source blob is no longer retrievable. The verdict stands as a historical record but can no longer be re-derived. Treat linkage as C.</div>
+    <div style="border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:8px 12px;color:var(--ink2)"><b style="color:var(--ink)">REVIEW RUNNING<span style="animation:blink 1s step-end infinite">…</span></b> — pass 2/3 · started 14:02 UTC · a verdict blob will be written when it completes. Nothing is asserted until then.</div>
+    <div style="border:1px dashed var(--line);border-radius:4px;padding:8px 12px;color:var(--ink3)">ZERO RESULTS — no entry matches "supabase". That is a fact about this registry, not about the code. <span style="color:var(--accent)">Request a review →</span></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== TERMINAL ===== -->
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px">
+  <div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);margin-bottom:6px">10 · TERMINAL TYPOGRAPHY — NO CSS, HIERARCHY ANYWAY</div>
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start">
+    <pre style="margin:0;background:#0c0b09;border:1px solid var(--line);border-radius:6px;padding:16px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.65;color:#d8d4c8">SUREX  tool call blocked                     sx:9f2e4c81
+────────────────────────────────────────────────────────
+  VERDICT   FLAGGED · high
+  LINKAGE   A — installed digest matches reviewed code
+  STANDING  uncontested · 84 days</pre>
+    <div style="font-size:10.5px;color:var(--ink2);line-height:1.8">72 columns max · hierarchy from: CAPS for the label column (9-char gutter), case for weight, one ─ rule, 2-space indent per level, blank lines as paragraphs · state word in ANSI hue when TTY supports it, never color-only · exact command on its own indented line, nothing after it</div>
+  </div>
+</div>
+
+<div style="font-size:10px;color:var(--faint)">Full spec in use → <a href="SureX Prototype.dc.html">SureX Prototype.dc.html</a> — six screens, dark/light, interactive.</div>
+</div>
+</x-dc>
+</body>
+</html>
