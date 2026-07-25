@@ -121,7 +121,7 @@ export function chatCompletionsUrl(baseUrl) {
   return `${root}/v1/chat/completions`;
 }
 
-export async function loadModel({ baseUrl, model, timeoutMs = DEFAULT_LOAD_TIMEOUT_MS, fetchImpl = fetch } = {}) {
+export async function loadModel({ baseUrl, model, apiKey = null, timeoutMs = DEFAULT_LOAD_TIMEOUT_MS, fetchImpl = fetch } = {}) {
   const url = chatCompletionsUrl(baseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -129,7 +129,13 @@ export async function loadModel({ baseUrl, model, timeoutMs = DEFAULT_LOAD_TIMEO
   try {
     const res = await fetchImpl(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      // The reviewer sits behind a bearer-gated proxy, because the DGX is a home
+      // machine and an open ollama port is a free GPU for the internet. Without
+      // this the route reached the box and got a truthful 401.
+      headers: {
+        'content-type': 'application/json',
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+      },
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: 'load' }],
@@ -194,6 +200,7 @@ export function mountAdmin(app, options = {}) {
   const password = options.password ?? env.SUREX_ADMIN_PASSWORD ?? '123';
   const reviewerBaseUrl = options.reviewerBaseUrl ?? env.SUREX_REVIEWER_BASE_URL ?? '';
   const defaultModel = options.model ?? env.SUREX_REVIEWER_MODEL ?? '';
+  const reviewerApiKey = options.reviewerApiKey ?? env.SUREX_REVIEWER_API_KEY ?? null;
   const timeoutMs = Number(options.timeoutMs ?? env.SUREX_ADMIN_LOAD_TIMEOUT_MS ?? DEFAULT_LOAD_TIMEOUT_MS);
   const fetchImpl = options.fetchImpl ?? fetch;
   const limiter =
@@ -276,7 +283,7 @@ export function mountAdmin(app, options = {}) {
       );
     }
 
-    const result = await loadModel({ baseUrl: reviewerBaseUrl, model, timeoutMs, fetchImpl });
+    const result = await loadModel({ baseUrl: reviewerBaseUrl, model, apiKey: reviewerApiKey, timeoutMs, fetchImpl });
     logger.info?.(
       `[surex-api] load-model model=${model} ok=${result.ok} status=${result.httpStatus ?? '-'} ${result.ms}ms`,
     );
