@@ -2,7 +2,7 @@
  * ENS, server side only.
  *
  * SERVER ONLY, and not by accident: `SUREX_ENS_SIGNING_KEY` is the key an ENS
- * client checks a CCIP-Read response against, and the resolver on Sepolia pins
+ * client checks a CCIP-Read response against, and the mainnet resolver pins
  * its address. Anything that leaks it lets someone else sign a verdict in
  * SureX's name — and unlike an HTTP response, a signed one is meant to be
  * believed by a contract. Nothing here may ever be imported by a client
@@ -87,9 +87,9 @@ export function ensNameFor(fingerprint: string, env: NodeJS.ProcessEnv = process
   return `${label}.${parent.replace(/^\.+|\.+$/g, '')}`;
 }
 
-/** Where a human goes to look at the name. Sepolia unless told otherwise. */
+/** Where a human goes to look at the name. Mainnet unless told otherwise. */
 export function ensAppUrl(name: string, env: NodeJS.ProcessEnv = process.env): string {
-  const chain = (env.NEXT_PUBLIC_SUREX_ENS_CHAIN ?? env.SUREX_ENS_CHAIN)?.trim() || 'sepolia';
+  const chain = (env.NEXT_PUBLIC_SUREX_ENS_CHAIN ?? env.SUREX_ENS_CHAIN)?.trim() || 'mainnet';
   const host = chain === 'mainnet' ? 'app.ens.domains' : `${chain}.app.ens.domains`;
   return `https://${host}/name/${encodeURIComponent(name)}`;
 }
@@ -267,7 +267,7 @@ export function ensConfig(env: NodeJS.ProcessEnv = process.env): EnsConfigResult
       missing,
       detail:
         `The ENS gateway is not configured in this deployment: ${missing.join(', ')} ` +
-        `${missing.length === 1 ? 'is' : 'are'} unset. Both come from the resolver deployed on Sepolia — ` +
+        `${missing.length === 1 ? 'is' : 'are'} unset. Both come from the resolver deployed on mainnet — ` +
         'its address, and the private key whose address it pins as the signer. ' +
         'Until they are set, nothing here will sign anything.',
     };

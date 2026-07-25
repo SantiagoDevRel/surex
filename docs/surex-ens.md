@@ -28,11 +28,11 @@ Reading a verdict becomes one line for anything already holding an Ethereum clie
 
 ```ts
 import { createPublicClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { mainnet } from 'viem/chains';
 
-const client = createPublicClient({ chain: sepolia, transport: http() });
-await client.getEnsText({ name: 'sxf1-b1dad32ff73fe0791aa543000695d093dec235b1.surex.eth', key: 'surex:state' });
-// → 'flagged'
+const client = createPublicClient({ chain: mainnet, transport: http() });
+await client.getEnsText({ name: 'sxf1-09dcb0601b4d2f1fdebba5d2dfe629f3421274bc.surex.eth', key: 'surex:state' });
+// → 'flagged'   (once the gateway is deployed; today this returns null — §6)
 ```
 
 The client does the ERC-3668 dance itself. Nothing about SureX has to be integrated, and the
@@ -81,7 +81,7 @@ checkable:
    touches that file, by design (§7).
 2. **It would buy little if it did.** The transport is already HTTPS, and the signing key lives on
    the same deployment that serves the data. The marginal gain over TLS is cert-pinning-grade, and
-   the pin would sit in a Sepolia contract.
+   the pin sits in one contract we also control.
 3. **A signature is not a fact about a server.** It says the response came from SureX. It says
    nothing about whether the review is right.
 
@@ -169,7 +169,7 @@ answers empty bytes.
 
 ```
 viem client                    SureXOffchainResolver            apps/web gateway         apps/api
-     │                            (Sepolia)                                                (read only)
+     │                            (mainnet)                                                (read only)
      │  eth_call resolve()            │                                │                        │
      ├───────────────────────────────►│                                │                        │
      │  revert OffchainLookup(urls)   │                                │                        │
@@ -237,9 +237,12 @@ two literals are the same one.
 
 | | |
 |---|---|
-| Network | **Sepolia.** `surex.eth` on mainnet is registered to `0x8FA4C314F61a2b630A805af4e87e33b7fD66fA75` and is not ours. Sepolia costs no real ETH and the ERC-3668 flow is identical. |
-| Mainnet | A name-registration decision, not a code change. |
-| Parent name | Not registered yet. `NEXT_PUBLIC_SUREX_ENS_PARENT` is unset, and until it is set the evidence page shows no ENS row at all — a dead link that looks alive is worse than no link (`apps/api/src/links.mjs`). |
+| Network | **Ethereum mainnet.** Not a preference — `.eth` registration on Sepolia has been broken network-wide since early June 2026 (`FRICTION-LOG.md` E5, E6). |
+| Parent name | **`surex.eth`**, ours, expires 2027-07-25. It was available because a prior registration lapsed on 2024-07-21; the earlier claim that it belonged to `0x8FA4C314…` read a stale record on an expired name. |
+| Resolver | **`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`**, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`. |
+| Wildcard | **Verified live.** `getEnsResolver` on a subname that was never registered returns our resolver through the standard Universal Resolver, and `resolve()` reverts with a real `OffchainLookup`. |
+| Gateway | **Not deployed.** `arkiv-surex.vercel.app/api/ens/` 404s until this branch ships, so `getEnsText` returns `null`. No further transactions are needed. |
+| ⚠️ Reading a `null` | A dead gateway is indistinguishable from an empty record client-side — viem swallows the failed fetch. Never read `null` as "no verdict". |
 
 The runbook is `contracts/README.md`. The order matters: deploying the resolver changes nothing until
 `setResolver` is called on the parent, and that one transaction is what turns wildcard resolution on
@@ -264,4 +267,4 @@ for every entry at once.
 | Digest agreement across languages | `pnpm --filter @surex/web test` — the golden vector, asserted against the Solidity source as text |
 | Copy law over every record | same suite — the whole state × tier × severity × reason space |
 | Gateway ↔ resolver, end to end | `node probes/ens-resolve.mjs mock` then `node ens-resolve.mjs gateway`, with `next dev` between them |
-| A real client, against Sepolia | `node probes/ens-resolve.mjs sepolia --name <name>` — **unproven until the parent name is registered and the resolver deployed** |
+| A real client, against mainnet | `node probes/ens-resolve.mjs sepolia --name sxf1-<40 hex>.surex.eth --rpc https://ethereum-rpc.publicnode.com` — resolution reaches the contract; the fetch fails until the gateway ships |

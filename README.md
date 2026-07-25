@@ -17,6 +17,7 @@ Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 |---|---|
 | **The registry** | **https://arkiv-surex.vercel.app** |
 | **The API** | **https://arkiv-surex-api.vercel.app** — [`/v1/registry`](https://arkiv-surex-api.vercel.app/v1/registry) · [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) · [`/v1/flagged`](https://arkiv-surex-api.vercel.app/v1/flagged) |
+| **The name** | **[`surex.eth`](https://app.ens.domains/surex.eth)** on Ethereum mainnet → resolver [`0xCb140fF3…`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559). Wildcard resolution is live: any `sxf1-<40 hex>.surex.eth` resolves to it. The CCIP-Read gateway is **not deployed yet**, so records read `null` — see [`contracts/`](./contracts) |
 
 Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
 official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model

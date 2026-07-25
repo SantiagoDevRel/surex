@@ -70,32 +70,57 @@ break the whole thing, which is why the same four inputs and the same expected d
 three places — here, in `apps/web/lib/ens.ts`, and asserted across both in
 `apps/web/test/ens.test.mjs`.
 
-## Deploying
+## Deployed — Ethereum mainnet, 2026-07-25
+
+| | |
+|---|---|
+| name | [`surex.eth`](https://app.ens.domains/surex.eth), expires 2027-07-25, not wrapped |
+| resolver | [`0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559) |
+| pinned signer | `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` |
+| name owner (`setResolver`) | `0xFE388539e3fffeA23ba4C5aa4c750cb90f369b2E` |
+| resolver owner (`setSigner`, `setUrls`) | `0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4` |
+| deploy cost | 0.0000805 ETH — 1,067,648 gas at 0.075 gwei |
+
+**Verified on mainnet:** `getEnsResolver` on `sxf1-<40 hex>.surex.eth` — a subname that was never
+registered — returns the resolver above through the standard Universal Resolver, and `resolve()`
+reverts with a genuine `OffchainLookup` carrying the gateway URL. Wildcard resolution works.
+
+**Not yet live:** the gateway. `arkiv-surex.vercel.app/api/ens/` returns 404 until this branch is
+deployed, so `getEnsText` yields `null`. ⚠️ A dead gateway is indistinguishable from an empty record
+— viem swallows the failed fetch rather than throwing. No further transactions are required; the
+route answering is sufficient.
+
+**Why mainnet and not a testnet:** `.eth` registration on Sepolia has been broken network-wide since
+early June 2026 — see `FRICTION-LOG.md` E5 and E6. It was not a preference.
+
+## Deploying it yourself
 
 Nothing below is in this repo and nothing below should be. Secrets live in the deployment
 environment (`AGENTS.md` §4).
 
 ### 1. Register the parent name
 
-At [sepolia.app.ens.domains](https://sepolia.app.ens.domains). Sepolia costs no real ETH and the
-ERC-3668 flow is identical to mainnet. Note that `surex.eth` on mainnet is already registered to
-`0x8FA4C314F61a2b630A805af4e87e33b7fD66fA75` and is not ours — pick the parent accordingly.
+At [app.ens.domains](https://app.ens.domains). Do not reach for Sepolia — registration there is
+broken (E5). A 5+ character name is ~0.0027 ETH/year and gas is the smaller half.
 
 ### 2. Deploy the resolver
 
 ```bash
-export SUREX_ENS_SIGNER=0x…            # the address whose key the gateway will sign with
-export SUREX_ENS_GATEWAY_URL='https://arkiv-surex.vercel.app/api/ens/{sender}/{data}.json'
-export SEPOLIA_RPC=https://…
-
+cd contracts
+SUREX_ENS_SIGNER=0x…                   # address whose key the gateway signs with — NOT its key
+SUREX_ENS_GATEWAY_URL='https://arkiv-surex.vercel.app/api/ens/{sender}/{data}.json' \
 forge script script/Deploy.s.sol \
-  --rpc-url "$SEPOLIA_RPC" \
-  --private-key "$DEPLOYER_KEY" \
-  --broadcast
+  --rpc-url https://ethereum-rpc.publicnode.com \
+  --sender <deployer address> --interactive --broadcast
 ```
 
-The `{sender}` and `{data}` placeholders are required and the script refuses to deploy without them —
-a URL missing one deploys fine and then fails every lookup with an opaque gateway error.
+`--sender` is required even with `--interactive`; without it forge falls back to its default sender
+and refuses to broadcast. `--interactive` needs a real TTY — it fails with `Device not configured`
+inside a non-interactive shell, so run it in a terminal.
+
+The `{sender}` and `{data}` placeholders are literal and required; the script refuses to deploy
+without them, because a URL missing one deploys fine and then fails every lookup with an opaque
+gateway error.
 
 ### 3. Point the parent at it
 
@@ -105,11 +130,17 @@ This is the step that turns wildcard resolution on. Until it runs, nothing resol
 cast send 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e \
   "setResolver(bytes32,address)" \
   $(cast namehash <parent>.eth) <deployed resolver address> \
-  --rpc-url "$SEPOLIA_RPC" --private-key "$OWNER_KEY"
+  --rpc-url https://ethereum-rpc.publicnode.com --from <name owner> --interactive
 ```
 
 `0x0000…2e1e` is the ENS registry, the same address on Sepolia as on mainnet. If the parent is
-wrapped in the Name Wrapper, call `setResolver` on the wrapper instead.
+wrapped in the Name Wrapper, call `setResolver` on the wrapper instead. The ENS app's **More →
+Resolver → Edit → Custom resolver** does the same thing and is easier; expect a warning that the
+address is not a recognised resolver, which is correct — ours implements `IExtendedResolver`, not
+the usual profile interface.
+
+⚠️ After this, the parent stops resolving to an address. Ours answers `text()` for subnames, not
+`addr()` for the parent. That is intended for a registry-as-a-name and surprising otherwise.
 
 ### 4. Configure the gateway
 
@@ -119,9 +150,14 @@ On the web deployment (Vercel project `apps/web`):
 |---|---|
 | `SUREX_ENS_SIGNING_KEY` | `0x`-prefixed 32-byte private key whose address is `SUREX_ENS_SIGNER` |
 | `SUREX_ENS_RESOLVER_ADDRESS` | the address from step 2 — the gateway signs for this resolver and refuses every other |
-| `NEXT_PUBLIC_SUREX_ENS_PARENT` | e.g. `surex-registry.eth`. Until it is set, the evidence page shows no ENS row at all |
+| `NEXT_PUBLIC_SUREX_ENS_PARENT` | `surex.eth`. Until it is set, the evidence page shows no ENS row at all |
 | `SUREX_ENS_TTL_SECONDS` | optional, default 300 |
-| `SUREX_ENS_CHAIN` | optional, default `sepolia` — only picks the explorer host for the UI link |
+| `SUREX_ENS_CHAIN` | optional — only picks the explorer host for the UI link. Set `mainnet` for this deployment |
+
+For the live deployment those are `SUREX_ENS_RESOLVER_ADDRESS=0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`,
+`NEXT_PUBLIC_SUREX_ENS_PARENT=surex.eth`, `SUREX_ENS_CHAIN=mainnet`, and `SUREX_ENS_SIGNING_KEY` is the
+key for `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01` — kept in `~/.secrets/surex-ens.env` and never
+in this repo.
 
 With `SUREX_ENS_SIGNING_KEY` or `SUREX_ENS_RESOLVER_ADDRESS` unset the gateway answers `503` and
 names what is missing. It never manufactures a signature.
@@ -130,18 +166,22 @@ names what is missing. It never manufactures a signature.
 
 ```bash
 cd ../probes
-node ens-resolve.mjs sepolia --name sxf1-<40 hex>.<parent>.eth --rpc "$SEPOLIA_RPC"
+node ens-resolve.mjs sepolia --name sxf1-<40 hex>.surex.eth --rpc https://ethereum-rpc.publicnode.com
 ```
 
 That walks the whole path with a real client: `eth_call` → `OffchainLookup` revert → gateway fetch →
-`resolveWithProof` → `ecrecover`. Until it prints green, the status table in `AGENTS.md` §2 says
-*built, not proven on Sepolia*, and the README **Live** table gets no row. A status table does not
-get a ✅ on an assertion.
+`resolveWithProof` → `ecrecover`. (The mode is still called `sepolia`; pass `--rpc` for any chain.)
+
+Until the gateway is deployed this stops at the fetch, which is the current state — resolution
+reaches the contract, and there is nothing on the other end to answer. A status table does not get a
+✅ on an assertion, so `AGENTS.md` §2 says *gateway pending* until this prints green.
 
 ## Rotating the signer
 
 ```bash
-cast send <resolver> "setSigner(address)" <new signer> --rpc-url "$SEPOLIA_RPC" --private-key "$OWNER_KEY"
+cast send 0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559 "setSigner(address)" <new signer> \
+  --rpc-url https://ethereum-rpc.publicnode.com \
+  --from 0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4 --interactive
 ```
 
 Then update `SUREX_ENS_SIGNING_KEY`. Rotation invalidates every signature already in flight, which is

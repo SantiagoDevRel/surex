@@ -574,6 +574,92 @@ because it shaped how this contract is tested and someone else will hit it.
 
 ---
 
+### E5 · `.eth` registration on Sepolia has been broken network-wide since early June 2026 — **[VERIFIED, from on-chain transaction history]**
+**Severity: critical for anyone developing against ENS on a testnet.** This is not a bug in our code, and
+it is not specific to us: **nobody** has registered a `.eth` name on Sepolia in seven weeks.
+
+- **Expected:** register `surex.eth` on Sepolia the documented way — `commit`, wait `minCommitmentAge`,
+  `register` — before pointing the parent at our offchain resolver.
+- **Happened:** every `register` reverts with **bare `0x`** — no revert string, no error selector. The
+  commitment is valid and mature, `available()` and `valid()` both return true, and the value sent exceeds
+  `rentPrice`. We rebuilt the commitment hash on-chain and confirmed it matched byte for byte.
+- **How we found out:** stopped debugging our own call and read other people's. Counting `register`
+  calls (`0x74694a2b` and `0xef9c8805`) in the most recent 200 transactions to each controller:
+
+  | Controller | register calls | succeeded | failed | last success |
+  |---|---|---|---|---|
+  | `0xFED6a969…` (wrapper-era) | 67 | 54 | 13 | **2026-05-24** |
+  | `0xfb3cE5D0…` (current, per ENS's own manifest) | 32 | **0** | 32 | **never** |
+  | `0x7e02892c…` (legacy) | 3 | 3 | 0 | — |
+
+  Successes on `0xFED6a969…` run 2026-02-07 → 2026-05-24. Failures start 2026-06-02. Nothing has
+  succeeded on any controller since **2026-06-15**.
+- **Root cause, as far as we can see from outside:** `BaseRegistrarImplementation.controllers()` returns
+  `false` for the NameWrapper and for every controller in ENS's published Sepolia deployment. The
+  registrar that owns the `.eth` node no longer authorises the contracts that register into it, so every
+  attempt dies in `onlyController` — a bare `require`, hence the empty revert data.
+- **Repro:**
+  ```bash
+  cast call 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85 'controllers(address)(bool)' \
+    0x0635513f179D50A207757E05759CbD106d7dFcE8 --rpc-url https://sepolia.drpc.org   # → false
+  curl -s "https://eth-sepolia.blockscout.com/api?module=account&action=txlist\
+&address=0xFED6a969AaA60E4961FCD3EBF1A2e8913ac65B72&sort=desc&offset=200"
+  ```
+- **What made it expensive:** `commit()` still succeeds. We counted **53 successful commits** on
+  `0xfb3cE5D0…`, a controller that has never completed a single registration. Users are paying gas for
+  the first half of a two-step flow that cannot finish, and the second half fails with no message.
+- **Fix we'd suggest:** two things, in order. Re-authorise a controller on the Sepolia registrar so the
+  testnet works at all. Then make `register` fail loudly — the current controller declares eleven custom
+  errors (`NameNotAvailable`, `InsufficientValue`, `CommitmentTooNew`…) and this path returns none of
+  them, because the failure happens one contract deeper. A `ControllerNotAuthorised()` error on the
+  registrar would have saved us most of an afternoon. Failing that, have `commit()` revert when the
+  controller cannot register, so nobody pays for step one of a dead flow.
+
+---
+
+### E6 · ENS's published Sepolia deployment manifest points at a controller that has never worked — **[VERIFIED]**
+**Severity: high.** The manifest is the thing an integrator is supposed to trust.
+
+- **Expected:** `ensdomains/ens-contracts@deployments/sepolia/ETHRegistrarController.json` names the
+  controller to integrate against.
+- **Happened:** it names `0xfb3cE5D01e0f33f41DbB39035dB9745962F1f968`, which is **0 for 32** on
+  `register` and is not authorised on the registrar. The one that used to work, `0xFED6a969…`, is not in
+  that file. An integrator reading the official manifest builds against a contract that cannot succeed.
+- **How we found out:** built against the manifest, failed, then compared with on-chain history.
+- **Repro:** `gh api repos/ensdomains/ens-contracts/contents/deployments/sepolia/ETHRegistrarController.json`
+  then check `BaseRegistrar.controllers()` for the address it returns.
+- **Fix we'd suggest:** either deploy-and-wire in one step, or mark unwired deployments in the manifest.
+  A deployed-but-unauthorised address is indistinguishable from a working one until you spend gas.
+
+---
+
+### E7 · An unregistered name renders as *registered and owned* in the ENS app, because of a reverse record — **[VERIFIED]**
+**Severity: medium, but it is the single most misleading thing we hit all weekend.** It sent us down an
+hour-long wrong path, chasing a migration that had not happened.
+
+- **Expected:** if the app shows a name with an owner, a registration date and an expiry, the name is
+  registered.
+- **Happened:** `app.ens.dev/surex.eth` showed **Owner `0x9d49…d3e5`, Registered JUL.25.2026, Expires
+  JUL.26.2027** for a name that was never registered. `viem.getEnsAddress('surex.eth')` on Sepolia also
+  returned that address. The account had only ever called `setName(string)` on the reverse registrar —
+  setting a *primary name* pointing at a name it does not own. No registration transaction exists in its
+  history, and no ETH was ever spent on one.
+- **How we found out:** the on-chain registry disagreed with the app. `registry.owner(namehash)` was
+  zero and `available()` was true, so we read the account's full transaction list: six transactions,
+  two of them `setName` (`0xc47f0027`), none of them `register`. We had already concluded from the app
+  that the name lived in a newer registry — it did not. Nothing did.
+- **Repro:** call `setName("<any unregistered name>.eth")` on the Sepolia reverse registrar from a fresh
+  account, then open that name in the app and resolve it with viem. Compare against
+  `registry.owner(namehash(name))`.
+- **Control:** an unrelated unregistered name (`definitely-not-registered-zzq7x.eth`) resolves to `null`,
+  so the forward resolution genuinely comes from the reverse record.
+- **Fix we'd suggest:** do not accept a primary name for a name the account does not own — or, if that
+  is deliberate, do not render an unowned name with an ownership block and registration dates. The dates
+  shown were not real. A "not registered — claim it" state would be correct and is what the underlying
+  data supports.
+
+---
+
 ## Claude Code (not a sponsor, but the enforcement surface — worth sending upstream)
 
 > Probes: `probes/hook/` — a minimal zero-dependency stdio MCP server plus a hook script, driven by

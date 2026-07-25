@@ -32,7 +32,7 @@ const LABEL = 'sxf1-b1dad32ff73fe0791aa543000695d093dec235b1';
 /**
  * The one test here that checks something no other test in either language can.
  *
- * The gateway signs what `signatureDigest()` computes; the resolver on Sepolia
+ * The gateway signs what `signatureDigest()` computes; the mainnet resolver
  * accepts what `makeSignatureHash()` computes. They are written in different
  * languages in different packages. If they ever disagree, every lookup fails
  * `resolveWithProof` with an error that names neither side, and both suites stay
@@ -259,8 +259,8 @@ test('a parent configured produces the full name', () => {
   assert.equal(ensNameFor('not-a-fingerprint', { NEXT_PUBLIC_SUREX_ENS_PARENT: 'surex.eth' }), null);
 });
 
-test('the explorer link points at Sepolia unless told otherwise', () => {
-  assert.equal(ensAppUrl('a.surex.eth', {}), 'https://sepolia.app.ens.domains/name/a.surex.eth');
+test('the explorer link points at mainnet unless told otherwise', () => {
+  assert.equal(ensAppUrl('a.surex.eth', {}), 'https://app.ens.domains/name/a.surex.eth');
   assert.equal(
     ensAppUrl('a.surex.eth', { NEXT_PUBLIC_SUREX_ENS_CHAIN: 'mainnet' }),
     'https://app.ens.domains/name/a.surex.eth',
