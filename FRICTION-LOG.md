@@ -59,14 +59,98 @@
 
 ## Claude Code (not a sponsor, but the enforcement surface — worth sending upstream)
 
-### C1 · `PreToolUse` hook timeout behaviour is undocumented
-Default is 600s and configurable, but the docs do not say what happens to the tool call when a *blocking* PreToolUse hook exceeds it — allowed or denied? For a security hook that is the difference between fail-open and fail-closed, and it cannot be guessed.
+> Probes: `probes/hook/` — a minimal zero-dependency stdio MCP server plus a hook script, driven by
+> headless `claude -p --include-hook-events`. Repro for every entry below:
+> `cd probes/hook && bash run.sh <mode>`, and `NO_ALLOWLIST=1 bash run.sh <mode>` for the permission-flow
+> variants. Versions: **Claude Code 2.1.220**, node v22.22.3, Windows 11.
 
-### C2 · `session_id` stability is undocumented
-`/branch` is documented to produce a new session id. `/clear`, `/compact` and `/resume` are not described either way. Any hook implementing "approve once per conversation" depends on this.
+### C1 · A `PreToolUse` hook that exceeds its timeout **fails OPEN** — undocumented — **[VERIFIED]**
+**Severity: high** for anyone using a hook as a security control.
 
-### C3 · No MCP server name in the hook payload
-For `mcp__<server>__<tool>` calls, `PreToolUse` input carries `tool_name` but no server name and no server config. Every consumer re-implements the same parse, including the `mcp__plugin_<plugin>_<server>__<tool>` special case. A `server_name` field would remove a whole class of bugs.
+- **Expected:** unknown. The docs give a 600s default and say it is configurable, but never say what happens
+  to the tool call when a *blocking* PreToolUse hook exceeds it. For a security hook that is the entire
+  difference between fail-open and fail-closed, and it cannot be guessed.
+- **Happened:** the hook is killed (`outcome: "cancelled"`, `exit_code: 1`, empty stdout) and **the tool
+  call proceeds and returns normally**. The deny the hook was about to emit is discarded.
+- **How we found out:** `HOOK_TIMEOUT=5 bash run.sh hang 20` — a hook that sleeps 20s under a 5s timeout.
+  The model received `PROBE_TOOL_RAN`, i.e. the tool executed.
+- **Why it matters:** fail-open is a defensible default and it is the one we want — a registry outage must
+  not brick every agent that installed us. But it is also a bypass: anything that can make the hook slow
+  (a hung DNS lookup, a stalled registry, a large local cache read) silently disables enforcement, with no
+  signal to the user that a check was skipped. A hook cannot opt into fail-closed today.
+- **What would have prevented it:** one sentence in the hooks reference, and ideally a
+  `"onTimeout": "allow" | "deny"` field per hook. At minimum, surface the cancellation to the user the way
+  a `deny` is surfaced — right now a security hook can be timed out into silence.
+
+### C2 · `permissionDecision: "allow"` from a hook **bypasses the normal permission prompt** — **[VERIFIED]**
+**Severity: high.** This is a footgun that turns a *warning* into a *silent grant*.
+
+- **Expected:** that `allow` means "this hook has no objection", leaving Claude Code's own permission
+  system to decide as it normally would. Our own spec drafted the "server is unknown, warn the user and
+  proceed" path as `permissionDecision: "allow"` + a `systemMessage`, on that reading.
+- **Happened:** `allow` is authoritative. With **no** `--allowedTools` entry and no prior user grant, the
+  MCP tool executed. A trust layer whose *unknown* path emits `allow` therefore makes its users strictly
+  less safe than not installing it — it auto-approves precisely the servers it knows nothing about.
+- **How we found out:** `NO_ALLOWLIST=1 bash run.sh allow-warn` vs `NO_ALLOWLIST=1 bash run.sh warn-only`.
+  With `allow`: tool ran. With `systemMessage` alone and no decision field: `Claude requested permissions
+  to use mcp__probe__read_notes, but you haven't granted it yet` — normal flow preserved. Silent exit 0
+  behaves the same as `warn-only`.
+- **Fix in our build:** the warn path emits `systemMessage` **only**, never `permissionDecision`.
+- **What would have prevented it:** the docs describe `allow` as "bypasses the permission system" in one
+  place, but the hook examples use it for advisory cases. A named `notify`/`no-opinion` decision — or a
+  warning next to the `allow` example that it *grants*, not *permits* — would remove the whole class.
+
+### C3 · No MCP server name in the hook payload — **[VERIFIED]**
+For `mcp__<server>__<tool>` calls, `PreToolUse` input carries `tool_name` but no server name and no server
+config. Confirmed by dumping the raw payload (`probes/hook/.out/last-hook-input.json`). The complete key
+set on 2.1.220 is:
+
+```
+cwd · effort · hook_event_name · permission_mode · prompt_id · session_id ·
+tool_input · tool_name · tool_use_id · transcript_path
+```
+
+Nothing identifies the server. Every consumer re-implements the same parse, including the
+`mcp__plugin_<plugin>_<server>__<tool>` special case. A `server_name` field — or better, the resolved
+server config block — would remove a class of bugs.
+
+Three of those keys are undocumented in the hooks reference and two are useful: **`transcript_path`** (an
+absolute path to the live session `.jsonl`, which is how a hook can answer questions about its own session)
+and **`prompt_id`** (stable per user turn, distinct from `session_id`). `effort` is `{level: "high"}`.
+
+### C4 · `permissionDecisionReason` is **not** truncated at 10,000 characters — **[VERIFIED]**
+- **Expected:** the documented cap on hook output — beyond 10,000 characters the output is written to a
+  file and replaced with a preview plus the path. We designed the block message around that ceiling.
+- **Happened:** a **12,054-character** `permissionDecisionReason` reached the model *complete and
+  unaltered* — start marker, 12,000 characters of padding, end marker, newlines intact.
+  `bash run.sh long 12000`.
+- **But the interesting failure is not truncation.** At that length the model stopped recognising it as a
+  block: it reported "the call ran (no permission block) and the probe server returned an error result".
+  The 12-line version (`bash run.sh deny`) was quoted back verbatim and correctly described as a block.
+- **Takeaway for anyone building on this:** the practical limit on a block message is *comprehension*, not
+  bytes. Keep it short and structured. The documented cap is the wrong thing to design against.
+
+### C5 · `session_id` stability across `/clear` and `/compact` is undocumented
+`/branch` is documented to produce a new session id. `/clear`, `/compact` and `/resume` are not described
+either way. Any hook implementing "approve once per conversation" depends on this, and it is not guessable.
+
+**Not resolvable headlessly** — both are interactive-only, so `claude -p` cannot exercise them. Answered
+instead by inspecting real session transcripts under `~/.claude/projects/<slug>/<session-id>.jsonl`:
+
+- **`/compact` preserves `session_id`.** Five transcripts containing compact-boundary records each carry
+  exactly **one** distinct `sessionId`, equal to the filename UUID, identical on both sides of the
+  boundary. A hook's per-session state therefore survives compaction.
+- **`/clear` starts a new session.** Across every transcript on this machine there are 10 genuine `/clear`
+  records and all 10 sit at line index 3–7 — i.e. `/clear` is written as the *opening* message of a
+  **new** transcript file, never mid-conversation. The previous session's file simply ends.
+
+Inferred from transcript layout, not from a hook observing itself across the two commands. `probes/hook/`
+leaves a logging hook in place so the direct observation can be made in one interactive session; see
+`probes/hook/README.md`.
+
+**What would have prevented it:** one row in the hooks reference —
+`/clear` → new · `/compact` → same · `/branch` → new · `/resume` → ?. It is three lines of documentation
+guarding a behaviour every stateful hook has to reverse-engineer.
 
 ---
 

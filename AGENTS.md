@@ -109,15 +109,19 @@ State plainly in the submission, and keep it true:
 Checked against primary sources on 2026-07-24/25. Where something is marked UNVERIFIED, it is genuinely
 unresolved — test it, do not guess.
 
-**Claude Code hooks**
-- Deny shape is `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"…"}}`, exit code 0. `permissionDecision` is current; the older `decision`/`reason` form is not.
-- `permissionDecisionReason` reaches **both** the user's terminal and the model. Hook output strings cap at **10,000 characters**; beyond that the output is written to a file and replaced with a preview plus the path.
+**Claude Code hooks** — measured on **2.1.220**, not read from docs. Probes and repro commands in
+`probes/hook/` (`bash run.sh <mode>`); write-ups in `FRICTION-LOG.md` C1–C5.
+
+- Deny shape is `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"…"}}`, exit code 0. `permissionDecision` is current; the older `decision`/`reason` form is not. ✅ **verified** — it stops a real `mcp__` tool call, and it beats an explicit `--allowedTools` grant.
+- `permissionDecisionReason` reaches the model **verbatim**: a 12-line reason arrived with newlines intact and was quoted back in full. ✅ **verified**
+- ❌ **The documented 10,000-character cap did not apply.** A **12,054-character** reason arrived complete and unaltered — no file spill, no preview. But at that size the model stopped recognising it as a block and described it as a tool error. **The real limit is comprehension, not bytes: keep block messages short and structured.**
+- ⚠️ **`permissionDecision: "allow"` GRANTS — it does not merely permit.** With no allowlist entry and no user grant, the tool ran. **So the `unknown`/warn path must never emit `allow`**: doing so auto-approves precisely the servers SureX knows nothing about, making users worse off than not installing it. Emit `systemMessage` alone (no decision field) — verified to preserve the normal permission flow. Silent `exit 0` preserves it too, which is the `clean` path.
 - `systemMessage` is a valid top-level field and is **display-only** — it does not enter the model's context.
 - Matcher is a **regex**. `mcp__.*` catches every MCP tool; a bare `mcp__github` is exact-match and fires on nothing. Plugin-provided servers are named `mcp__plugin_<plugin>_<server>__<tool>`.
-- Hook input has **no server-name field** — parse it out of `tool_name`, and handle the plugin shape.
+- Hook input has **no server-name field** — parse it out of `tool_name`, and handle the plugin shape. The full key set is `cwd · effort · hook_event_name · permission_mode · prompt_id · session_id · tool_input · tool_name · tool_use_id · transcript_path`. **`transcript_path`** (absolute path to the live session `.jsonl`) and **`prompt_id`** (stable per user turn) are undocumented and useful.
 - Claude Code already ships static allowlists: `allowedMcpServers` / `deniedMcpServers` (managed settings) and `permissions.deny: MCP(x)`. Our wedge is the dynamic, evidence-backed, continuously re-reviewed verdict — not the existence of a list. Know this before pitching.
-- Default command-hook timeout is 600s and is configurable; set ours low. **UNVERIFIED:** whether exceeding it fails open or closed.
-- **UNVERIFIED:** whether `session_id` survives `/clear`, `/compact` and `/resume`. `/branch` is documented to produce a new one. The "approve once per conversation" behaviour depends on this — test it early.
+- Default command-hook timeout is 600s and is configurable; set ours low. ✅ **Exceeding it FAILS OPEN** — the hook is killed (`outcome: "cancelled"`, exit 1, stdout discarded) and **the tool call proceeds**. That matches the fail-open design we want, but it is also a bypass: anything that makes the gate slow silently disables enforcement. There is no fail-closed opt-in. Budget the gate's own timeout accordingly and never rely on the timeout as a control.
+- `session_id` **survives `/compact`** and **resets on `/clear`** — established from transcript forensics, not from a hook observing itself (both commands are interactive-only). "Approve once per conversation" is therefore safe to build. See FRICTION-LOG C5 for the thirty-second interactive confirmation still worth doing.
 
 **Distribution — ship as a Claude Code plugin**
 - A plugin registers hooks via `hooks/hooks.json` at plugin root, same shape as settings. Bundled scripts are referenced with `${CLAUDE_PLUGIN_ROOT}`.

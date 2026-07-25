@@ -144,11 +144,17 @@ This solves risk #1 only for npm. `uvx`, `docker` (unless a `sha256:` digest is 
 
 ### 3.2 Input
 
+Captured verbatim from Claude Code 2.1.220 (`probes/hook/.out/last-hook-input.json`). Three of these keys
+are undocumented: `prompt_id`, `effort`, and `transcript_path`.
+
 ```json
 {
-  "session_id": "abc123",
+  "session_id": "71c3369b-4938-4790-bbd3-43ca6f9feae6",
+  "transcript_path": "…/.claude/projects/<slug>/71c3369b-….jsonl",
   "cwd": "/home/user/project",
+  "prompt_id": "eef9ec65-b9de-4866-b138-29bf11a368f6",
   "permission_mode": "default",
+  "effort": { "level": "high" },
   "hook_event_name": "PreToolUse",
   "tool_name": "mcp__github__create_issue",
   "tool_input": { "title": "..." },
@@ -203,16 +209,24 @@ The other two variants replace only the second line:
 
 ```json
 {
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "permissionDecisionReason": "SureX: not in registry — proceeding unverified."
-  },
   "systemMessage": "⚠ SureX: @acme/mcp-tools is not in the registry. Proceeding unverified."
 }
 ```
 
-`systemMessage` is shown to the **user only** and never enters the model's context — right for a recurring banner that shouldn't pollute every turn. Keep both fields when the model should also be aware.
+**`systemMessage` alone. No `permissionDecision`.** An earlier draft of this spec emitted
+`permissionDecision: "allow"` here. That was a security bug, and measuring it was the point of the
+hour-one probes: **`allow` grants, it does not merely permit.** With no allowlist entry and no prior user
+grant, a hook returning `allow` caused the MCP tool to execute — so the *unknown* path would have
+auto-approved exactly the servers SureX knows least about, leaving a user who installed SureX worse off
+than one who did not. Verified both ways in `probes/hook` (`NO_ALLOWLIST=1 bash run.sh allow-warn` vs
+`… warn-only`); written up as FRICTION-LOG C2.
+
+Returning no decision leaves Claude Code's own permission flow in charge, which is the correct posture:
+SureX has an opinion, not authority, on everything except a flag.
+
+`systemMessage` is shown to the **user only** and never enters the model's context — right for a recurring
+banner that shouldn't pollute every turn. When the model should also know, say it in a `deny` reason or
+not at all; do not reach for `allow` to carry a message.
 
 **Exit codes.** `0` = parse stdout as JSON (no stdout = no effect). `2` = blocking error, stderr becomes the block reason. Any other non-zero = **non-blocking**, the tool proceeds and stderr is truncated to one line in the transcript — never use it for policy.
 
@@ -230,6 +244,11 @@ Cached `flagged` verdicts persist across restarts. A network blip must not un-fl
 ### 3.5 Failure and override
 
 Registry unreachable, slow, or malformed ⇒ treat as `unknown`: **fail open with a visible notice** (NFR-1). Fail-closed turns a SureX outage into a total agent outage for every user — disproportionate for a trust layer with no SLA, and the fastest way to get uninstalled.
+
+This is not only our policy, it is the platform's: **a `PreToolUse` hook that exceeds its timeout fails open** — the process is killed (`outcome: "cancelled"`, exit 1), its stdout is discarded, and the tool call proceeds. Verified, `HOOK_TIMEOUT=5 bash run.sh hang 20`; FRICTION-LOG C1. Two consequences:
+
+- There is no fail-closed opt-in, so **the gate must never treat its own timeout as enforcement**. Anything that makes it slow — a stalled registry, a cold DNS lookup, a large cache read — silently skips the check with no signal to the user. Keep the gate's own budget well inside the configured timeout and return a decision every time.
+- A cached `flagged` verdict must be readable and returnable without any network at all (§3.4), because the offline path is the only one that cannot be timed out into silence.
 
 **Override (FR-6).** `~/.surex/overrides.json`, a list of fingerprints checked before the registry. `surex allow <fp>` appends to it; `surex allow --once <fp>` scopes it to the current session. The command is printed in every block message, so the escape hatch is never more than a copy-paste away.
 
