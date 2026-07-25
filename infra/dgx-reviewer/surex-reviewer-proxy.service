@@ -1,0 +1,17 @@
+[Unit]
+Description=SureX reviewer proxy (bearer-gated front door for ollama)
+After=network-online.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/surex/reviewer.env
+ExecStart=/usr/bin/node /home/santiagodevrel/surex-reviewer-proxy.mjs
+Restart=always
+RestartSec=3
+User=santiagodevrel
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
