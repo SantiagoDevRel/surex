@@ -9,6 +9,7 @@
 // Node stdlib only — vendored into the plugin.
 
 import { createHash } from 'node:crypto';
+import { computeBlobId as recomputeBlobId, encoderAvailable } from './blobid.mjs';
 
 /**
  * Public testnet aggregators. Read in order; the first that answers wins.
@@ -71,19 +72,27 @@ export async function fetchBlob(blobId, opts = {}) {
  *    truncated blob detectable, and it runs with nothing but node's crypto.
  *
  *  - `blob-id` binds the bytes to **Walrus's own content address**. A Walrus
- *    blob ID is not sha256(bytes): it is a hash over a Merkle tree of erasure-
- *    coded sliver commitments, so recomputing it requires the Walrus encoder.
- *    The plugin ships with zero dependencies and therefore cannot recompute it
- *    unless an encoder is injected. When it cannot, this check reports
- *    `asserted` — NOT `passed` — and the UI must say so. Claiming a check we did
- *    not run is exactly the kind of thing this product exists to object to.
+ *    blob ID is not sha256(bytes): it is a commitment over the erasure-coded
+ *    sliver structure, so recomputing it requires the Walrus encoder. The
+ *    encoder is WASM and is vendored (see blobid.mjs), so this check really runs
+ *    and really passes — it is the one that needs to trust neither the
+ *    aggregator that served the bytes nor the API that pointed at them.
+ *
+ *    If the encoder cannot be loaded, this reports `asserted` — NOT `passed` —
+ *    and every surface must say so. Claiming a check we did not run is exactly
+ *    the kind of thing this product exists to object to.
  *
  * @param {Object} args
  * @param {Buffer} args.bytes
- * @param {Object} args.evidence  {blobId, contentSha256}
+ * @param {Object} args.evidence  {blobId, contentSha256, nShards}
  * @param {(bytes: Buffer) => Promise<string>|string} [args.computeBlobId]
  */
 export async function verifyEvidenceBytes({ bytes, evidence, computeBlobId } = {}) {
+  // Default to the vendored encoder. An explicit function still wins, so a
+  // caller can supply a different network configuration or a test double.
+  const recompute =
+    computeBlobId ??
+    (encoderAvailable() ? (b) => recomputeBlobId(b, { nShards: evidence?.nShards }) : null);
   const checks = [];
 
   const actualSha = sha256Hex(bytes);
@@ -105,9 +114,9 @@ export async function verifyEvidenceBytes({ bytes, evidence, computeBlobId } = {
   }
 
   if (evidence?.blobId) {
-    if (typeof computeBlobId === 'function') {
+    if (typeof recompute === 'function') {
       try {
-        const recomputed = await computeBlobId(bytes);
+        const recomputed = await recompute(bytes);
         const passed = recomputed === evidence.blobId;
         checks.push({
           name: 'blob-id',

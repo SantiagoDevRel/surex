@@ -1,0 +1,7 @@
+{
+  "name": "surex-vendored-walrus-wasm",
+  "private": true,
+  "version": "0.3.0",
+  "type": "commonjs",
+  "comment": "Marks this directory as CommonJS. wasm-bindgen's nodejs glue is CJS and locates the .wasm with __dirname; without this file it inherits type:module from the package root, __dirname does not exist, and the wasm is looked for relative to the process cwd instead. Vendored from @mysten/walrus-wasm@0.3.0 (Mysten Labs, Apache-2.0) — see PROVENANCE.md."
+}

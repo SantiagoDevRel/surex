@@ -18,7 +18,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'packages', 'core', 'src');
 const DEST = join(ROOT, 'packages', 'plugin', 'lib', 'core');
 
-const FILES = ['sxf1.mjs', 'verdict.mjs', 'contract.mjs', 'copy.mjs', 'blob.mjs'];
+const FILES = ['sxf1.mjs', 'verdict.mjs', 'contract.mjs', 'copy.mjs', 'blob.mjs', 'blobid.mjs'];
 
 const BANNER = `// AUTO-GENERATED — do not edit.
 // Vendored from packages/core/src by scripts/sync-core.mjs, because the plugin

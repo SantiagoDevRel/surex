@@ -141,12 +141,27 @@ unresolved — test it, do not guess.
 - Not to be confused with `@coinbase/agentkit`.
 - Track exclusions are explicit: *agent reputation* and *human-backed benefits for AI agents (API calls, discounts)*. Never describe anything here as reputation — SureX reviews **servers**, not agents.
 
-**Sui / Walrus**
-- One blob write = **two Sui transactions** (register, then certify). Cost is per blob, not per byte.
-- Blob IDs are content-derived and deterministic; identical bytes deduplicate. A blob ID is **not** `sha256(bytes)` — deriving it needs the Walrus encoder.
+**Sui / Walrus** — measured with `@mysten/sui@2.22.1` + `@mysten/walrus@1.2.9` via `probes/walrus-write.mjs`.
+Write-ups in `FRICTION-LOG.md` S1–S8. **A real certified blob, for use as a test fixture:**
+
+| | |
+|---|---|
+| `blobId` | `-SzjTmxUSjs01bmC2AZ48iqz-fTCcllwcLu3nc2rb2Y` |
+| `suiObjectId` | `0xe0ad0c98f40f23b5990ea5bee344e6fbb245366507910f93120975b25c6af5e8` |
+| `registerTx` | `2s1ogVLi6Gc2uEY3ZB4Ztb52DNxyHqftMa4aVrTRqeND` |
+| `certifyTx` | `7BiSZkhzAjucM2PNY8bMVi9cWBvtiLDBE6T8AEtm1tkq` |
+| sha256 of the bytes | `f0457c3012a351b89df29a190d8189595074cf2fe843d85aeff8047cc1ff2ad7` |
+
+- One blob write = **two Sui transactions** — register is a PTB (`reserve_space` + `register_blob`), then `certify_blob`. Confirmed: 129 bytes billed on an **encoded** length of 66,034,000, so **cost is per blob, not per byte**.
+- ⚠️ **Testnet max is 53 epochs, not 183.** `epochs=183` returns HTTP 500 carrying a raw `EInvalidEpochsAhead` Move abort. The real ceiling is only discoverable as `future_accounting.length` on chain. (S2)
+- ⚠️ **A blob ID is NOT `sha256(bytes)`** — it is a commitment over the erasure-coded sliver structure. Confirmed: `-SzjTmxU…rb2Y` vs sha256/base64url `8EV8MBKj…H_Ktc`. **Deriving it needs the Walrus WASM encoder**, so it is vendored into the plugin (376 KB, `packages/plugin/lib/vendor/walrus-wasm/`, Apache-2.0). With `n_shards = 1000` and encoding `RS2`, `BlobEncoder.compute_metadata()` reproduces the on-chain ID exactly, and one flipped bit does not. **This closes tech-spec §13 open question 1** — the gate verifies bytes against a blob ID locally, trusting neither the aggregator nor the API.
+- ⚠️ **`alreadyCertified` dedup is PUBLISHER behaviour, not protocol.** The HTTP publisher returns it for free; the TS SDK re-registers, re-certifies and **re-charges** for bytes already certified. Re-running a seed job pays again. (S3)
+- ⚠️ `flow.executeCertify()` does not return the certify digest — run `encode → register → upload → certify` step by step, or provenance is unrecordable. (S4)
+- ⚠️ **The testnet SUI faucet is the single biggest event risk.** Continuous 429s for ~7 minutes with a `retry-after` that is fiction (`Wait for 0s`), not per-IP (a second egress made no difference), and the SDK discards the header. Success came on **attempt 53** of a blind 8-second loop. Fund early, and never make a demo depend on funding on the day. (S1)
+- ⚠️ JSON-RPC is **removed** from `fullnode.testnet.sui.io` — a bare 404 with an empty body. (S6)
 - Do not hardcode Walrus package or object IDs; testnet has been redeployed before. Read them at runtime.
-- The public HTTP publisher caps requests at 10 MiB.
-- Record `blobId`, `suiObjectId`, and both tx digests on every record, and link them to an explorer.
+- Blob mode: **owned + permanent** (`deletable: false`). The public HTTP publisher caps requests at 10 MiB.
+- Record `blobId`, `suiObjectId`, both tx digests, `encodingType` and `nShards` on every record. Blob IDs are deterministic over content **and** network configuration, so a future mismatch can then be explained rather than read as tampering. Explorer: `https://suiscan.xyz/testnet/tx/<digest>` (bot-blocks WebFetch and curl; render it if you need to confirm one).
 - The Lisbon Sui track names Walrus explicitly and calls it *"the most natural entry point"*, so Walrus alone qualifies. It also says *"the deeper you reach into the Sui stack, the stronger the submission"* — depth is scored separately.
 
 **Arkiv (Braga)** — measured on `@arkiv-network/sdk@0.7.0` via `probes/arkiv-write-read.mjs`, twice.

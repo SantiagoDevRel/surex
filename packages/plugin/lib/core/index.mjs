@@ -7,3 +7,4 @@ export * from './verdict.mjs';
 export * from './contract.mjs';
 export * from './copy.mjs';
 export * from './blob.mjs';
+export * from './blobid.mjs';
