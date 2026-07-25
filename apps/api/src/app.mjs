@@ -28,6 +28,7 @@ import { createArkivStore } from './arkiv.mjs';
 import { AGENTKIT_HEADER, REFUSAL_STATUS, WORLD_ACTIONS, resolveVerifiers } from './verifiers.mjs';
 import { mountAdmin } from './admin.mjs';
 import { withLinks } from './links.mjs';
+import { forwardSubmission, validateSubmission } from './ingest.mjs';
 import { createHash } from 'node:crypto';
 
 /** A whole config's prefetch, capped. 5–20 is typical; 100 is already absurd. */
@@ -797,19 +798,66 @@ export function createApp(options = {}) {
       );
     }
 
+    // ── the proof checked out; hand it to the writer ────────────────────────
+    //
+    // This process still has no wallet, and that is the design: the ingest
+    // service holds it, on the machine the reviewer already runs on. So the
+    // submission is FORWARDED. Nothing below ever answers 202 unless the writer
+    // said it accepted — a submit form that reports "queued" when nothing was
+    // queued is the exact class of lie this registry exists to make impossible.
+    const shape = validateSubmission(body);
+    if (!shape.ok) {
+      return c.json(apiError(ERROR_CODES.INVALID_BODY, shape.detail, { field: shape.code }), 400);
+    }
+
+    const identity = { action: check.action, checked: true, nullifierSpent: false, verifier: verifiers.name };
+    const forwarded = await forwardSubmission(
+      { ...shape, submissionId: check.nullifierHash ?? undefined },
+      { env, fetchImpl: options.fetchImpl },
+    );
+
+    if (forwarded.kind === 'queued') {
+      return c.json({
+        accepted: true,
+        submissionId: forwarded.id,
+        repo: shape.repo,
+        commit: shape.commit,
+        release: shape.release,
+        deduped: forwarded.deduped || undefined,
+        queuePosition: forwarded.queuePosition ?? undefined,
+        identity,
+        // Said plainly: the review has NOT run yet, and the verdict may be that
+        // nothing could be concluded. Queued is not a promise of a clean answer.
+        note:
+          'The release is queued for review. A verdict blob publishes to the index when the run completes, ' +
+          'whatever it concludes.',
+      }, 202);
+    }
+
+    if (forwarded.kind === 'unconfigured') {
+      return c.json(
+        apiError(
+          ERROR_CODES.NOT_IMPLEMENTED,
+          'World ID personhood checked out for this submission, and this deployment has no writer configured to ' +
+            'take it: the review, the Walrus upload and the Arkiv write all need a wallet, which this process ' +
+            'deliberately does not hold. Nothing was queued and no review will run.',
+          { built: false, identity, missing: forwarded.missing },
+        ),
+        501,
+      );
+    }
+
+    // Reachable and refused, or not reachable at all. Either way this is OUR
+    // problem, and the submitter is told that rather than being left to think
+    // their submission was rejected.
     return c.json(
       apiError(
-        ERROR_CODES.NOT_IMPLEMENTED,
-        'World ID personhood checked out for this submission. The rest of POST /v1/submissions is NOT built in ' +
-          'this deployment: repo-ownership proof, licence gate, Walrus upload and the Arkiv write all need a ' +
-          'writer, and this process has no wallet. Nothing was queued and no review will run.',
-        {
-          built: false,
-          identity: { action: check.action, checked: true, nullifierSpent: false, verifier: verifiers.name },
-          missing: ['repo-ownership proof', 'licence gate', 'Walrus upload', 'Arkiv write'],
-        },
+        ERROR_CODES.UPSTREAM_UNAVAILABLE,
+        'World ID personhood checked out, but the registry could not hand this submission to its writer. ' +
+          'Nothing was queued. This is a fault in the registry, not in your submission — retry.',
+        { built: true, identity, detail: forwarded.detail, ...(forwarded.status ? { upstreamStatus: forwarded.status } : {}) },
       ),
-      501,
+      503,
     );
   });
 

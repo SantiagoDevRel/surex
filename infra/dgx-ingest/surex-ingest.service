@@ -1,0 +1,21 @@
+[Unit]
+Description=SureX ingest (bearer-gated queue that runs the pipeline and holds the wallet)
+After=network-online.target surex-reviewer-proxy.service
+Wants=surex-reviewer-proxy.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/surex/ingest.env
+WorkingDirectory=/home/santiagodevrel/surex
+ExecStart=/usr/bin/node /home/santiagodevrel/surex/infra/dgx-ingest/ingest.mjs
+Restart=always
+RestartSec=3
+User=santiagodevrel
+# Creates and owns /var/lib/surex, which is where the job state file lives. Without a
+# durable state file a `systemctl restart` silently drops accepted submissions.
+StateDirectory=surex
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

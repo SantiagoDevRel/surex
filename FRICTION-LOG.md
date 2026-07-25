@@ -1314,3 +1314,65 @@ content because the production error is redacted.
   3. **In Next.js** — a prerender failure that redacts its own message sends you bisecting *content* when the
      fault is in `app/layout.tsx`. `next dev` prints the real error in one request; if a build fails at
      prerender, go there first. That is the transferable lesson.
+
+---
+
+## Node `child_process` (the DGX ingest queue)
+
+### I1 · A failed `spawn` emits BOTH `error` and `close`, so the completion path runs twice — and a concurrency-1 queue silently becomes concurrency-2 — **[VERIFIED, reproduced locally]**
+
+Ours, not a sponsor's, and recorded because the shape is general: any queue whose "job finished" handler is
+reachable from more than one event will eventually run it twice for one job.
+
+`infra/dgx-ingest/ingest.mjs` runs the ingest pipeline one job at a time. One at a time is not a preference:
+the box has one GPU and one wallet, and two concurrent pipelines would sign two transaction sets at once.
+
+- **What we expected:** a child process finishes once, so `finish(job)` runs once.
+- **What happened:** on a spawn failure node emits `error` *and then* `close`. Both handlers called `finish`,
+  which ends with `activeId = null; pump()`. The second call cleared `activeId` while the job `pump()` had
+  just started was still running, and `pump()` started a **second** pipeline alongside it. The same double-run
+  also overwrote the useful `pipeline failed to run: ENOENT` with a bare `the pipeline exited -4058`
+  (`UV_ENOENT`), which is the diagnosis you actually need pointing at the wrong thing.
+- **The second path to the same bug:** on shutdown the handler marks the running job `failed` +
+  `interrupted` ("may have partially written — check the registry"), then kills the child. The child's
+  `close` then relabelled it as an ordinary `exited 143`, deleting the one warning that tells a human to go
+  look at the registry before re-submitting.
+- **How we found out:** running the service locally against stub commands before it ever went near the DGX.
+  The ENOENT case printed the wrong error, which is what exposed the double call; the concurrency break was
+  found by reading why.
+- **Repro** (needs no GPU, no wallet, no DGX — `SUREX_INGEST_CMD` exists for exactly this):
+
+  ```bash
+  SUREX_INGEST_TOKEN=test-token-0123456789abcdefghijklmn SUREX_INGEST_PORT=11695 \
+  SUREX_INGEST_STATE=/tmp/i.json SUREX_INGEST_REPO_DIR=/tmp \
+  SUREX_INGEST_CMD='["definitely-not-a-real-binary-xyz"]' node infra/dgx-ingest/ingest.mjs &
+  curl -s -X POST localhost:11695/v1/ingest -H 'Authorization: Bearer test-token-0123456789abcdefghijklmn' \
+    -H 'content-type: application/json' \
+    -d '{"repo":"acme/nocmd","commit":"7777777777777777777777777777777777777777"}'
+  # before the fix: "error":"the pipeline exited -4058"   (close won, error lost)
+  # after:          "error":"pipeline failed to run: ENOENT"
+  ```
+
+- **What would have prevented it:** treat job completion as a **state transition, not an event handler** —
+  `if (job.status !== 'running') return;` at the top of `finish`, so the first writer wins and every later
+  path is a no-op. A `shuttingDown` flag that makes `pump()` a no-op belongs with it: a queue must never
+  start work in a process that is seconds from exiting. Node's docs do say `error` and `close` can both fire;
+  what they do not say is that the cost lands on an invariant three functions away.
+
+### I2 · Signal handlers do not run on Windows, so the graceful-shutdown path cannot be tested off the target OS — **[VERIFIED]**
+
+`process.on('SIGTERM')` is what `systemctl restart` triggers, and it is the handler that marks a running job
+`interrupted`. On Windows the process is terminated instead: the handler never runs.
+
+```bash
+node -e "const {spawn}=require('child_process');
+const c=spawn(process.execPath,['-e',\"process.on('SIGINT',()=>{console.log('HANDLER RAN');process.exit(0)});setInterval(()=>{},1000)\"],{stdio:'inherit'});
+setTimeout(()=>process.kill(c.pid,'SIGINT'),800); c.on('close',(x)=>console.log('closed',x));"
+# prints: closed 1        — never "HANDLER RAN"
+```
+
+- **What would have prevented it:** do not let a durability guarantee rest on a signal handler. The state
+  file is written **before every transition**, and the recovery that matters runs at **boot** — a job found
+  `running` in the file is failed as interrupted no matter how the process died. That path is verified with
+  `kill -9`, covers power loss too, and needs no signal at all. The SIGTERM handler is a nicety on top, and
+  is the one thing in this service that remains unverified until it runs on the DGX.
