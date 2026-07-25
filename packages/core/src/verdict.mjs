@@ -102,7 +102,18 @@ export function blockMessage(head, opts = {}) {
   const finding = head.topFinding ?? null;
 
   const lines = [];
-  lines.push(`SureX blocked this call — ${name}`);
+  // A QUESTION, because the gate stops this call and hands the decision to the
+  // human rather than ending it (`permissionDecision: 'ask'`). The call does not
+  // run unless they approve — but they are the ones who approve it, and a message
+  // that announced a block while Claude Code showed them a prompt would be
+  // describing a product we do not ship.
+  //
+  // The recommendation is stated separately and plainly. "We do not recommend
+  // proceeding" is advice about an action; it is not a claim that anything is
+  // safe or unsafe, which the copy law forbids either way.
+  lines.push(`Are you sureX you want to use ${name}?`);
+  lines.push('');
+  lines.push('SureX does not recommend proceeding.');
   lines.push('');
 
   if (confidence === 'disputed') {

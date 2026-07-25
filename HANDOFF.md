@@ -3,10 +3,16 @@
 **Read this first, then `AGENTS.md` (canonical) and `FRICTION-LOG.md`.** This file is the "where we are /
 what's next" so a fresh chat is productive without replaying the whole build. Written 2026-07-25.
 
-SureX is a **trust registry for MCP servers** + a Claude Code plugin (PreToolUse hook) that **blocks a flagged
+SureX is a **trust registry for MCP servers** + a Claude Code plugin (PreToolUse hook) that **stops a flagged
 tool call**. The word is always **reviewed** — never safe/trusted/verified/secure. A verdict comes from one
 DGX model review + a deterministic capability scan, is written to **Walrus** (evidence blob) + **Arkiv**
-(verdict head), and the gate genuinely fetches the blob and re-checks the bytes when it blocks.
+(verdict head), and the gate genuinely fetches the blob and re-checks the bytes when it stops a call.
+
+**The stop is `permissionDecision: "ask"`, not `"deny"`** (owner decision, 2026-07-25). Both halt the
+call — nothing runs on an `ask` until a person answers — and the difference is who ends it. Every verdict
+comes from one unaudited model, which is stated on every surface: that has earned the right to stop a
+call, not to be the last word on somebody else's machine. `"allow"` remains unusable on any path, because
+it GRANTS the call outright and bypasses the normal permission prompt (FRICTION-LOG C2).
 
 ## Live surfaces (all verified)
 

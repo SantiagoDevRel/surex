@@ -3,7 +3,7 @@
 Submission material for the **World — AgentKit New Use Cases** track, ETHGlobal Lisbon 2026.
 
 We built [SureX](https://arkiv-surex.vercel.app) — a trust registry for MCP servers with a Claude Code hook
-that blocks a flagged tool call — and used **World AgentKit / AgentBook** to give an autonomous agent
+that stops a flagged tool call — and used **World AgentKit / AgentBook** to give an autonomous agent
 *standing to dispute* a verdict, and **World ID** for human maintainer submissions and disputes. This is
 what we hit while integrating, verified with repros. It is written to be useful, not to complain: every item
 is something a doc line or a one-character fix would remove.

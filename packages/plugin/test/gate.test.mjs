@@ -212,7 +212,7 @@ before(async () => {
 
 after(() => api?.close());
 
-test('BLOCK: a flagged server is denied, with the whole case in one string', async () => {
+test('STOP: a flagged server halts the call and asks the human, case in one string', async () => {
   const id = identify('mcp__local_only__do_thing', project, { homedir: home });
   FLAGGED_FP.value = id.fingerprint;
 
@@ -222,9 +222,21 @@ test('BLOCK: a flagged server is denied, with the whole case in one string', asy
   );
   assert.equal(code, 0, 'a hook must always exit 0; a non-zero exit is non-blocking');
   const out = JSON.parse(stdout);
-  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+  // `ask`, not `deny`, since 2026-07-25. BOTH stop the call — nothing runs on an
+  // `ask` until a person answers — and the difference is who ends it. A finding
+  // from one unaudited model has earned the right to stop a call; it has not
+  // earned the right to be the last word on somebody else's machine, and a gate
+  // that cannot be answered is one developers uninstall (AGENTS.md §4).
+  //
+  // What must NEVER appear here is 'allow', which GRANTS the call outright and
+  // bypasses the normal permission prompt (FRICTION-LOG C2).
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'ask');
+  assert.notEqual(out.hookSpecificOutput.permissionDecision, 'allow');
   const reason = out.hookSpecificOutput.permissionDecisionReason;
-  assert.match(reason, /SureX blocked this call/);
+  // A question, because Claude Code is showing the human a prompt. Announcing a
+  // block while they are being asked would describe a product we do not ship.
+  assert.match(reason, /Are you sureX you want to use/);
+  assert.match(reason, /does not recommend proceeding/);
   assert.match(reason, /reads a credential file it never declares/);
   assert.match(reason, /src\/x\.ts:88/);
   assert.match(reason, /No human audited this/);

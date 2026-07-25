@@ -12,9 +12,11 @@
 //            nothing about. Returning no decision leaves Claude Code's own
 //            permission flow in charge, which is the correct posture — SureX
 //            has an opinion, not authority, on everything except a flag.
-//   block  — flagged or disputed at severity >= 3. Deny, with the whole case in
-//            permissionDecisionReason, because that string is the only channel
-//            that reaches both the user's terminal and the model.
+//   stop   — flagged or disputed at severity >= 3. `permissionDecision: 'ask'`,
+//            with the whole case in permissionDecisionReason, because that string
+//            is the only channel that reaches both the user's terminal and the
+//            model. The call does NOT run: an `ask` halts it until a person
+//            answers. What changed on 2026-07-25 is who ends it — see ask().
 //
 // Every path is wrapped so that an unexpected failure warns and proceeds. A
 // SureX outage must never become a total agent outage.
@@ -47,11 +49,33 @@ function warn(message) {
   emit({ systemMessage: message });
 }
 
-function deny(reason) {
+/**
+ * Stop the call and hand the decision to the human.
+ *
+ * `ask` rather than `deny`, decided by the owner on 2026-07-25. Both stop the
+ * call — nothing runs on an `ask` unless a person approves it — and the
+ * difference is who ends it. `deny` ends it for them; `ask` puts the case in
+ * front of them and makes them answer.
+ *
+ * Why that is the better posture here and not a softening: every verdict SureX
+ * publishes comes from one unaudited model reading source, which is stated on
+ * every surface. A finding that strong has earned the right to STOP a call. It
+ * has not earned the right to be the last word on somebody else's machine, and a
+ * gate that cannot be answered is a gate developers uninstall — which AGENTS.md
+ * §4 names as the outcome the whole design exists to avoid.
+ *
+ * `permissionDecisionReason` still carries the entire case, because it is the
+ * only channel that reaches both the user's terminal and the model.
+ *
+ * Valid values are allow/deny/ask/defer — checked against Claude Code's hook
+ * reference, not assumed. `allow` remains unusable here for the reason in the
+ * header (C2: it GRANTS the call outright, bypassing the normal prompt).
+ */
+function ask(reason) {
   emit({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
+      permissionDecision: 'ask',
       permissionDecisionReason: reason,
     },
   });
@@ -245,7 +269,7 @@ export async function runGate(input) {
     overrideCommand: overrideCommand(fingerprint),
   });
 
-  deny(evidenceLine ? `${reason}\n\n${evidenceLine}` : reason);
+  ask(evidenceLine ? `${reason}\n\n${evidenceLine}` : reason);
 }
 
 /**

@@ -1,7 +1,7 @@
 # Developer feedback — SureX, ETHGlobal Lisbon 2026
 
 We built [**SureX**](https://arkiv-surex.vercel.app) over the weekend: a trust registry for MCP servers, plus a
-Claude Code `PreToolUse` hook that blocks a flagged tool call. Source goes to **Walrus** as a content-addressed
+Claude Code `PreToolUse` hook that stops a flagged tool call and puts the decision to a human. Source goes to **Walrus** as a content-addressed
 blob, an open-source model reads it against what the server claims to do, the verdict is written as its own
 blob, **Arkiv** holds the queryable head the gate reads, **ENS** addresses every entry as
 `sxf1-<40 hex>.surex.eth` through a wildcard offchain resolver on mainnet, and **World** gives a human — or an
