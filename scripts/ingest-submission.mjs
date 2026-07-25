@@ -89,8 +89,8 @@ export const STAGES = ['resolving', 'licence', 'fetching', 'starting', 'reviewin
  * `done` is the stage's position in STAGES, held to never move backwards, and
  * `total` is the length of that list. Two consequences, both deliberate:
  *
- *   · A SKIPPED stage jumps the number forward. A licence refusal goes straight
- *     from `licence` to `walrus` — 2 to 6 — and that jump is the honest reading:
+ *   · A SKIPPED stage jumps the number forward. Unreadable source goes straight
+ *     from `fetching` to `walrus`, and that jump is the honest reading:
  *     those stages will not happen for this submission.
  *   · The stages are not emitted in list order everywhere. This pipeline
  *     downloads the npm tarball BEFORE the licence gate, because the record for a
@@ -282,8 +282,30 @@ async function main() {
     progress('fetching', 'Reading the repository at the submitted commit', { artifact: reviewedArtifact });
   }
 
-  // 4. licence gate, before anything is stored
-  progress('licence', 'Checking the licence permits redistribution', { artifact: reviewedArtifact });
+  /**
+   * 4. Read the licence. RECORD it — do not refuse on it.
+   *
+   * The gate used to stop here: an unmatched or absent licence published
+   * `unreviewable / licence` and the model never saw the code. That rule exists
+   * to stop us REDISTRIBUTING source nobody licensed us to redistribute, and it
+   * is the right rule for a path that stores source.
+   *
+   * This path does not store source. `publishOutcome` writes one blob and it is
+   * the REVIEW BODY — our own words about the code, with file and line citations
+   * to substantiate a finding. The repository is public and reading it is not
+   * what a licence restricts. So the gate was refusing to review on the strength
+   * of a concern this pipeline does not create, and the cost was real: a
+   * maintainer submitting a perfectly good server got told nobody could review
+   * it, for a LICENSE file.
+   *
+   * The licence is still established and still published — as a fact on the
+   * entry, `none` when there is none — because "we reviewed this and its licence
+   * is unknown" is information, and silence is not.
+   *
+   * NOTE the scope: `scripts/review-known.mjs` downloads and extracts npm
+   * tarballs and DOES hold third-party bytes. Its gate stays.
+   */
+  progress('licence', 'Reading the licence', { artifact: reviewedArtifact });
   const gate = await licenceGate(
     {
       name: npmName ?? `${owner}/${repo}`,
@@ -292,23 +314,29 @@ async function main() {
     },
     { fetchRepoFiles: true },
   );
-  if (gate.undetermined) {
-    fail('the licence could not be read, and refusing to claim ineligibility on a failed request', { detail: gate.detail });
-  }
-  if (!gate.eligible) {
-    // The remaining stages will not happen for this submission, and the jump in
-    // the number says so. It is still written down: an unreviewable entry is a
-    // published fact about why nobody can review this, not a silent drop.
-    progress('licence', `Not redistribution-permitting (${gate.spdx ?? 'licence unclear'}) — nothing can be reviewed`, {
-      spdx: gate.spdx,
-    });
-    return publishOutcome({
-      fingerprint, tier, state: 'unreviewable', reason: 'licence',
-      why: `licence not redistribution-permitting (${gate.spdx ?? gate.detail})`,
-      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
-    });
-  }
-  progress('licence', `Licence permits redistribution (${gate.spdx ?? 'permissive'})`, { spdx: gate.spdx });
+  /**
+   * What we will say the licence IS. Three distinct answers, kept apart because
+   * they mean different things and collapsing them is how a record starts lying:
+   *
+   *   a recognised SPDX id   → that id
+   *   read it, found nothing → `none`
+   *   could not read it      → `unknown` (a request failed; not a claim)
+   *
+   * `undetermined` no longer aborts. It used to, on the sound principle that we
+   * must not claim ineligibility off a failed request — but nothing is being
+   * claimed ineligible any more, so the honest move is to record that we could
+   * not tell and carry on.
+   */
+  const licence = gate.undetermined ? 'unknown' : (gate.spdx ?? 'none');
+  progress(
+    'licence',
+    licence === 'unknown'
+      ? 'Licence could not be read — recorded as unknown'
+      : licence === 'none'
+        ? 'No licence found — recorded as none, the review continues'
+        : `Licence: ${licence}`,
+    { spdx: licence },
+  );
 
   // 5. can it be read at all?
   const files = readPackage(sourceDir);
@@ -317,7 +345,7 @@ async function main() {
     progress('fetching', `The source cannot be read: ${read.reason}`, { artifact: reviewedArtifact });
     return publishOutcome({
       fingerprint, tier, state: 'unreviewable', reason: 'source-unavailable', why: read.reason,
-      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
+      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, licence, result: null,
     });
   }
 
@@ -386,7 +414,7 @@ async function main() {
     fingerprint, tier, state, reason,
     why: result.notice ?? null,
     name: npmName ?? `${owner}/${repo}`,
-    commit, release, reviewedArtifact, integrityCheck, result,
+    commit, release, reviewedArtifact, integrityCheck, licence, result,
     findings: result.findings ?? [],
   });
 }
@@ -438,6 +466,10 @@ async function publishOutcome(o) {
     capabilities: o.result?.capabilities ?? null,
     sourceCoverage: o.result?.run?.sourceCoverage ?? null,
     npmIntegrity: o.integrityCheck?.detail ?? null,
+    // An SPDX id, or `none` when we read and found nothing, or `unknown` when a
+    // request failed. Published either way: "reviewed, licence none" is a fact a
+    // reader can act on, and it used to be the reason there was no record at all.
+    licence: o.licence ?? null,
     modelId: o.result?.modelId ?? null,
     promptVersion: o.result?.promptVersion ?? null,
     agreementRuns: o.result?.agreementRuns ?? 0,

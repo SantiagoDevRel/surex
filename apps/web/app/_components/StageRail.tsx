@@ -422,8 +422,26 @@ function StepDetail({
             <span className={tone.ink}>{COPY.pipeline.rail.flow.name[step]}</span>
             <span className="text-faint"> · {COPY.pipeline.rail.tech[tech]}</span>
           </p>
-          <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
-          <p className="mt-1.5 max-w-[64ch] text-mini leading-relaxed text-ink-2">{copy.body}</p>
+          {/*
+            The World step shows its TITLE and its claim, and no prose.
+
+            It is the first thing on the page and it was spending two paragraphs
+            on how the request is signed before the reader had seen the six
+            steps — so the flow and the section under it did not fit on one
+            screen, which is the whole reason the flow replaced an essay.
+
+            `WorldClaim` below is not prose and does not go: it is the one line
+            §5 requires, naming what the configured credential actually proves,
+            with the long form behind its own disclosure. A step that asks for a
+            biometric while saying nothing about what it establishes is the
+            failure that rule exists to prevent.
+          */}
+          {step === 'world' ? null : (
+            <>
+              <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
+              <p className="mt-1.5 max-w-[64ch] text-mini leading-relaxed text-ink-2">{copy.body}</p>
+            </>
+          )}
 
           {step === 'world' ? (
             <WorldClaim credential={credential} />

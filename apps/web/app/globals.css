@@ -56,51 +56,69 @@
    ============================================================================ */
 
 :root {
-  /* surfaces — Deep Mocha, darkened. Never a brand hue. */
-  --sx-bg: #171213;
-  --sx-panel: #241c1e;
-  --sx-panel-2: #1d1618;
-  --sx-line: rgba(218, 214, 214, 0.11);
-  --sx-line-2: rgba(218, 214, 214, 0.065);
+  /* ── SureX Design System (2026-07-25 23:34) ────────────────────────────────
+     Near-black surfaces, a five-step warm grey ink ladder, and three state hues
+     that are NOT the Arkiv brand pair — this system is SureX's own.
 
-  /* ink — Dust Grey, stepped down. The floor is 4.5:1 on panel-2. */
-  --sx-ink: #dad6d6;
-  --sx-ink-2: #beb6b6;
-  --sx-ink-3: #a8999e;
-  --sx-faint: #99858b;
+     Every value below is from that document. The contrast figures in the
+     comments were measured against the surface each token actually sits on, not
+     against #000, because nothing here is #000.
+     ------------------------------------------------------------------------ */
+
+  /* surfaces — near-black, warm. Four steps so depth is a step, not a shadow. */
+  --sx-bg: #0a0908;
+  --sx-panel: #1e1b1a;
+  --sx-panel-2: #141110;
+  --sx-line: #2a2624;
+  --sx-line-2: #242020;
+
+  /* ink — four steps, each measured on the surface it sits on.
+
+     `faint` is #8a8280, which is the most-used value in the design system by a
+     wide margin (201 occurrences against 73 for the next ink) — that frequency
+     is what says it is the quiet TEXT colour rather than a border. It measures
+     5.29 / 4.55 / 5.00 on bg / panel / panel-2, so it clears AA everywhere,
+     narrowly on `panel`.
+
+     The system's darkest grey, #625b59, is NOT here. It is a border value, and
+     as type it measures 2.58:1 on panel — the site uses `text-faint` in 50
+     places, and every one of them would have been unreadable. */
+  --sx-ink: #f0ebea;
+  --sx-ink-2: #a39a98;
+  --sx-ink-3: #9c9391;
+  --sx-faint: #8a8280;
 
   /* links, focus, actions — NEVER inside a verdict.
      Deliberately achromatic: in this product colour means verdict, so the one
      hue that must never be mistaken for one does not get a hue at all. */
-  --sx-accent: #e3dede;
-  --sx-accent-t: rgba(218, 214, 214, 0.08);
-  --sx-select: rgba(218, 214, 214, 0.2);
+  --sx-accent: #f0ebea;
+  --sx-accent-t: rgba(240, 235, 234, 0.08);
+  --sx-select: rgba(240, 235, 234, 0.2);
 
-  /* Dark Emerald, lifted to 4.5:1+ on a dark surface */
-  --sx-clean: #43b67f;
-  --sx-clean-hi: #6bd4a1;
-  --sx-clean-t: rgba(67, 182, 127, 0.1);
-  --sx-clean-l: rgba(67, 182, 127, 0.6);
+  /* sage — clean */
+  --sx-clean: #7fb79a;
+  --sx-clean-hi: #9ecdb4;
+  --sx-clean-t: rgba(127, 183, 154, 0.1);
+  --sx-clean-l: rgba(127, 183, 154, 0.6);
 
-  /* Burnt Tangerine, lifted */
-  --sx-flagged: #e26d65;
-  --sx-flagged-hi: #f2938c;
-  --sx-flagged-t: rgba(226, 109, 101, 0.1);
-  --sx-flagged-l: rgba(226, 109, 101, 0.68);
+  /* coral — flagged */
+  --sx-flagged: #ff6a5c;
+  --sx-flagged-hi: #ff9086;
+  --sx-flagged-t: rgba(255, 106, 92, 0.1);
+  --sx-flagged-l: rgba(255, 106, 92, 0.68);
 
-  /* Deep Mocha, pushed to a plum — the one state with no brand hue of its own,
-     so it is built from the surface colour rather than invented. */
-  --sx-disputed: #c892b8;
-  --sx-disputed-t: rgba(200, 146, 184, 0.1);
-  --sx-disputed-l: rgba(200, 146, 184, 0.6);
+  /* plum — disputed */
+  --sx-disputed: #c4a2b8;
+  --sx-disputed-t: rgba(196, 162, 184, 0.1);
+  --sx-disputed-l: rgba(196, 162, 184, 0.6);
 
-  /* Sunbeam Yellow. Legible on a dark surface at nearly full strength. */
-  --sx-stale: #ded145;
-  --sx-stale-t: rgba(222, 209, 69, 0.1);
-  --sx-stale-l: rgba(222, 209, 69, 0.48);
+  /* sunbeam — stale. Full strength; it is legible only on a surface this dark. */
+  --sx-stale: #ffe900;
+  --sx-stale-t: rgba(255, 233, 0, 0.1);
+  --sx-stale-l: rgba(255, 233, 0, 0.48);
 
   /* glass — a translucent panel, for the surfaces that earn depth */
-  --sx-glass: rgba(36, 28, 30, 0.8);
+  --sx-glass: rgba(30, 27, 26, 0.8);
 
   /* halftone dot + the two-hue wash: the mark's split, as page atmosphere */
   --sx-dot: rgba(218, 214, 214, 0.035);
@@ -307,10 +325,13 @@
   --text-stamp: 24px;
   --text-stamp--line-height: 1.1;
 
-  /* §03 — radius: 3 chips · 4 inputs/wells · 6 panels · 0 on stamps */
-  --radius-chip: 3px;
-  --radius-input: 4px;
-  --radius-panel: 6px;
+  /* GEOMETRY — NOTHING IS ROUNDED.
+     The design system says so in those words: "0 radius — panels, chips,
+     buttons, inputs". Kept as three named tokens rather than deleted, so the
+     components keep reading a name and one edit here moves all of them. */
+  --radius-chip: 0px;
+  --radius-input: 0px;
+  --radius-panel: 0px;
 
   /* §03 — motion */
   --animate-stamp-in: stamp-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
