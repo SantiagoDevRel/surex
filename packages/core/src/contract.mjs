@@ -113,6 +113,34 @@ export function unknownHead(fingerprint) {
 }
 
 /**
+ * A batch response MUST answer for every fingerprint it was asked about, so a
+ * caller can tell "the registry says it has no entry for this" from "the
+ * registry did not answer for this".
+ *
+ * The difference is security-relevant and was found by running the chain end to
+ * end: an early version had the prefetch synthesise an `unknown` for every
+ * unanswered fingerprint and cache it. A batch endpoint that returned nothing
+ * therefore wrote 11 negative cache entries, and the hot path then served a
+ * FLAGGED server out of the cache as `unknown` for the whole negative TTL — no
+ * lookup, no block. A miss may only be cached when the registry actually said
+ * so.
+ */
+export function partitionBatchResponse(requested, rows) {
+  const byFp = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const head = parseVerdictHead(row);
+    if (head) byFp.set(head.fingerprint, head);
+  }
+  const answered = [];
+  const unanswered = [];
+  for (const fp of requested) {
+    if (byFp.has(fp)) answered.push(byFp.get(fp));
+    else unanswered.push(fp);
+  }
+  return { answered, unanswered };
+}
+
+/**
  * Cache policy. Sits in the contract because the gate and the API must agree:
  * a positive TTL the server does not honour is a stale block waiting to happen.
  */

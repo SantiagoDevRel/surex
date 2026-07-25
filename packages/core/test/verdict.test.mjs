@@ -4,7 +4,7 @@ import {
   blockMessage, confidenceOf, decide, offlineMessage, tierSentence, warnMessage,
 } from '../src/verdict.mjs';
 import { assertCopy, copyViolations, NO_HUMAN_AUDIT } from '../src/copy.mjs';
-import { parseVerdictHead, unknownHead, isFingerprint } from '../src/contract.mjs';
+import { parseVerdictHead, partitionBatchResponse, unknownHead, isFingerprint } from '../src/contract.mjs';
 
 const FP = `sxf1_${'9'.repeat(64)}`;
 
@@ -154,6 +154,34 @@ test('a malformed head degrades to unknown, never to clean', () => {
   assert.equal(bad.severity, 0);
   assert.equal(bad.tier, 'C', 'an unrecognised tier must fall back to the weakest claim');
   assert.equal(unknownHead(FP).state, 'unknown');
+});
+
+test('a batch response distinguishes "no entry" from "did not answer"', () => {
+  // Found by running the chain end to end, and it is security-relevant. An
+  // earlier version had the prefetch synthesise an `unknown` for every
+  // fingerprint the registry did not mention, and cache it. A batch endpoint
+  // returning nothing therefore wrote a negative cache entry for a FLAGGED
+  // server, and the hot path then served it out of cache as unknown for the
+  // whole negative TTL — no lookup, no block, no notice.
+  const asked = [FP, `sxf1_${'a'.repeat(64)}`, `sxf1_${'b'.repeat(64)}`];
+
+  const silent = partitionBatchResponse(asked, []);
+  assert.deepEqual(silent.answered, []);
+  assert.deepEqual(silent.unanswered, asked, 'silence must never become three cacheable misses');
+
+  const partial = partitionBatchResponse(asked, [
+    { fingerprint: FP, state: 'flagged', severity: 4, tier: 'B' },
+    { fingerprint: asked[1], state: 'unknown', severity: 0, tier: 'C' },
+  ]);
+  assert.equal(partial.answered.length, 2);
+  assert.deepEqual(partial.unanswered, [asked[2]]);
+  // An explicit `unknown` from the registry IS a real answer and may be cached.
+  assert.equal(partial.answered[1].state, 'unknown');
+
+  // A malformed row is not an answer either.
+  const junk = partitionBatchResponse(asked, [{ fingerprint: 'nope', state: 'clean' }, null, 'x']);
+  assert.deepEqual(junk.answered, []);
+  assert.equal(junk.unanswered.length, 3);
 });
 
 test('fingerprint validation rejects anything that is not one', () => {

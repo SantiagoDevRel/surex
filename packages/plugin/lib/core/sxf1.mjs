@@ -44,6 +44,13 @@ const DOCKER_VALUE_FLAGS = new Set([
 
 const UNPINNED = 'unpinned';
 
+/**
+ * A local script whose entry-file content was not supplied. Deliberately not a
+ * usable identity: it means "we cannot tell these apart", and the gate must warn
+ * rather than resolve it to somebody else's verdict.
+ */
+export const LOCAL_UNRESOLVED = 'local-unresolved';
+
 /** A version string only counts as pinned if it names exactly one artifact. */
 function isPinnedVersion(version) {
   if (!version) return false;
@@ -153,6 +160,18 @@ function isAbsolutePath(arg) {
 }
 
 /**
+ * Does this package spec actually name a file on this machine rather than a
+ * published artifact? A registry reference (`github:owner/repo`, a URL, a scoped
+ * npm name) is not local even though it contains a slash.
+ */
+export function isLocalEntrySpec(spec) {
+  if (!spec || typeof spec !== 'string') return false;
+  if (/^(git\+|https?:|github:|gitlab:|bitbucket:|npm:|jsr:|@)/i.test(spec)) return false;
+  if (/^([.~]|[\\/]|[A-Za-z]:[\\/])/.test(spec)) return true;
+  return /\.(m?js|cjs|ts|mts|cts|py|rb|php)$/i.test(spec);
+}
+
+/**
  * `/usr/local/bin/npx` and `C:\Program Files\nodejs\npx.cmd` must fingerprint
  * identically, so the runner is the lowercased basename with any Windows
  * executable suffix removed.
@@ -186,7 +205,7 @@ function extractPackage(runner, args) {
         i++;
         continue;
       }
-      pkg = parseDockerImage(a);
+      pkg = { ...parseDockerImage(a), _spec: a };
       i++;
       break;
     }
@@ -197,8 +216,14 @@ function extractPackage(runner, args) {
       // `deno run --allow-net script.ts` — permissions are identity-relevant,
       // so they fall through to the residual args rather than being consumed.
       if (a === 'run' || a === 'x' || a === 'dlx') { i++; continue; }
-      if (isFlag(a)) break;
-      pkg = parseNpmSpec(a);
+      // `deno run --allow-net ./server.ts` — permissions come BEFORE the entry
+      // and they ARE identity-relevant, so keep them and keep scanning rather
+      // than breaking and never finding the script.
+      if (isFlag(a)) {
+        if (runner === 'deno') { rest.push(a); i++; continue; }
+        break;
+      }
+      pkg = { ...parseNpmSpec(a), _spec: a };
       i++;
       break;
     }
@@ -208,7 +233,7 @@ function extractPackage(runner, args) {
       if (CEREMONY.has(a)) { i++; continue; }
       if (a === '-m') { i++; continue; }
       if (isFlag(a)) break;
-      pkg = parsePythonSpec(a);
+      pkg = { ...parsePythonSpec(a), _spec: a };
       i++;
       break;
     }
@@ -218,7 +243,20 @@ function extractPackage(runner, args) {
       if (CEREMONY.has(a)) { i++; continue; }
       if (isFlag(a)) break;
       // `node ./server.js` names a local file, never a published artifact.
-      pkg = { name: String(a).split(/[\\/]/).pop(), version: UNPINNED };
+      //
+      // The absolute path cannot go in the fingerprint (it is machine-specific,
+      // so two developers running the same server would never match) but the
+      // basename alone is NOT an identity: every locally-run MCP server in the
+      // world is `node server.js`, and they would all collide onto one entry.
+      // A collision here is worse than a miss — the gate would apply one
+      // server's verdict to a different server's code.
+      //
+      // So the identity of a local script is the CONTENT of its entry file,
+      // supplied by the caller (see `hashLocalEntry`). Content is also
+      // reproducible across machines, which is the property that lets a local
+      // server have a registry entry at all. Without a resolver this stays
+      // deliberately unresolved and the gate treats it as unidentifiable.
+      pkg = { name: String(a).split(/[\\/]/).pop(), version: LOCAL_UNRESOLVED, _spec: String(a) };
       i++;
       break;
     }
@@ -248,8 +286,17 @@ function extractPackage(runner, args) {
  */
 const STDIO_TO_REMOTE_PROXIES = new Set(['mcp-remote', 'supergateway', '@modelcontextprotocol/mcp-remote']);
 
-/** Canonical form for a stdio server. Spec §2.2. */
-export function canonicaliseStdio(def) {
+/**
+ * Canonical form for a stdio server. Spec §2.2.
+ *
+ * @param {object} def   the server definition, after ${VAR} expansion
+ * @param {{hashLocalEntry?: (path: string) => string|null}} [opts]
+ *   `hashLocalEntry` resolves a local script's entry file to a content digest.
+ *   Supplied by the gate (which has the file on disk) and by the worker. Absent,
+ *   a local script stays LOCAL_UNRESOLVED rather than colliding with every other
+ *   `node server.js` in existence.
+ */
+export function canonicaliseStdio(def, opts = {}) {
   const unwrapped = unwrapShell(def.command, def.args);
   const runner = normaliseRunner(unwrapped.command);
   const { pkg, rest } = extractPackage(runner, unwrapped.args);
@@ -261,11 +308,28 @@ export function canonicaliseStdio(def) {
     if (url) return canonicaliseRemote({ url });
   }
 
+  // Any runner can be pointed at a local script, not just `node`: `deno run
+  // ./server.ts`, `bun ./server.ts`, `python ./server.py`. All of them have the
+  // same collision problem, so all of them get the same treatment.
+  let name = pkg.name;
+  let version = pkg.version;
+  if (isLocalEntrySpec(pkg._spec)) {
+    name = String(pkg._spec).split(/[\\/]/).pop();
+    version = LOCAL_UNRESOLVED;
+  }
+
+  if (version === LOCAL_UNRESOLVED && typeof opts.hashLocalEntry === 'function') {
+    const digest = opts.hashLocalEntry(pkg._spec);
+    // Content identity — reproducible on any machine holding the same file, and
+    // distinct for any file that differs by a byte.
+    if (digest) version = `local:${String(digest).slice(0, 16)}`;
+  }
+
   return {
     v: SXF_VERSION,
     transport: 'stdio',
     runner,
-    package: { name: pkg.name, version: pkg.version },
+    package: { name, version },
     args: rest,
     // `env` is excluded entirely (NFR-2): values are secrets, and keys leak
     // little enough that dropping them costs nothing.
@@ -301,10 +365,19 @@ export function stableStringify(value) {
  * Canonicalise one MCP server definition, as it appears in a client config
  * AFTER ${VAR} expansion.
  */
-export function canonicalise(def) {
+export function canonicalise(def, opts = {}) {
   if (!def || typeof def !== 'object') throw new TypeError('server definition must be an object');
   const isRemote = def.url || def.type === 'http' || def.type === 'sse' || def.type === 'ws';
-  return isRemote ? canonicaliseRemote(def) : canonicaliseStdio(def);
+  return isRemote ? canonicaliseRemote(def) : canonicaliseStdio(def, opts);
+}
+
+/**
+ * True when a canonical form does not identify anything specific enough to look
+ * up. The gate must warn on these rather than resolve them, because the entry it
+ * would find belongs to a different server.
+ */
+export function isUnidentifiable(canonical) {
+  return canonical?.transport === 'stdio' && canonical?.package?.version === LOCAL_UNRESOLVED;
 }
 
 /** `sxf1_` + sha256 of the canonical form, hex, lowercase. Spec §2.4. */

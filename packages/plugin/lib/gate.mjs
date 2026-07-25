@@ -20,10 +20,11 @@
 // SureX outage must never become a total agent outage.
 
 import {
-  canonicalise, decide, fingerprintOf, loadEvidence, offlineMessage,
+  canonicalise, decide, fingerprintOf, isUnidentifiable, loadEvidence, offlineMessage,
   parseServerFromToolName, tierOf, verificationLine, warnMessage, blockMessage,
 } from './core/index.mjs';
 import { findServer } from './config.mjs';
+import { localEntryResolver } from './localentry.mjs';
 import { findLocalIntegrity } from './integrity.mjs';
 import { fetchVerdict, fetchVerdictBatch, ttlFor } from './registry.mjs';
 import { cacheGet, cachePut, cachePutMany, isOverridden, logDecision } from './store.mjs';
@@ -76,7 +77,14 @@ export function identify(toolName, cwd, opts = {}) {
   }
 
   try {
-    const canonical = canonicalise(server.def);
+    // The resolver gives a locally-run script an identity from its entry file's
+    // content. Without it every `node server.js` on earth is one fingerprint.
+    const canonical = canonicalise(server.def, { hashLocalEntry: localEntryResolver(cwd) });
+    if (isUnidentifiable(canonical)) {
+      // A local script we could not read. Refuse to look it up: the entry we
+      // would find belongs to a different server.
+      return { reason: 'local-entry-unreadable', parsed, server, canonical };
+    }
     return {
       parsed,
       server,
@@ -105,6 +113,11 @@ export function resolveTier(canonical, head, cwd) {
   if (canonical.transport !== 'stdio') return { tier: 'C', local: null };
   const { name, version } = canonical.package ?? {};
   if (!version || version === 'unpinned') return { tier: 'C', local: null };
+  // A local script identified by its entry file's content is Tier C on purpose.
+  // The hash covers the ENTRY FILE, not the module graph behind it, so we cannot
+  // claim the reviewed bytes are the bytes that will run. There is also no
+  // published artifact to compare a digest against.
+  if (String(version).startsWith('local:')) return { tier: 'C', local: null };
   const local = findLocalIntegrity(name, version, { cwd });
   return {
     tier: tierOf(canonical, { recordedIntegrity: head?.integrity, localIntegrity: local.integrity }),
@@ -235,10 +248,14 @@ export async function runPrefetch(input) {
   const { discoverServers } = await import('./config.mjs');
   const { servers } = discoverServers(cwd);
 
+  const resolver = localEntryResolver(cwd);
   const fps = [];
   for (const server of servers) {
     try {
-      fps.push(fingerprintOf(canonicalise(server.def)));
+      const canonical = canonicalise(server.def, { hashLocalEntry: resolver });
+      // Skip what the hot path will also refuse to look up, so the two agree.
+      if (isUnidentifiable(canonical)) continue;
+      fps.push(fingerprintOf(canonical));
     } catch {
       // A server we cannot canonicalise is a miss at call time, not here.
     }
@@ -246,10 +263,19 @@ export async function runPrefetch(input) {
   if (!fps.length) process.exit(0);
 
   try {
-    const heads = await fetchVerdictBatch([...new Set(fps)]);
-    for (const head of heads) cachePut(head.fingerprint, head, ttlFor(head));
+    const unique = [...new Set(fps)];
+    const { answered, unanswered } = await fetchVerdictBatch(unique);
+    // Only what the registry actually answered for is cached. A fingerprint it
+    // did not mention is left uncached so the hot path performs a real lookup --
+    // caching it as `unknown` would let a broken batch endpoint suppress a flag
+    // for the whole negative TTL.
+    for (const head of answered) cachePut(head.fingerprint, head, ttlFor(head));
+    const heads = answered;
     const flagged = heads.filter((h) => h.state === 'flagged' || h.state === 'disputed');
-    logDecision({ decision: 'prefetch', count: heads.length, flagged: flagged.length, session: input?.session_id });
+    logDecision({
+      decision: 'prefetch', asked: unique.length, count: heads.length,
+      unanswered: unanswered.length, flagged: flagged.length, session: input?.session_id,
+    });
     if (flagged.length) {
       // Told once, at the start, rather than as a surprise mid-task.
       emit({

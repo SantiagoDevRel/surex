@@ -10,6 +10,7 @@
 import { canonicalise, fingerprintOf, decide, tierSentence, capabilityLine,
          loadEvidence, verificationLine, SEVERITY_LABEL, CLEAN_MEANS } from '../lib/core/index.mjs';
 import { discoverServers } from '../lib/config.mjs';
+import { localEntryResolver } from '../lib/localentry.mjs';
 import { findLocalIntegrity, integrityNote } from '../lib/integrity.mjs';
 import { apiBase, fetchVerdict } from '../lib/registry.mjs';
 import { addOverride, dataDir, paths, readCache, readLog, readOverrides, removeOverride } from '../lib/store.mjs';
@@ -67,7 +68,7 @@ async function cmdList() {
   for (const server of servers) {
     let canonical;
     try {
-      canonical = canonicalise(server.def);
+      canonical = canonicalise(server.def, { hashLocalEntry: localEntryResolver(process.cwd()) });
     } catch (err) {
       console.log(`  ${server.name.padEnd(22)} ${dim(`could not be read from its config (${err.message})`)}`);
       continue;
@@ -216,7 +217,7 @@ function cmdCheck(name) {
   const { servers } = discoverServers(process.cwd());
   const hits = name ? servers.filter((s) => s.name === name) : servers;
   for (const server of hits) {
-    const canonical = canonicalise(server.def);
+    const canonical = canonicalise(server.def, { hashLocalEntry: localEntryResolver(process.cwd()) });
     const fp = fingerprintOf(canonical);
     console.log(`\n  ${bold(server.name)}  ${dim(`${server.scope} scope`)}`);
     console.log(`  ${fp}`);

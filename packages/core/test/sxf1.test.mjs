@@ -8,6 +8,8 @@ import {
   parseServerFromToolName,
   stableStringify,
   tierOf,
+  isUnidentifiable,
+  fingerprintOf,
 } from '../src/sxf1.mjs';
 
 const npx = (args, env) => ({ command: 'npx', args, ...(env ? { env } : {}) });
@@ -136,6 +138,53 @@ test('a proxy shim resolves to the endpoint behind it, not the shim', () => {
   );
   // A proxy with no visible URL must NOT become a wrong remote entry.
   assert.equal(canonicalise({ command: 'npx', args: ['mcp-remote'] }).transport, 'stdio');
+});
+
+test('A LOCAL SCRIPT IS NOT IDENTIFIED BY ITS BASENAME — that would be a collision', () => {
+  // The bug: every locally-run MCP server on earth is `node server.js`. The
+  // absolute path cannot go in the fingerprint (machine-specific), but the
+  // basename alone would file two unrelated servers under one entry — and the
+  // gate would then hand one server's verdict to the other. A collision here is
+  // strictly worse than a miss, because a miss only warns.
+  const a = canonicalise({ command: 'node', args: ['/home/ana/project-a/server.js'] });
+  const b = canonicalise({ command: 'node', args: ['C:\\work\\project-b\\server.js'] });
+  assert.equal(a.package.version, 'local-unresolved');
+  assert.equal(b.package.version, 'local-unresolved');
+  assert.ok(isUnidentifiable(a), 'unresolved must be flagged as unidentifiable, not looked up');
+  assert.ok(isUnidentifiable(b));
+});
+
+test('with a content resolver, a local script gets a real and portable identity', () => {
+  const resolver = (spec) => (spec.includes('project-a') ? 'a'.repeat(64) : 'b'.repeat(64));
+  const a = canonicalise({ command: 'node', args: ['/home/ana/project-a/server.js'] }, { hashLocalEntry: resolver });
+  const b = canonicalise({ command: 'node', args: ['C:\\work\\project-b\\server.js'] }, { hashLocalEntry: resolver });
+  assert.equal(a.package.version, `local:${'a'.repeat(16)}`);
+  assert.ok(!isUnidentifiable(a));
+  assert.notEqual(fingerprintOf(a), fingerprintOf(b), 'different content, different entry');
+
+  // The property that makes a registry entry for a local server possible at all:
+  // the same file content on a different machine, at a different path, is the
+  // same fingerprint.
+  const elsewhere = canonicalise(
+    { command: 'node', args: ['/opt/somewhere/else/server.js'] },
+    { hashLocalEntry: () => 'a'.repeat(64) },
+  );
+  assert.equal(fingerprintOf(elsewhere), fingerprintOf(a));
+});
+
+test('every runner pointed at a local file gets the same treatment, not just node', () => {
+  for (const def of [
+    { command: 'deno', args: ['run', '--allow-net', './server.ts'] },
+    { command: 'bun', args: ['./server.ts'] },
+    { command: 'python3', args: ['./server.py'] },
+    { command: 'node', args: ['server.mjs'] },
+  ]) {
+    const c = canonicalise(def);
+    assert.equal(c.package.version, 'local-unresolved', JSON.stringify(def));
+  }
+  // …but a published name that merely looks path-ish is NOT local.
+  assert.notEqual(canonicalise({ command: 'npx', args: ['-y', '@scope/name@1.0.0'] }).package.version, 'local-unresolved');
+  assert.notEqual(canonicalise({ command: 'npx', args: ['-y', 'github:owner/repo'] }).package.version, 'local-unresolved');
 });
 
 test('unwrapping is bounded and never loses a non-wrapper command', () => {

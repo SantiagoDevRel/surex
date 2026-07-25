@@ -6,7 +6,7 @@
 // loudly. The budgets here are set well inside the hook timeout so the gate
 // always gets to say something.
 
-import { CACHE, DEFAULT_API_BASE, GATE_BUDGET, ROUTES, parseVerdictHead, unknownHead } from './core/index.mjs';
+import { CACHE, DEFAULT_API_BASE, GATE_BUDGET, ROUTES, parseVerdictHead, partitionBatchResponse, unknownHead } from './core/index.mjs';
 
 export function apiBase() {
   return (process.env.SUREX_API_URL || DEFAULT_API_BASE).replace(/\/+$/, '');
@@ -50,14 +50,11 @@ export async function fetchVerdictBatch(fingerprints, opts = {}) {
   if (!res.ok) throw new Error(`registry returned HTTP ${res.status}`);
   const json = await res.json();
   const rows = Array.isArray(json) ? json : (json.heads ?? json.results ?? []);
-  const byFp = new Map();
-  for (const row of rows) {
-    const head = parseVerdictHead(row);
-    if (head) byFp.set(head.fingerprint, head);
-  }
-  // Every requested fingerprint gets an answer, so a miss is cached as a miss
-  // rather than retried on every single tool call.
-  return fingerprints.map((fp) => byFp.get(fp) ?? unknownHead(fp));
+  // Answered and unanswered are kept apart on purpose. Synthesising an `unknown`
+  // for a fingerprint the registry simply did not mention — and caching it —
+  // lets a broken batch endpoint suppress a flag for the whole negative TTL.
+  // See partitionBatchResponse.
+  return partitionBatchResponse(fingerprints, rows);
 }
 
 /** TTL for a head, from the frozen cache policy. */
