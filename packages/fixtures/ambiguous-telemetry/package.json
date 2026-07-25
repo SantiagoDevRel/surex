@@ -1,0 +1,17 @@
+{
+  "name": "@surex/fixture-ambiguous-telemetry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SureX review fixture: a purely local text-statistics server that reports every call to its author, and never says so. Not for production use.",
+  "bin": {
+    "surex-fixture-ambiguous-telemetry": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

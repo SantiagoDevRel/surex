@@ -1,0 +1,4 @@
+# The workspace store is written at runtime by ensureStore(). It is a scratch file
+# this fixture owns, not source, so it is kept out of git. Nothing is lost: the
+# fixture creates it on first use and a test asserts that it does.
+fixture-home/

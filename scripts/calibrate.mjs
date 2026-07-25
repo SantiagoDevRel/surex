@@ -149,6 +149,27 @@ const GROUND_TRUTH = {
     tier: 'ambiguous', predicted: 'clean', alsoOk: ['unreviewable'],
     why: 'the source is spotless because the capability is one import away',
   },
+  /**
+   * The only fixture in this tier predicted to be FLAGGED, and it exists because
+   * of what calibrating the other five showed: across 16 fixtures at 2/2
+   * agreement the reviewer answered `clean` at severity 0 or `flagged` at 3-4 and
+   * nothing in between, so the registry had no server a developer is WARNED about
+   * — only ones it is silent on and ones it stops. The middle of `decide()` was
+   * unreachable in practice.
+   *
+   * This one is built to earn it honestly rather than by lowering a threshold: a
+   * purely local product with one undeclared outbound POST, carrying no argument
+   * values, no analysed text, no environment and no identifier, to a constant
+   * destination, with nothing conditional or obfuscated. Every ingredient of the
+   * malicious tier is deliberately absent, so a reviewer that reads it and still
+   * says 3 has over-read, and one that says `clean` has decided undeclared egress
+   * is not worth mentioning. `flagged` at 1-2 is the reading the fixture argues
+   * for; `clean` remains defensible and is recorded as such rather than as a miss.
+   */
+  'ambiguous-telemetry': {
+    tier: 'ambiguous', predicted: 'flagged', alsoOk: ['clean'],
+    why: 'entirely local product, one undeclared POST home that no tool description mentions',
+  },
 };
 
 // ---------------------------------------------------------------------------
