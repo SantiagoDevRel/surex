@@ -369,18 +369,21 @@ every verdict rather than let it read as a pass.
 `/branch` is documented to produce a new session id. `/clear`, `/compact` and `/resume` are not described
 either way. Any hook implementing "approve once per conversation" depends on this, and it is not guessable.
 
-**Not resolvable headlessly** — both are interactive-only, so `claude -p` cannot exercise them. Answered
-instead by inspecting real session transcripts under `~/.claude/projects/<slug>/<session-id>.jsonl`:
+**`/compact` is answered directly. `/clear` is not.**
 
-- **`/compact` preserves `session_id`.** Five transcripts containing compact-boundary records each carry
-  exactly **one** distinct `sessionId`, equal to the filename UUID, identical on both sides of the
-  boundary. A hook's per-session state therefore survives compaction.
-- **`/clear` starts a new session.** Across every transcript on this machine there are 10 genuine `/clear`
-  records and all 10 sit at line index 3–7 — i.e. `/clear` is written as the *opening* message of a
-  **new** transcript file, never mid-conversation. The previous session's file simply ends.
-
-Inferred from transcript layout, not from a hook observing itself across the two commands. `probes/hook/`
-leaves a logging hook in place so the direct observation can be made in one interactive session; see
+- ✅ **`/compact` preserves `session_id` — VERIFIED by direct observation.** It turns out `/compact` *can*
+  be driven headlessly: `claude -p --session-id <uuid>` for the first turn, then `printf '/compact' |
+  claude -p --resume <uuid>`, then another tool call on the same resumed session. The transcript confirms
+  the compaction really happened (a `compact_boundary` record with `isCompactSummary`, and the `/compact`
+  command recorded), it carries exactly **one** distinct `sessionId` throughout, and the hook invoked
+  *after* the boundary saw that same id. Repro in `probes/hook/README.md`. A hook's per-session state
+  therefore survives compaction.
+- ⚠️ **`/clear` is still inference, not observation.** It cannot be driven this way. Across every
+  transcript on this machine there are 10 genuine `/clear` records and all 10 sit at line index 3–7 — i.e.
+  `/clear` opens a **new** transcript file and the previous session's file simply ends. Consistent, and
+  consistent with a new `session_id`, but not the same standard of evidence as the line above. Labelled
+  that way rather than rounded up.
+`probes/hook/` leaves a logging hook in place so the `/clear` half can be settled interactively too; see
 `probes/hook/README.md`.
 
 **What would have prevented it:** one row in the hooks reference —

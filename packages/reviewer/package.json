@@ -4,8 +4,23 @@
   "private": true,
   "type": "module",
   "description": "One OpenAI-compatible call to the DGX, schema-validated out, plus a deterministic capability scan that is NOT the model.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./review": "./src/review.mjs",
+    "./model": "./src/model.mjs",
+    "./prompt": "./src/prompt.mjs",
+    "./capabilities": "./src/capabilities.mjs",
+    "./schema": "./src/schema.mjs"
+  },
+  "bin": {
+    "surex-review": "./bin/surex-review.mjs"
+  },
+  "files": ["index.mjs", "src", "bin", "fixtures", "README.md"],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "ping": "node bin/surex-review.mjs --ping",
+    "fixtures": "node bin/surex-review.mjs --fixtures"
   },
   "dependencies": {
     "@surex/core": "workspace:*"
