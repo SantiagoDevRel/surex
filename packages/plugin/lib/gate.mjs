@@ -128,6 +128,19 @@ function displayNameFor(canonical, fallback) {
   if (canonical.transport !== 'stdio') return `${canonical.host}${canonical.path}`;
   const { name, version } = canonical.package ?? {};
   if (!name) return fallback;
+  /**
+   * A local script is identified by its entry FILE plus a content hash, so the
+   * package "name" is a filename and the version is `local:<16 hex>`. Rendered
+   * literally that is `server.mjs@local:f09503fa7a5173ff` — which names neither
+   * the server the developer installed nor anything they can search for, and
+   * every locally-run server on a machine looks roughly the same.
+   *
+   * The name they configured it under is better on every count: they chose it,
+   * it is the name in the tool call they just made, and it is unique within
+   * their own config. The hash has not gone anywhere — it is the fingerprint,
+   * which is printed with the evidence link.
+   */
+  if (String(version).startsWith('local:')) return fallback;
   return version && version !== 'unpinned' ? `${name}@${version}` : `${name} (unpinned)`;
 }
 
@@ -210,7 +223,22 @@ export async function runGate(input) {
   // and the line below overwrites it with the local display name — so "is it in the
   // registry at all" has to be answered first or it cannot be answered.
   const listed = Boolean(head?.name);
-  const resolved = { ...head, tier, name: displayName, fingerprint, listed };
+  /**
+   * The PUBLISHED name wins when there is one, with the local one alongside.
+   *
+   * These are two different identifiers and both are useful. The published name
+   * is what the registry, the evidence page and the ENS record all call this
+   * server, so it is the one a developer can look up or paste to a colleague.
+   * The local name is the one they configured it under, which is how they know
+   * WHICH of their servers is being talked about.
+   *
+   * Showing only the local one is what this printed before, and for a locally-run
+   * script it produced a message naming something that appears nowhere else.
+   * Showing only the published one loses the connection to their own config.
+   */
+  const shown =
+    head?.name && head.name !== displayName ? `${head.name} (${displayName})` : displayName;
+  const resolved = { ...head, tier, name: shown, fingerprint, listed };
 
   const decision = decide(resolved);
   logDecision({
@@ -232,7 +260,11 @@ export async function runGate(input) {
     // The submit URL is only ever rendered for a server nobody has submitted —
     // `warnMessage` decides that, not this call site. Passing it unconditionally
     // keeps the branch where the copy law lives (verdict.mjs, one place, one test).
-    warn(warnMessage(resolved, { name: displayName, submitUrl: `${WEB_BASE()}/submit` }));
+    // `shown`, not `displayName`: warnMessage takes ctx.name over head.name, so
+    // passing the local one here made the warn path the only surface that never
+    // said what the registry calls this server — while the stop path, reading
+    // head.name off `resolved`, did.
+    warn(warnMessage(resolved, { name: shown, submitUrl: `${WEB_BASE()}/submit` }));
   }
 
   // 5. Blocking. This is the one moment the evidence is fetched: a human is
