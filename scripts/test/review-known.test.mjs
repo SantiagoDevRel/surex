@@ -127,19 +127,32 @@ test('dist/ is deprioritised when real source shipped alongside it', () => {
 
 test('publishing a flag against a third party THROWS', () => {
   assert.throws(
-    () => assertNoThirdPartyFlags([{ name: '@someone/mcp', verdict: 'flagged', publish: 'clean' }]),
+    () => assertNoThirdPartyFlags([{ name: '@someone/mcp', publish: 'flagged' }]),
     /refusing to publish a flag/i,
   );
 });
 
-test('the guard catches a flag arriving through any of the three fields', () => {
-  for (const row of [
-    { name: 'a', verdict: 'flagged' },
-    { name: 'b', publish: 'flagged' },
-    { name: 'c', state: 'flagged' },
-  ]) {
+test('the guard catches a flag in either field that decides the WRITE', () => {
+  for (const row of [{ name: 'b', publish: 'flagged' }, { name: 'c', state: 'flagged' }]) {
     assert.throws(() => assertNoThirdPartyFlags([row]), /refusing to publish a flag/i, `field of ${row.name}`);
   }
+});
+
+test('a WITHHELD row passes — that is the whole point of withheld', () => {
+  // Every withheld row carries `verdict: 'flagged'` by definition: it is what the
+  // model said, and `withheld` is the safe thing published about it. An earlier
+  // guard refused on the model verdict and aborted the entire publish on exactly
+  // the rows it was designed to permit. A real run found it.
+  assert.doesNotThrow(() => assertNoThirdPartyFlags([
+    { name: '@someone/mcp', verdict: 'flagged', publish: 'withheld' },
+  ]));
+});
+
+test('a flag may never be laundered into clean', () => {
+  assert.throws(
+    () => assertNoThirdPartyFlags([{ name: '@someone/mcp', verdict: 'flagged', publish: 'clean' }]),
+    /never as nothing found/i,
+  );
 });
 
 test('clean and unreviewable rows pass the guard untouched', () => {

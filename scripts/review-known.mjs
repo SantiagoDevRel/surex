@@ -67,6 +67,15 @@ const EXEC = !argv.includes('--no-exec');
  * should cost seconds rather than an hour of GPU.
  */
 const NO_REVIEW = argv.includes('--no-review');
+/**
+ * Publish the verdicts already measured, without reviewing again.
+ *
+ * A full pass is roughly forty minutes of GPU. When a publish aborts on its last
+ * step — as one did, on a guard of ours that was wrong — re-running the reviews
+ * to write the same answers is forty minutes spent re-deriving what is already
+ * on disk. The report is the record of what was measured; this publishes that.
+ */
+const FROM_REPORT = argv.includes('--from-report');
 const ONLY = flag('--only');
 const LIMIT = Number(flag('--limit', '0')) || 0;
 const API = flag('--api', 'https://arkiv-surex-api.vercel.app');
@@ -582,6 +591,15 @@ async function main() {
     process.exit(2);
   }
 
+  if (FROM_REPORT) {
+    const path = join(homedir(), 'Downloads', 'surex-known-review.json');
+    const saved = JSON.parse(readFileSync(path, 'utf8'));
+    log(`
+publishing from ${path} (generated ${saved.generatedAt}) — no review re-run
+`);
+    return publish(saved.servers ?? []);
+  }
+
   let entries = await loadUnknown();
   if (ONLY) entries = entries.filter((e) => e.name.includes(ONLY));
   if (LIMIT) entries = entries.slice(0, LIMIT);
@@ -670,10 +688,24 @@ async function main() {
  */
 export function assertNoThirdPartyFlags(rows) {
   for (const r of rows ?? []) {
-    if (r.verdict === 'flagged' || r.publish === 'flagged' || r.state === 'flagged') {
+    // What is being WRITTEN, not what the model said. An earlier version of this
+    // also refused any row whose model verdict was `flagged`, and that was wrong
+    // in a way only a real run revealed: `withheld` exists precisely to publish
+    // something safe ABOUT a flagged review — "a review ran and its result is
+    // held" — so every withheld row carries `verdict: 'flagged'` by definition.
+    // The guard aborted the whole publish on the rows it was designed to permit.
+    if (r.publish === 'flagged' || r.state === 'flagged') {
       throw new Error(
         `refusing to publish a flag for the third-party package ${r.name} — ` +
         'a human releases those (AGENTS.md §4)',
+      );
+    }
+    // The other direction, and the more dangerous one: a flag must never be
+    // laundered into silence. If the model flagged it, `clean` is not available.
+    if (r.verdict === 'flagged' && r.publish === 'clean') {
+      throw new Error(
+        `refusing to publish ${r.name} as clean: the review flagged it. A held flag ` +
+        'publishes as `withheld`, never as nothing found.',
       );
     }
   }
@@ -703,7 +735,14 @@ async function publish(results) {
    * at and half the registry updated. Ten lines here turns that into an error
    * before the first transaction.
    */
-  const PROBE = { blobId: 'probe', suiObjectId: 'probe', contentSha256: 'probe' };
+  // A pointer shaped exactly like a real one. `evidenceOf` requires `nShards` and
+  // `encodingType` and refuses without them — blob IDs are deterministic over
+  // content AND network configuration, so a record that omits them cannot explain
+  // a future mismatch. The probe has to satisfy the same rule or it tests nothing.
+  const PROBE = {
+    blobId: 'probe', suiObjectId: 'probe', contentSha256: 'probe',
+    registerTx: 'probe', certifyTx: 'probe', encodingType: 'RS2', nShards: 1000,
+  };
   for (const r of publishable) {
     try {
       buildVerdictHead({
