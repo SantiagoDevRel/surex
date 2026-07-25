@@ -42,7 +42,8 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | One Walrus blob written + certified | **done**, both Sui digests captured — §7 |
 | One Arkiv entity written + read filtered by `.createdBy` | **done**, including the adversarial case — §7 |
 | `packages/worker` + seeding | in progress |
-| World ID / AgentKit wiring | **not built** — the dispute route has the gate and an injectable verifier that refuses everything, and the submit page sends a real request with no proof and renders the 401 verbatim |
+| World **AgentKit / AgentBook** | **built and live** — `SUREX_WORLD=1` on the deployed API. The agent path recovers the address from the signature locally, then reads AgentBook on World Chain 480. Exercised against a real third-party registration. **Nobody is registered as our agent yet** — that is the Orb step. |
+| World **ID** (human disputes) | **built, not provable yet** — needs a Developer Portal app (`WORLD_RP_ID`, `RP_SIGNING_KEY`, `NEXT_PUBLIC_WORLD_APP_ID`). Unset gives an explicit configuration error that says it is *our* misconfiguration and not a judgement about the contestant. Never a pass. |
 | Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
 | Deployed | **yes** — web `arkiv-surex.vercel.app`, API `arkiv-surex-api.vercel.app`, both on `santiago-prod`, both reading live Braga. Git-connected to this repo, so every push to `main` redeploys. |
 | The registry, live | **51 entries** · 1 flagged (our fixture) · 10 unreviewable(licence) · 40 unknown · 0 clean |
