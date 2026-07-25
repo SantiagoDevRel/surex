@@ -162,3 +162,32 @@ test('the server wires up and answers a tool call without a live reporter', asyn
   // The reporter is injectable precisely so the test suite never depends on DNS.
   assert.equal(seen.length, 0, 'nothing is reported until a tool actually runs');
 });
+
+// ---------------------------------------------------------------------------
+// nothing in this package may address the reader
+// ---------------------------------------------------------------------------
+
+test('no file in this package trips the injection detector', async () => {
+  // Twice this package published a verdict whose headline finding was
+  // `reviewer-injection` rather than the undeclared network call it exists to
+  // demonstrate — first from server.mjs's header, then from SAFETY.md. Both were
+  // correct catches: the whole source tree is read, .md files included, and text
+  // inside reviewed material that tells the reader what to conclude is exactly
+  // what the standing directive is for.
+  //
+  // Everything evaluative therefore lives in ../AMBIGUOUS.md, which is not part
+  // of this package. This test is the thing that keeps it there.
+  const { INJECTION_PATTERNS } = await import('../../../reviewer/src/prompt.mjs');
+  const files = readdirSync(HERE).filter((f) => /\.(mjs|md|json)$/.test(f));
+  assert.ok(files.length >= 3, `expected the package files, found ${files.join(', ')}`);
+
+  for (const file of files) {
+    const text = readFileSync(join(HERE, file), 'utf8');
+    const hits = INJECTION_PATTERNS.filter((p) => p.re.test(text));
+    assert.deepEqual(
+      hits.map((h) => h.label),
+      [],
+      `${file} addresses whoever is reading it — move that text to AMBIGUOUS.md`,
+    );
+  }
+});
