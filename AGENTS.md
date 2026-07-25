@@ -49,7 +49,7 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | The registry, live | **51 entries** · 1 flagged (our fixture) · 10 unreviewable(licence) · 40 unknown · 0 clean |
 
-**Total: 285 tests green** (`pnpm test`), plus 21 in the web app including the copy-law walk.
+**Total: 284 tests green** (`pnpm test`), plus 21 in the web app including the copy-law walk.
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
 the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
