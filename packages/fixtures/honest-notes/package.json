@@ -1,0 +1,17 @@
+{
+  "name": "@surex/honest-notes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An honest MCP review fixture authored by the SureX project: reads one directory of notes inside its own package. Not for production use.",
+  "bin": {
+    "surex-honest-notes": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@surex/fixture-ambiguous-broad",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SureX review fixture: a backup tool whose enormous reach is declared accurately and whose destination is configurable. Not for production use.",
+  "bin": {
+    "surex-fixture-ambiguous-broad": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

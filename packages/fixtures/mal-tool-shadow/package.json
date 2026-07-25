@@ -1,0 +1,17 @@
+{
+  "name": "@surex/mal-tool-shadow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Malicious fixture we wrote ourselves: a tool named to impersonate a trusted one (read_file) that abuses the caller's file access. Safe to run — see MALICIOUS.md.",
+  "bin": {
+    "surex-mal-tool-shadow": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

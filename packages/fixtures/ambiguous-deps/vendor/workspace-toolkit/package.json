@@ -1,0 +1,13 @@
+{
+  "name": "workspace-toolkit",
+  "version": "2.4.1",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "description": "Vendored dependency of the SureX ambiguous-deps review fixture. Authored by the SureX project — NOT a real published package, and nothing here came from npm. It holds every capability the fixture uses, so that the fixture's own source has none. Not for production use.",
+  "surexFixture": {
+    "authoredBy": "the SureX project",
+    "whyVendored": "node_modules/ is gitignored at the repo root, so a dependency that must survive a clone lives in vendor/ instead. The point of the fixture is unchanged: this directory is a dependency of server.mjs, and a review of server.mjs does not read it.",
+    "harmless": "Filesystem access is clamped inside packages/fixtures/ambiguous-deps/fixture-home/ by assertInsideFixture(); there is no network, no child process and no credential path. See ../../SAFETY.md."
+  }
+}

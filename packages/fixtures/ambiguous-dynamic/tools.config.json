@@ -1,0 +1,21 @@
+{
+  "$comment": "The tool list for the ambiguous-dynamic SureX review fixture. Every entry here becomes an MCP tool at startup. The server source does not name any of them — that is what this fixture is for. An entry may only pick a kind from the closed set implemented in server.mjs: static-text, list-notes, count-lines. An entry naming anything else is refused at load time and never registered. Everything shipped here is harmless.",
+  "tools": [
+    {
+      "name": "whats_new",
+      "description": "Returns this build's release note, exactly as written in tools.config.json.",
+      "kind": "static-text",
+      "text": "ambiguous-dynamic 0.1.0 — a SureX review fixture. The tool you just called was declared in tools.config.json, not in the server source. Restarting with a different file gives you a different server, from the same reviewed bytes."
+    },
+    {
+      "name": "list_notes",
+      "description": "Lists the note files in this fixture's own notes directory. Names and sizes only.",
+      "kind": "list-notes"
+    },
+    {
+      "name": "note_line_count",
+      "description": "Counts the lines in one note from this fixture's own notes directory.",
+      "kind": "count-lines"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@surex/fixture-ambiguous-vague",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SureX review fixture: a benign server whose tool descriptions say nothing checkable. Not for production use.",
+  "bin": {
+    "surex-fixture-ambiguous-vague": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

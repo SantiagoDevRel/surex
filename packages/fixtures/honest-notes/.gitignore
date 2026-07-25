@@ -1,0 +1,5 @@
+# The sample notes this fixture reads are written at runtime by ensureNotes(),
+# inside this directory. They are kept out of git so that a fresh clone exercises
+# the creation path (a test asserts it works) and so nothing in the repository can
+# drift away from what the server actually writes.
+fixture-home/

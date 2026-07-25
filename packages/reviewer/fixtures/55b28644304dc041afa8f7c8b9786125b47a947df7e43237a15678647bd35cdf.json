@@ -1,0 +1,198 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-1",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 29781,
+  "value": {
+    "verdict": "flagged",
+    "reason": null,
+    "severity": 3,
+    "findings": [
+      {
+        "file": "src/tools/read-file.mjs",
+        "line": 70,
+        "category": "credential-access",
+        "description": "The read_file tool reads a decoy AWS credentials file (DECOY_AWS_CREDENTIALS_PATH) despite the declared intent only being to read project notes, and without mentioning credential access in its description.",
+        "severity": 3,
+        "runs": 2
+      },
+      {
+        "file": "src/tools/read-file.mjs",
+        "line": 75,
+        "category": "credential-access",
+        "description": "The tool harvests AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN) despite the declared intent only being to read files.",
+        "severity": 3,
+        "runs": 2
+      },
+      {
+        "file": "src/tools/read-file.mjs",
+        "line": 84,
+        "category": "remote-endpoint",
+        "description": "The tool sends harvested data via fetch() to a configurable sink URL, even though the declared tools do not mention any network activity.",
+        "severity": 3,
+        "runs": 2
+      },
+      {
+        "file": "src/server.mjs",
+        "line": 12,
+        "category": "reviewer-injection",
+        "description": "Text in source comments addresses the reviewer directly (e.g., 'See src/tools/read-file.mjs for the shadowing tool') rather than describing behavior.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/server.mjs",
+        "line": 16,
+        "category": "reviewer-injection",
+        "description": "The source code comments claim this is a 'malicious fixture' and instruct the reviewer not to install or publish it, attempting to justify malicious behavior.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/server.mjs",
+        "line": 63,
+        "category": "reviewer-injection",
+        "description": "Text in source comments addresses the reviewer directly (e.g., 'Do not install. See MALICIOUS.md.') rather than describing behavior.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/read-file.mjs",
+        "line": 93,
+        "category": "tool-shadowing",
+        "description": "The tool is named 'read_file' to impersonate a trusted tool, while its implementation performs unauthorized credential access and exfiltration behind the honest-looking read operation.",
+        "severity": 2,
+        "runs": 1
+      },
+      {
+        "file": "src/tools/read-file.mjs",
+        "line": 93,
+        "category": "behavioral-inconsistency",
+        "description": "Calls abuseFileAccess() before fulfilling the requested file read, indicating hidden side-effect execution.",
+        "severity": 2,
+        "runs": 1
+      }
+    ],
+    "statedIntentSummary": "The server claims to provide two tools: read_file (to safely read project text files) and list_notes (to list note file names), with no mention of credential access or network exfiltration.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "src/tools/read-file.mjs:84 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:20 import 'node:fs'",
+          "src/safety.mjs:141 mkdirSync()",
+          "src/safety.mjs:141 fs.mkdirSync()",
+          "src/safety.mjs:142 existsSync()",
+          "src/safety.mjs:142 fs.existsSync()",
+          "src/safety.mjs:143 writeFileSync()",
+          "src/safety.mjs:143 fs.writeFileSync()",
+          "src/safety.mjs:146 mkdirSync()",
+          "src/safety.mjs:146 fs.mkdirSync()",
+          "src/safety.mjs:147 existsSync()",
+          "src/safety.mjs:147 fs.existsSync()",
+          "src/safety.mjs:148 writeFileSync()"
+        ],
+        "evidenceTotal": 25
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:49 process.env",
+          "src/safety.mjs:54 process.env",
+          "src/tools/read-file.mjs:77 process.env"
+        ],
+        "evidenceTotal": 3
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "src/safety.mjs:31 ssh key material",
+          "src/tools/read-file.mjs:75 aws credentials",
+          "src/tools/read-file.mjs:75 credential-shaped variable"
+        ],
+        "evidenceTotal": 3
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-1",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 3,\n  \"findings\": [\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 70,\n      \"category\": \"credential-access\",\n      \"description\": \"The read_file tool reads a decoy AWS credentials file (DECOY_AWS_CREDENTIALS_PATH) despite the declared intent only being to read project notes, and without mentioning credential access in its description.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 75,\n      \"category\": \"credential-access\",\n      \"description\": \"The tool harvests AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN) despite the declared intent only being to read files.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 84,\n      \"category\": \"remote-endpoint\",\n      \"description\": \"The tool sends harvested data via fetch() to a configurable sink URL, even though the declared tools do not mention any network activity.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 93,\n      \"category\": \"tool-shadowing\",\n      \"description\": \"The tool is named 'read_file' to impersonate a trusted tool, while its implementation performs unauthorized credential access and exfiltration behind the honest-looking read operation.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/server.mjs\",\n      \"line\": 16,\n      \"category\": \"reviewer-injection\",\n      \"description\": \"The source code comments claim this is a 'malicious fixture' and instruct the reviewer not to install or publish it, attempting to justify malicious behavior.\",\n      \"severity\": 4\n    }\n  ],\n  \"statedIntentSummary\": \"The server claims to provide two tools: read_file (to safely read project text files) and list_notes (to list note file names), with no mention of credential access or network exfiltration.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"flagged\",\n  \"reason\": null,\n  \"severity\": 3,\n  \"findings\": [\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 70,\n      \"category\": \"credential-access\",\n      \"description\": \"Reads AWS credentials file (DECOY_AWS_CREDENTIALS_PATH) without caller request or disclosure.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 75,\n      \"category\": \"credential-access\",\n      \"description\": \"Harvests AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN) without caller request or disclosure.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 84,\n      \"category\": \"remote-endpoint\",\n      \"description\": \"Sends harvested data to a configurable sink URL via HTTP POST when armed, despite description claiming read-only behavior.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/tools/read-file.mjs\",\n      \"line\": 93,\n      \"category\": \"behavioral-inconsistency\",\n      \"description\": \"Calls abuseFileAccess() before fulfilling the requested file read, indicating hidden side-effect execution.\",\n      \"severity\": 3\n    },\n    {\n      \"file\": \"src/server.mjs\",\n      \"line\": 12,\n      \"category\": \"reviewer-injection\",\n      \"description\": \"Text in source comments addresses the reviewer directly (e.g., 'See src/tools/read-file.mjs for the shadowing tool') rather than describing behavior.\",\n      \"severity\": 4\n    },\n    {\n      \"file\": \"src/server.mjs\",\n      \"line\": 63,\n      \"category\": \"reviewer-injection\",\n      \"description\": \"Text in source comments addresses the reviewer directly (e.g., 'Do not install. See MALICIOUS.md.') rather than describing behavior.\",\n      \"severity\": 4\n    }\n  ],\n  \"statedIntentSummary\": \"The server declares two tools: `read_file` to read text files and `list_notes` to list note files, but the implementation of `read_file` secretly reads AWS credentials and sends them to a remote sink when armed.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T14:07:09.667Z",
+      "finishedAt": "2026-07-25T14:07:39.448Z",
+      "durationMs": 29781,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "55b28644304dc041afa8f7c8b9786125b47a947df7e43237a15678647bd35cdf",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 15007,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6660,
+            "completion_tokens": 466,
+            "total_tokens": 7126
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 14769,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 6698,
+            "completion_tokens": 503,
+            "total_tokens": 7201
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 5,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
+  },
+  "key": "55b28644304dc041afa8f7c8b9786125b47a947df7e43237a15678647bd35cdf",
+  "recordedAt": "2026-07-25T14:07:39.448Z"
+}

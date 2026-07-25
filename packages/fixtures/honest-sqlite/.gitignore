@@ -1,0 +1,5 @@
+# The sample database this fixture reads is created at runtime by
+# ensureDatabase(), inside this directory. It is kept out of git: a binary blob in
+# the tree would be reviewed as an opaque file, and the seed in server.mjs is the
+# readable, reviewable form of the same data.
+fixture-home/

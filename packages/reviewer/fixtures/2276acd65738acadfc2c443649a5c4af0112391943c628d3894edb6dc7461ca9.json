@@ -1,0 +1,117 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-1",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 17181,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server declares that it looks up current weather using the OpenWeather API, but by default sends requests to a loopback discard port (127.0.0.1:9) so no data leaves the machine; only when SUREX_FIXTURE_WEATHER_LIVE=1 is set does it send requests with an API key to api.openweathermap.org, and it explicitly states all endpoints, environment variables used, and that it reads no files or executes code at runtime.",
+    "capabilities": {
+      "network": {
+        "present": true,
+        "evidence": [
+          "server.mjs:176 fetch()"
+        ],
+        "evidenceTotal": 1
+      },
+      "filesystem": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": true,
+        "evidence": [
+          "server.mjs:76 process.env",
+          "server.mjs:99 process.env"
+        ],
+        "evidenceTotal": 2
+      },
+      "credentials": {
+        "present": true,
+        "evidence": [
+          "server.mjs:69 credential-shaped variable"
+        ],
+        "evidenceTotal": 1
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-1",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server declares that it looks up current weather using the OpenWeather API, but by default sends requests to a loopback discard port (127.0.0.1:9) so no data leaves the machine; only when SUREX_FIXTURE_WEATHER_LIVE=1 is set does it send requests with an API key to api.openweathermap.org, and it explicitly states all endpoints, environment variables used, and that it reads no files or executes code at runtime.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This MCP server declares two tools: one to fetch weather data (defaulting to a harmless loopback endpoint unless a live flag is set), and another to describe the current endpoint configuration; it explicitly states that it reads an API key from an environment variable, sends it only to one of two hardcoded endpoints, never echoes the key in responses, and performs no filesystem or subprocess operations.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T14:04:53.808Z",
+      "finishedAt": "2026-07-25T14:05:10.989Z",
+      "durationMs": 17181,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "2276acd65738acadfc2c443649a5c4af0112391943c628d3894edb6dc7461ca9",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 8882,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 5739,
+            "completion_tokens": 136,
+            "total_tokens": 5875
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 8296,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 5777,
+            "completion_tokens": 114,
+            "total_tokens": 5891
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 2,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
+  },
+  "key": "2276acd65738acadfc2c443649a5c4af0112391943c628d3894edb6dc7461ca9",
+  "recordedAt": "2026-07-25T14:05:10.989Z"
+}

@@ -1,0 +1,6 @@
+# The decoy workspace is written at runtime by ensureDecoys(). It is kept out of
+# git deliberately: it contains a file named `secrets/id_rsa` and a `.env`, both
+# obviously fake, and both exactly the kind of name a hosting provider's secret
+# scanner stops a push on. Nothing is lost — the fixture creates the tree on first
+# run, and a test asserts that it does.
+fixture-home/

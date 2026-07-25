@@ -1,0 +1,122 @@
+{
+  "kind": "review",
+  "promptVersion": "rv-1",
+  "modelId": "qwen3-coder-next:surex32k",
+  "endpoint": {
+    "label": "dgx",
+    "fingerprint": "0c07ff9a6b7e"
+  },
+  "durationMs": 12615,
+  "value": {
+    "verdict": "clean",
+    "reason": null,
+    "severity": 0,
+    "findings": [],
+    "statedIntentSummary": "The server claims to read Markdown notes from a local `fixture-home/notes/` directory, listing them with metadata or returning their full text, performing no writes beyond initial sample note creation on startup, and making no network requests, reading environment variables, starting subprocesses, or loading code at runtime.",
+    "capabilities": {
+      "network": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "filesystem": {
+        "present": true,
+        "evidence": [
+          "server.mjs:31 import 'node:fs'",
+          "server.mjs:97 mkdirSync()",
+          "server.mjs:97 fs.mkdirSync()",
+          "server.mjs:100 existsSync()",
+          "server.mjs:100 fs.existsSync()",
+          "server.mjs:128 readdirSync()",
+          "server.mjs:128 fs.readdirSync()",
+          "server.mjs:138 statSync()",
+          "server.mjs:138 fs.statSync()",
+          "server.mjs:180 readFileSync()",
+          "server.mjs:180 fs.readFileSync()"
+        ],
+        "evidenceTotal": 11
+      },
+      "exec": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "env": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      },
+      "credentials": {
+        "present": false,
+        "evidence": [],
+        "evidenceTotal": 0
+      }
+    },
+    "modelId": "qwen3-coder-next:surex32k",
+    "promptVersion": "rv-1",
+    "agreementRuns": 2,
+    "rawModelOutput": [
+      {
+        "variant": "a",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"The server claims to read Markdown notes from a local `fixture-home/notes/` directory, listing them with metadata or returning their full text, performing no writes beyond initial sample note creation on startup, and making no network requests, reading environment variables, starting subprocesses, or loading code at runtime.\"\n}",
+        "error": null
+      },
+      {
+        "variant": "b",
+        "ok": true,
+        "text": "{\n  \"verdict\": \"clean\",\n  \"reason\": null,\n  \"severity\": 0,\n  \"findings\": [],\n  \"statedIntentSummary\": \"This server provides two read-only tools to list and read Markdown notes from a sandboxed local directory (`fixture-home/notes/`), with no network, environment, or subprocess access.\"\n}",
+        "error": null
+      }
+    ],
+    "run": {
+      "startedAt": "2026-07-25T14:04:07.250Z",
+      "finishedAt": "2026-07-25T14:04:19.865Z",
+      "durationMs": 12615,
+      "endpoint": {
+        "label": "dgx",
+        "fingerprint": "0c07ff9a6b7e"
+      },
+      "cached": false,
+      "inputKey": "7991fb9e66782fa4b3a46cfdc4048fd0affb4b2faff600c408d276c687f3fe53",
+      "runs": [
+        {
+          "variant": "a",
+          "ok": true,
+          "parsed": true,
+          "ms": 6068,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 4901,
+            "completion_tokens": 98,
+            "total_tokens": 4999
+          },
+          "error": null
+        },
+        {
+          "variant": "b",
+          "ok": true,
+          "parsed": true,
+          "ms": 6544,
+          "attempts": 1,
+          "usage": {
+            "prompt_tokens": 4939,
+            "completion_tokens": 75,
+            "total_tokens": 5014
+          },
+          "error": null
+        }
+      ],
+      "capabilityScan": {
+        "filesScanned": 2,
+        "filesSkipped": [],
+        "scanner": "surex-capability-scan/1"
+      },
+      "notes": []
+    },
+    "fingerprint": null,
+    "notice": "Reviewed 2026-07-25 by model qwen3-coder-next:surex32k, prompt rv-1, from 2 runs that agreed. No human audited this."
+  },
+  "key": "7991fb9e66782fa4b3a46cfdc4048fd0affb4b2faff600c408d276c687f3fe53",
+  "recordedAt": "2026-07-25T14:04:19.866Z"
+}

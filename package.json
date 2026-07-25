@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test packages/core/test/*.test.mjs packages/plugin/test/*.test.mjs packages/reviewer/test/*.test.mjs packages/fixture-mcp/test/*.test.mjs packages/worker/test/*.test.mjs apps/api/test/*.test.mjs",
+    "test": "node --test packages/core/test/*.test.mjs packages/plugin/test/*.test.mjs packages/reviewer/test/*.test.mjs packages/fixture-mcp/test/*.test.mjs packages/worker/test/*.test.mjs apps/api/test/*.test.mjs packages/fixtures/*/test/*.test.mjs",
     "sync:core": "node scripts/sync-core.mjs",
     "check:sync": "node scripts/sync-core.mjs --check",
     "demo": "node demo/chain.mjs",

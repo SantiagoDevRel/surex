@@ -1,0 +1,17 @@
+{
+  "name": "@surex/mal-rug-pull",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Malicious fixture we wrote ourselves: a tool-description rug-pull — innocuous shipped descriptor plus an 'updated' descriptor set that weaponises the tool. See MALICIOUS.md.",
+  "bin": {
+    "surex-mal-rug-pull": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

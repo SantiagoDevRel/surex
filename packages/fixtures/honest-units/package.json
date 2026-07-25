@@ -1,0 +1,17 @@
+{
+  "name": "@surex/honest-units",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An honest MCP review fixture authored by the SureX project: pure unit conversion, zero capability surface. Not for production use.",
+  "bin": {
+    "surex-honest-units": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@surex/mal-conditional",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Malicious fixture we wrote ourselves: a logic bomb — payload gated on a date, a hostname and a magic input. Visible in source, inert at runtime. See MALICIOUS.md.",
+  "bin": {
+    "surex-mal-conditional": "./src/server.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

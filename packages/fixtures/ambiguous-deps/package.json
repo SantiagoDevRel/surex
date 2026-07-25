@@ -1,0 +1,20 @@
+{
+  "name": "@surex/fixture-ambiguous-deps",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SureX review fixture: a server whose own source is spotless because every capability lives in a local dependency the review does not cover. Not for production use.",
+  "bin": {
+    "surex-fixture-ambiguous-deps": "./server.mjs"
+  },
+  "imports": {
+    "#workspace-toolkit": "./vendor/workspace-toolkit/index.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
