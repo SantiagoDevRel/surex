@@ -500,7 +500,11 @@ const browserbaseDispute: Dispute = {
     filedAt: '2026-07-11',
     evidence: 'walrus:0x3e02…88f1',
     onChain: 'arkiv:dispute/77aa4c19#1',
-    standing: '14,210 calls through this server in 30 days, read from the attestation',
+    // AgentBook returns an anonymous human id and NOTHING else — no call volume,
+    // no history, no score (AGENTS.md §7). This fixture claimed 14,210 calls read
+    // "from the attestation", which is a capability the attestation does not have.
+    // It survived because the copy-law walk covers COPY, and a fixture is not COPY.
+    standing: 'a human registered this agent wallet in AgentBook — that is the whole of what standing means here',
   },
   illustrative: true,
 };

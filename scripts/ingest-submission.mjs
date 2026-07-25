@@ -314,7 +314,41 @@ async function publishOutcome(o) {
   const arkiv = createArkivWriter({ log: (m) => log(m) });
 
   const bytes = recordBytes(body);
-  const pointer = await walrus.writeRecord(bytes, { label: o.name });
+
+  /**
+   * Writing a blob is a distributed write, and it can fail without anything being
+   * wrong with the review.
+   *
+   * Measured on the first real submission: the review completed, reached a
+   * verdict, and then `NotEnoughBlobConfirmationsError: Too many failures while
+   * writing blob … to nodes` — the storage nodes did not confirm. That is a
+   * property of the network on the day, not of the code being reviewed, and it
+   * arrived as an uncaught exception with a stack trace, which tells whoever is
+   * watching nothing about which half failed.
+   *
+   * So: retry, and if it still will not take, fail with a sentence that says the
+   * review succeeded and the STORAGE did not. Those are different problems and
+   * only one of them is worth re-reviewing for.
+   */
+  let pointer = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      pointer = await walrus.writeRecord(bytes, { label: o.name });
+      break;
+    } catch (err) {
+      lastError = err;
+      log(`  walrus attempt ${attempt}/3 failed: ${err?.name ?? 'error'}`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 4000 * attempt));
+    }
+  }
+  if (!pointer) {
+    return fail(
+      'the review completed but its evidence could not be stored: Walrus did not confirm the blob write after ' +
+      '3 attempts. Nothing was indexed, so there is no half-written record — the same submission can be retried.',
+      { stage: 'walrus-write', reviewCompleted: true, verdict: o.state, detail: String(lastError?.message ?? lastError).slice(0, 300) },
+    );
+  }
   const evidence = { ...pointer, contentSha256: sha256Hex(bytes) };
   log(`  walrus ${pointer.blobId}`);
 

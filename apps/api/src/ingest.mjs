@@ -103,6 +103,11 @@ export async function submissionStatus(id, { env = process.env, fetchImpl = fetc
       durationMs: body.durationMs ?? null,
       result: body.result ?? null,
       error: body.error ?? null,
+      // The stage that failed, when the pipeline said. "exited 1" tells a
+      // watcher nothing; "the review completed and the storage did not" tells
+      // them whether re-submitting is worth anything.
+      stage: body.stage ?? body.result?.stage ?? undefined,
+      detail: body.detail ?? body.result?.detail ?? undefined,
       interrupted: body.interrupted ?? undefined,
       // Named, not implied. The model doing the reading is part of what the
       // verdict will claim, so it is visible while it is happening.

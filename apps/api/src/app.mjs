@@ -920,6 +920,8 @@ export function createApp(options = {}) {
       reviewer: status.reviewer,
       result: status.result ?? undefined,
       error: status.error ?? undefined,
+      stage: status.stage,
+      detail: status.detail,
       // A job the process died under may have written half of what it intended.
       // Whoever is watching needs that said, not smoothed over.
       interrupted: status.interrupted,
