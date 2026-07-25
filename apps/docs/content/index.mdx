@@ -1,0 +1,89 @@
+---
+title: Overview
+description: MCP tool calls run with no gate. SureX puts one in the path, and shows its evidence.
+---
+
+import { StateList } from '../components/contract.tsx';
+
+# A gate on MCP tool calls
+
+Adding an MCP server to a coding agent is a leap of faith. The server runs with your agent's
+permissions, sees your files and your credentials, and **nothing checks it before a tool call
+executes**. There is no moment between "the model decided to call this tool" and "the tool ran"
+where anything looks at what the server actually does.
+
+**SureX puts a check in that moment.** It is two things: a public registry of automated reviews of
+MCP servers, and a Claude Code plugin whose `PreToolUse` hook looks the server up before any
+`mcp__*` tool call runs. Reviewed with nothing found → the call proceeds silently and you never
+notice. Flagged → the call is **blocked**, you are shown the finding, the file, the line and what
+the code can reach, and one command lets you proceed anyway. Anything else — unknown, stale,
+registry unreachable → a one-line notice and your normal permission flow decides, exactly as it
+would without SureX installed.
+
+<StateList />
+
+## The gate, on every tool call
+
+```mermaid
+flowchart TD
+  A["MCP tool call<br/>mcp__weather__get_weather"] --> B["PreToolUse hook fires"]
+  B --> C["Identify the server from config on disk<br/>SXF-1 fingerprint — never by running it"]
+  C -->|"cannot identify it"| W1["notice · proceed"]
+  C --> D{"local override?"}
+  D -->|yes| ALLOW["exit 0 · silent · no trace"]
+  D -->|no| E["cache, then registry<br/>GET /v1/verdict?fp=…"]
+  E -->|"unreachable, no cached flag"| W2["notice · proceed"]
+  E --> F["decide(head)"]
+  F -->|"clean"| ALLOW
+  F -->|"unknown · stale · unreviewable<br/>· severity below 3"| W3["notice · proceed<br/>NO permission decision"]
+  F -->|"flagged or disputed<br/>severity 3 or 4"| G["fetch the evidence blob from Walrus"]
+  G --> H["check sha256 · recompute<br/>the blob ID from the bytes"]
+  H --> I["deny · print the finding,<br/>the provenance and the override"]
+```
+
+Two properties of that diagram are the whole design, and both are covered in
+[Fail open, never fail unsafe](/concepts/failure-posture):
+
+- **The warn path emits no permission decision.** A hook that answers `allow` *grants* the call
+  outright, so emitting it on `unknown` would auto-approve exactly the servers SureX knows nothing
+  about — strictly worse than not installing it.
+- **A cached flag keeps blocking with no network at all.** A blip must not un-flag a server already
+  known to be bad.
+
+## Where a verdict comes from
+
+A verdict is one review by an open-weights model plus a deterministic capability scan the reviewed
+file cannot influence. The review body is written to **Walrus** as a content-addressed blob; a
+compact head that points at it is written to **Arkiv** (Braga), and that head is the only thing the
+gate reads on the hot path. When the gate blocks, it fetches the blob and re-checks the bytes
+against the record — see [The evidence chain](/concepts/evidence-chain).
+
+## What it does not claim
+
+The word is **reviewed** — never one of the four adjectives the [copy law](/concepts/copy-law) bans
+outright, because each of them promises more than a static read of some source can deliver.
+`clean` means precisely: this submitted
+version, read statically, showed no model-detectable mismatch between its stated purpose and its
+code, at that time. It does not cover dependencies. It does not mean the copy on your machine is
+the copy that was reviewed — that link is graded A, B or C on every verdict, and it is a **separate
+axis** from the verdict itself. Reviews are automated and no human audits them; the appeal process
+exists because the model can be wrong.
+
+Read [The copy law](/concepts/copy-law) before writing anything that surfaces a verdict, and
+[Verdict ⊥ Tier](/concepts/verdict-and-tier) before reading one.
+
+## Start here
+
+- **[Quickstart](/quickstart)** — one paste, a working gate, and a real block from the live
+  registry. Fifteen minutes, most of it `pnpm install`.
+- **[Verdict ⊥ Tier](/concepts/verdict-and-tier)** — the one distinction that makes the rest legible.
+- **[For your agent](/agent)** — the page to hand an agent so it can install and use SureX itself.
+
+## Honest status
+
+SureX was built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026). The chain runs
+end to end with no mocks, and the registry holds real reviews — but **every server flagged in the
+registry is a fixture the SureX project wrote itself**. Nothing published is a claim about anyone
+else's code. Live counts, including how many entries have never been reviewed at all, are served
+raw at [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats); this site quotes no numbers,
+because they drift and a stale count on a documentation page is a small fabrication.

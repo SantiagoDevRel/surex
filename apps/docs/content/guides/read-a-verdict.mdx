@@ -1,0 +1,114 @@
+---
+title: Read a verdict
+description: The block message line by line — what each one claims, and what it deliberately does not.
+---
+
+import { Callout } from 'nextra/components';
+import { SampleBlock } from '../../components/contract.tsx';
+
+# Read a verdict
+
+A block message is the only channel that reaches both your terminal and the model, so the whole
+case goes in it — and it is kept short by test, because a 12,054-character reason was measured to
+arrive intact and stop being *read* as a block: the model described it as a tool error. The limit
+that matters is comprehension, not bytes.
+
+This is a real one, composed by the real `blockMessage()` from a head shaped like the one the live
+API serves for the SureX malicious fixture:
+
+<SampleBlock />
+
+## Line by line
+
+**`SureX blocked this call — <name>`**
+The name comes from **your** configuration, not from the registry. It is what you called the server
+and what its install line resolves to, so you can find it.
+
+**The confidence line.** One of three, selected by `enforceAfter` and by whether the verdict is
+contested. It never decides *whether* to block — a flagged server blocks from the moment it is
+flagged — only how the block describes itself:
+
+| Wording | When |
+|---|---|
+| "Not confirmed by a human. The maintainer has been notified and may respond." | inside the response window |
+| "uncontested since \<date\>" | the window passed and nobody contested |
+| "contested by the maintainer … A human review is pending." | state is `disputed` — **still blocking** |
+
+**`Finding (critical): … — file:line`**
+One finding, the highest severity, with a real path and a real line. Every model-reported path is
+reconciled against the files actually handed to the reviewer: an exact match is kept, a unique
+suffix match is rewritten to the supplied path with `pathNormalisedFrom` recording what the model
+said, a line past the end of the file is kept and marked `lineOutOfRange`, and an unresolvable one
+is kept and marked `pathUnresolved`. Nothing is dropped — a finding we cannot place may still be
+true — but a surface can decline to quote an unresolved one as *the* evidence.
+
+A finding about a tool description rather than a file cites `stated-intent:tools/<name>#description`,
+so you are never given a line number in a file that does not contain it.
+
+**`This code can reach: network · filesystem · environment variables · credential stores`**
+The deterministic capability scan — import and call-site matching, **not model output**. It runs
+whether or not the model does, it appears on `clean` verdicts too, and the reviewed file cannot
+talk it out of its conclusion. Comments are excluded from it, because a comment is not code.
+
+<Callout type="info">
+Capability evidence is capped at 12 entries per capability, and `evidenceTotal` carries the real
+count, so truncation never understates the surface.
+</Callout>
+
+**`Link to your install (C): …`**
+The tier sentence, and the most misread line on the message. It is a **separate axis** from the
+verdict: C does not weaken the finding, it says nothing checks that the finding is about the copy on
+your disk. Read [Verdict ⊥ Tier](/concepts/verdict-and-tier) once and this line stops being
+confusing.
+
+**`Reviewed: commit … · blob … · <date> · model …, prompt …. No human audited this.`**
+The four-part disclosure the [copy law](/concepts/copy-law) requires: what, when, by which model,
+which prompt version — plus the sentence that never gets trimmed. `promptVersion` matters more than
+it looks: a verdict is a claim about what a specific model concluded from a specific prompt, so
+changing anything the model sees bumps the version rather than silently invalidating every past
+verdict.
+
+**`Evidence: …/r/<fp>    Dispute: …/d/<fp>`**
+The registry page for this verdict, and the page to contest it. Both are on the public site.
+
+**`You can proceed anyway, at your own risk:  <command>`**
+Resolved at runtime to an invocation that exists on your machine. Never a bare `surex …` unless
+`surex` really is on your PATH.
+
+**`Evidence fetched from Walrus and checked: …`**
+Appended after the message, and only when the head carries a blob. It reports which checks actually
+ran — `✓ passed`, `✗ failed`, `~ asserted`, `? unavailable`. `asserted` is not a pass: it means no
+encoder was available and the blob ID was taken on the aggregator's word. If a check **failed**, the
+line changes to say the evidence did not match the record, and the block still stands.
+
+## Reading one outside a block
+
+```
+/surex why sxf1_…
+```
+
+Same case, longer: every finding in the certified blob rather than only the top one, the full
+capability evidence, the provenance block, the Sui register and certify digests, and the evidence
+fetch with each check listed separately. It ends by printing the decision the gate would make.
+
+On the web, `https://arkiv-surex.vercel.app/r/<fingerprint>` renders the same record with the links
+resolved.
+
+Raw, for a machine:
+
+```bash
+curl -s "https://arkiv-surex-api.vercel.app/v1/verdict?fp=sxf1_…"
+```
+
+## Three things a verdict never tells you
+
+- **Whether the server is worth running.** It tells you what a model found in one version of some
+  source. The decision stays yours, which is why the override is printed every time.
+- **Anything about dependencies.** A verdict covers a server's own source, not its dependency tree
+  — which is the actual npm attack pattern. Stated in the product, not only in the documentation.
+- **What is running on your machine**, unless the tier says A.
+
+Review also cannot see obfuscated or minified code, runtime-loaded payloads, behaviour conditional
+on date or host or input, native binaries, post-install scripts, or cross-server interaction. Those
+are listed in full in
+[`packages/reviewer/README.md`](https://github.com/SantiagoDevRel/surex/blob/main/packages/reviewer/README.md#what-review-cannot-see).

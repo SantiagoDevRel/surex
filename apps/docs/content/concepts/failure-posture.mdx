@@ -1,0 +1,79 @@
+---
+title: Fail open, never fail unsafe
+description: Every failure path proceeds and says so — except a cached flag, which keeps blocking with no network at all.
+---
+
+import { Callout } from 'nextra/components';
+import { CachePolicy } from '../../components/contract.tsx';
+
+# Fail open, never fail unsafe
+
+A trust layer with no SLA that can take your agent offline is a trust layer that gets uninstalled.
+So every failure path in the gate **proceeds, and says so**. The exception is the one that matters:
+a verdict already known to block keeps blocking when the network is gone.
+
+| What happened | What the gate does |
+|---|---|
+| Registry unreachable, slow, or answering nonsense | notice, proceed |
+| A response that does not parse | treated as `unknown` — **never** as `clean` |
+| The server could not be identified from its config | notice, proceed, and name the reason |
+| A cached `flagged` or `disputed` head, past its TTL, no network | **still blocks**, up to 30 days |
+| An unexpected crash anywhere in the gate | notice, exit 0 |
+| The hook exceeds its timeout | it is killed and the tool call proceeds, with no notice at all |
+
+## The three rules underneath that table
+
+**1. The warn path must never emit a permission decision.**
+
+This is the single most important measured fact in the project. A `PreToolUse` hook that answers
+`permissionDecision: "allow"` **grants** the call — with no allowlist entry and no user grant, the
+tool ran. An early version of the SureX spec had the `unknown` path emitting `allow`, which would
+have auto-approved exactly the servers SureX knows nothing about: strictly worse than not
+installing it. The warn path now emits `systemMessage` alone, no decision field, which leaves
+Claude Code's own permission flow in charge.
+
+SureX has an opinion, not authority, on everything except a flag.
+
+**2. A malformed response degrades to `unknown`, never to `clean`.**
+
+`parseVerdictHead()` in the frozen contract validates every head before the gate acts on it, and an
+invalid one becomes a warn. `clean` is the only state that makes SureX silent, so anything that
+could produce it by accident would turn every glitch in the stack into a pass. The same rule runs
+one layer up: in the reviewer, a timeout, an HTTP 500, unparseable output or a single usable run out
+of two is `unreviewable` — never `clean`.
+
+**3. A miss may only be cached when the registry actually said so.**
+
+Found by running the chain end to end, not by reading the code. The `SessionStart` prefetch used to
+synthesise an `unknown` for every fingerprint the batch endpoint did not mention and cache it. A
+batch endpoint returning nothing therefore wrote eleven negative cache entries, and the hot path
+then served a **flagged** server out of the cache as `unknown` for the whole negative TTL — no
+lookup, no block. `partitionBatchResponse()` now returns `answered` and `unanswered` separately,
+and only `answered` is cached.
+
+<Callout type="warning">
+**The timeout is a bypass, and there is no fail-closed opt-in.** A `PreToolUse` hook that exceeds
+its timeout is killed, its stdout is discarded, and the tool call proceeds silently. That matches
+the posture above, but it also means **anything that makes the gate slow disables enforcement**.
+Budget the gate's own network timeout well inside the hook timeout — which the numbers below do —
+and never treat the timeout as a control.
+</Callout>
+
+## The budget, from the contract
+
+<CachePolicy />
+
+The hot-path lookup gives up long before the hook does. The evidence fetch — the only network call
+that happens *while blocking* — gets its own 3 s budget, because at that point a human is about to
+read the message and a few hundred milliseconds is invisible.
+
+## What this costs you
+
+Honestly stated: **an offline gate is a gate that does not enforce anything it has not already
+seen.** SureX's answer is not to fail closed — it is to make the one case that must survive an
+outage survive it, and to make every other failure visible in the transcript rather than silent.
+The 30-day flagged grace window is that answer.
+
+The largest knowingly-open gap is a different one: `/v1/verdict` responses are **not signed**. The
+gate makes an enforcement decision from an unsigned HTTP response. It is listed in the README's
+"what we cut" section rather than left for someone to discover.

@@ -1,0 +1,74 @@
+---
+title: Verdict states
+description: Six states, one decision function. flagged and disputed both block; a dispute changes the wording, never the enforcement.
+---
+
+import { Callout } from 'nextra/components';
+import { BlockingStates, DecisionTable, StateList, WarnLines } from '../../components/contract.tsx';
+
+# Verdict states
+
+<StateList />
+
+Six states, defined once in `packages/core/src/verdict.mjs` and shared by the gate, the API and the
+registry site. `unknown` is not a state anything writes — it is the **absence** of an entry, and the
+API returns it as a body rather than a bodyless 404 so the gate always has something to decide from.
+
+| State | What it means |
+|---|---|
+| <span className="sx-state sx-state-clean">clean</span> | This submitted version, read statically, showed no model-detectable mismatch between its stated purpose and its code, at that time. It does not cover dependencies, and it does not mean the copy on your machine is the copy that was reviewed. |
+| <span className="sx-state sx-state-flagged">flagged</span> | The review found a mismatch between what the server says it does and what its code does. Carries a severity 0–4 and a finding with a file and a line. |
+| <span className="sx-state sx-state-disputed">disputed</span> | Flagged, and contested with evidence by a maintainer who proved standing. A human review is pending. |
+| <span className="sx-state sx-state-unreviewable">unreviewable</span> | We were not able to review it, and we say why — a licence that does not permit it, source we could not read, a remote endpoint with nothing published. Never a pass. |
+| <span className="sx-state sx-state-stale">stale</span> | A release shipped after the review. The review still describes the version it read; it no longer describes the newest one. |
+| <span className="sx-state sx-state-unknown">unknown</span> | Nothing has been submitted for this install configuration. Absence of a verdict is absence of knowledge. |
+
+## <BlockingStates /> both block
+
+A dispute changes **what the user is told**, never whether the call is stopped. If contesting a
+verdict lifted the block, every flagged maintainer would file one, and the registry would be a
+formality. Only a human overturn produces a `clean` head.
+
+<Callout type="warning">
+`/v1/flagged` — the feed an org-level gateway mirrors — therefore returns **both** `flagged` and
+`disputed`. A mirror that only takes `flagged` silently stops enforcing every verdict anyone has
+contested.
+</Callout>
+
+## The decision, computed
+
+The gate resolves exactly one of `allow` · `warn` · `block` from the head alone — no blob fetch, no
+second round trip, because a verdict that needed a fetch to be actionable would double the latency
+of every tool call. This table is not transcribed from `decide()`; it is produced by calling it:
+
+<DecisionTable />
+
+Severity is the second half of the rule. `BLOCK_SEVERITY_THRESHOLD` is **3**: a flagged server at
+severity 2 shows its evidence and proceeds. That is what "do not stop a tool call on a single
+dissenting model run" means in practice — the reviewer caps severity at 2 whenever its two runs
+disagreed, so a contested finding warns instead of blocking.
+
+## The warn lines, verbatim
+
+Every non-blocking outcome produces one line. They are worth reading together, because the
+differences between them are the product's honesty:
+
+<WarnLines />
+
+The two `unknown` lines are the pair that matters. "Listed but not reviewed" and "not in the
+registry at all" are different facts, and telling a user a server "is not in the registry" when it
+is listed and simply unreviewed is a false statement about our own data.
+
+## `enforceAfter` does not gate blocking
+
+A flagged server blocks from the moment it is flagged. `enforceAfter` only selects which of three
+wordings the block message uses:
+
+| Window | Wording |
+|---|---|
+| before `enforceAfter` | "Flagged by automated review. Not confirmed by a human. The maintainer has been notified and may respond." |
+| after `enforceAfter` | "Flagged by automated review, uncontested since \<date\>." |
+| state is `disputed` | "Flagged by automated review, and contested by the maintainer. \<their rebuttal\> A human review is pending." |
+
+So a maintainer gets a window to answer before an accusation hardens, and users are protected with
+no delay. The two goals do not trade against each other.

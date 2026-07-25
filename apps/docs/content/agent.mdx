@@ -1,0 +1,87 @@
+---
+title: For your agent
+description: The page to hand an agent so it can install SureX, use it, and surface a verdict without overstating it.
+---
+
+import { Callout } from 'nextra/components';
+import { BannedAdjectives, InstallPrompt, VerifyPrompt } from '../components/prompts.tsx';
+
+# For your agent
+
+This page is written for a model, and it is short on purpose. Three machine-readable surfaces carry
+the same content:
+
+| | |
+|---|---|
+| [`/llms.txt`](/llms.txt) | the whole product in one flat file, no navigation to follow |
+| [`AGENTS.md`](https://github.com/SantiagoDevRel/surex/blob/main/apps/docs/AGENTS.md) | at the root of this site's source: what SureX is, how to install it, what to ask the developer for, and the invariants |
+| this page | the two copy-paste prompts, and the rules a surfacing agent must not break |
+
+## Prompt 1 — install the gate
+
+Paste this into Claude Code:
+
+<InstallPrompt />
+
+## Prompt 2 — check that it blocks
+
+<VerifyPrompt />
+
+## Invariants when you surface a verdict
+
+An agent that reads a verdict and repeats it to a human is a surface, and the same rules bind it.
+
+<Callout type="warning">
+**1. The word is `reviewed`.** Never call a server <BannedAdjectives />, and never make a claim about
+standing that AgentBook does not support — SureX reviews servers, not agents. `clean` means: this submitted
+version, read statically, showed no model-detectable mismatch between its stated purpose and its
+code, at that time. It does not cover dependencies.
+</Callout>
+
+**2. Quote the provenance, do not compress it.** Every verdict repeated in full carries what was
+reviewed (commit and blob ID), when, by which model, at which prompt version, and that **no human
+audited it**. That sentence is not a footnote to be trimmed for brevity.
+
+**3. Verdict and tier are independent.** Do not merge them into one confidence score. `flagged`
+Tier C is a real finding about real code with no link to the user's copy — both halves are true and
+neither cancels the other.
+
+**4. Never present the override as the recommended next step.** It is an escape hatch that exists so
+blocking is defensible. State that the risk transfers to the user, and do not soften it.
+
+**5. Do not paraphrase a block message into a summary and then act on your paraphrase.** The block
+message is the evidence. If you compress it, compress it *next to* the original, not instead of it.
+
+**6. An `unknown` verdict is not a pass.** It means nobody has submitted that install configuration.
+Say "not reviewed", never "nothing found".
+
+**7. Never claim SureX checked the code on this machine** unless the tier says A.
+
+The rule is machine-checkable, and you can run it yourself on anything you are about to say:
+
+```js
+import { assertCopy } from '@surex/core/copy';
+assertCopy(whatIAmAboutToSay, 'agent output');   // throws on the first violation
+```
+
+## What to ask the developer for
+
+Nothing is required to read the registry — it is a public, unauthenticated read API. Ask only when
+the task actually needs it:
+
+| You need | Only when |
+|---|---|
+| permission to install a plugin whose hooks run unsandboxed | always, before installing. Show the trust prompt rather than clicking past it |
+| `SUREX_API_URL` | they run their own registry deployment |
+| an agent wallet key in `SUREX_AGENT_PRIVATE_KEY` | you are filing a dispute as an autonomous agent. Never on a command line, never in a repo |
+| a World ID proof | a human dispute or a submission. That is the developer's to produce, not yours |
+
+## The one API call worth knowing
+
+```bash
+curl -s "https://arkiv-surex-api.vercel.app/v1/verdict?fp=sxf1_…"
+```
+
+Returns the head shape directly. A miss is a `200` with `state: "unknown"`, not a 404. A `503` means
+the registry could not look — which is a different fact from having looked and found nothing, and
+you must not report it as "not reviewed". Full shapes in the [`/v1` reference](/reference/api).

@@ -1065,3 +1065,73 @@ that are easy to trip:
 Without `"type": "module"` on the nearest `package.json`, every run also prints
 `MODULE_TYPELESS_PACKAGE_JSON` and reparses the file. Adding it is the fix — see N1 for what that costs if
 the dev server is already running.
+
+### N5 — A fresh `nextra@4.6.1` docs site 500s on **every** page, and the error names a prop you did pass — **[VERIFIED, reduced to 6 lines]**
+
+**Severity: high for anyone starting a Nextra site today.** A clean install of the current version, following
+the current quickstart verbatim, cannot render a single page. Cost: about an hour, most of it spent bisecting
+content because the production error is redacted.
+
+- **Expected:** `nextra` + `nextra-theme-docs` 4.6.1 with the documented App Router layout
+  (`<Layout navbar footer pageMap>{children}</Layout>`) builds and prerenders.
+- **Happened:** `next build` fails at prerender on the first page with
+
+  ```
+  Error occurred prerendering page "/concepts/copy-law".
+  [Error: An error occurred in the Server Components render. The specific message is omitted
+   in production builds …] { digest: '2150316170' }
+  ```
+
+  Every page fails; the build only reports the first. Under `next dev` the real message appears:
+
+  ```
+  ⨯ [Error: ✖ Invalid input: expected nonoptional, received undefined
+    → at children]
+  ```
+
+  Which is maddening, because `children` **is** passed — it is the one prop the documented example
+  definitely has.
+
+- **Root cause: version skew between `nextra-theme-docs` and zod, not a mistake in the site.**
+  `dist/layout.js` destructures `children` **out** of the props and validates only what is left:
+
+  ```js
+  const { children, ...themeConfig } = t0;
+  const { data, error } = LayoutPropsSchema.safeParse(themeConfig);   // children is GONE
+  ```
+
+  and `dist/schemas.js` declares it required: `LayoutPropsSchema = z.strictObject({ …, children: reactNode, … })`,
+  where `reactNode` is a `z.custom()` whose predicate returns `true` for `null`/`undefined`. That combination
+  used to pass. **zod 4.4.0 changed it: a *missing* key now fails a `z.custom()` field, while an explicit
+  `undefined` still passes.** nextra depends on `zod: ^4.1.12`, so a clean install today resolves 4.4.3 and
+  the theme validates a schema against an object it just removed the required key from.
+
+- **Repro, no Next.js involved** (zod 4.4.3 vs 4.3.6):
+
+  ```js
+  const { z } = require('zod');
+  const reactNode = z.custom((d) => d == null || typeof d === 'string');
+  const S = z.strictObject({ children: reactNode, other: z.string().default('x') });
+  S.safeParse({}).success            // zod 4.3.6 → true      zod 4.4.0+ → false
+  S.safeParse({ children: undefined }).success  // true on both — a missing key ≠ an undefined key
+  ```
+
+  Bisected: **4.3.6 passes · 4.4.0, 4.4.2, 4.4.3 fail.**
+
+- **Workaround (what we shipped):** scope the pin rather than the whole workspace, in the root `package.json`:
+
+  ```json
+  "pnpm": { "overrides": { "nextra>zod": "4.3.6", "nextra-theme-docs>zod": "4.3.6" } }
+  ```
+
+  There is no application-side fix: `Layout` strips `children` itself, so no way of passing it helps.
+
+- **What would have prevented it:**
+  1. **In nextra** — either drop `children` from `LayoutPropsSchema` (it is destructured out before parsing,
+     so it can never be validated) or parse `{ ...themeConfig, children }`. Pinning `zod` to `~4.3` in
+     `dependencies` would also do it.
+  2. **In zod** — the 4.4.0 change from "missing key satisfies a permissive `z.custom()`" to "missing key is
+     an error" is a breaking change to a very common pattern, released in a minor.
+  3. **In Next.js** — a prerender failure that redacts its own message sends you bisecting *content* when the
+     fault is in `app/layout.tsx`. `next dev` prints the real error in one request; if a build fails at
+     prerender, go there first. That is the transferable lesson.

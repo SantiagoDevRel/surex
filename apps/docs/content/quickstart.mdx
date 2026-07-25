@@ -1,0 +1,216 @@
+---
+title: Quickstart
+description: One paste to a working gate, and a real block from the live registry.
+---
+
+import { Callout, Steps, Tabs } from 'nextra/components';
+
+# Quickstart
+
+At the end of this page a real MCP tool call on your machine is stopped by a verdict that lives on
+a public chain, and you release it with one command. Nothing here is illustrative: the fingerprint
+you compute locally is the fingerprint the registry answers for.
+
+<Callout type="warning">
+**Plugin hooks run unsandboxed, with your permissions.** That is true of every Claude Code plugin,
+and it is worth saying out loud in a tool whose entire subject is what you are running. The gate is
+about seven hundred lines of dependency-free JavaScript in
+[`packages/plugin/lib`](https://github.com/SantiagoDevRel/surex/tree/main/packages/plugin/lib) —
+it is meant to be read before you install it.
+</Callout>
+
+<Steps>
+
+### Ask the registry first — before you install anything
+
+The server you are about to install as bait is `@surex/mal-rug-pull`, a malicious MCP server the
+SureX project wrote as a review fixture. Its verdict is already on chain. Read it with nothing but
+`curl`:
+
+```bash
+curl -s "https://arkiv-surex-api.vercel.app/v1/verdict?fp=sxf1_c6b016134fddd156bb76fce9c9e2cc8d697cbd35e311a4de50af6dbf102b761b"
+```
+
+```jsonc
+{
+  "fingerprint": "sxf1_c6b016134fddd156bb76fce9c9e2cc8d697cbd35e311a4de50af6dbf102b761b",
+  "state": "flagged",
+  "severity": 4,
+  "tier": "C",
+  "name": "@surex/mal-rug-pull",
+  "reviewedAt": "2026-07-25T14:31:30.468Z",
+  "modelId": "qwen3-coder-next:surex32k",
+  "promptVersion": "rv-1",
+  "topFinding": {
+    "file": "src/tools/weather.mjs",
+    "line": 55,
+    "category": "reviewer-injection",
+    "severity": 4,
+    "detectedBy": "deterministic-scan"
+  },
+  "evidence": {
+    "blobId": "bBuJUosRjU5cpypKdOPZF461vDZw4i48SSukPt8RzMs",
+    "contentSha256": "12c894108fb18a55fd9346da8928185ca10d3e3d904a7e57e7848c836ee46c06"
+  }
+}
+```
+
+That fingerprint is not a label anyone assigned. It is `SXF-1` over the install configuration, and
+the local-script case hashes the **content of the entry file** — which is why the same file on your
+disk, at any path, resolves to the same registry entry. See [SXF-1](/concepts/fingerprint).
+
+### Install the plugin
+
+In Claude Code:
+
+```
+/plugin marketplace add SantiagoDevRel/surex
+/plugin install surex@surex
+```
+
+Claude Code shows a "Will install" list naming the hooks, behind a trust gate, before anything
+runs. The plugin registers two hooks and nothing else:
+
+| Hook | Matcher | What it does |
+|---|---|---|
+| `PreToolUse` | `mcp__.*` | the gate — one lookup per MCP tool call, 10 s timeout |
+| `SessionStart` | — | one batched prefetch for every server in your config, so the first call is warm |
+
+The matcher is a regex, and `mcp__.*` is what catches every MCP tool. A bare `mcp__github` would be
+an exact match and would fire on nothing.
+
+### Put a flagged server on your machine
+
+The fixture is a real, runnable MCP server. A default run of it reads a decoy and sends nothing —
+`packages/fixtures/MALICIOUS.md` §5 documents exactly what it does and where each tell is planted.
+
+```bash
+git clone https://github.com/SantiagoDevRel/surex
+cd surex
+pnpm install                      # the fixture needs @modelcontextprotocol/sdk
+
+# absolute path — the gate must be able to read the entry file to identify it
+claude mcp add rugpull -- node "$(pwd)/packages/fixtures/mal-rug-pull/src/server.mjs"
+```
+
+<Callout type="info">
+On Windows, use the absolute path with forward slashes:
+`claude mcp add rugpull -- node "C:/path/to/surex/packages/fixtures/mal-rug-pull/src/server.mjs"`.
+Both slash styles fingerprint identically — the path is not part of the identity, the file's bytes
+are.
+</Callout>
+
+`claude mcp add` writes it at **local scope** — per project, in `~/.claude.json` — which is one of
+the three scopes the gate reads. Confirm it resolves to the entry you just read from the registry,
+using the slash command the plugin ships:
+
+```
+/surex check rugpull
+```
+
+```
+  rugpull  local scope
+  sxf1_c6b016134fddd156bb76fce9c9e2cc8d697cbd35e311a4de50af6dbf102b761b
+  {"v":"SXF-1","transport":"stdio","runner":"node","package":{"name":"server.mjs","version":"local:ebfd4659bfb1e319"},"args":[]}
+```
+
+Same 64 hex characters as the `curl` above. Nothing coordinated those two numbers except the bytes
+of the file.
+
+### Trigger the block
+
+Start a session in that directory and ask the model to use the tool:
+
+```
+what's the weather in Lisbon?
+```
+
+The model reaches for `mcp__rugpull__get_weather`. The hook fires first, and the call is denied:
+
+```ansi
+SureX blocked this call — @surex/mal-rug-pull
+
+Flagged by automated review. Not confirmed by a human. The maintainer has been notified and may respond.
+
+Finding (critical): Text here is a fake instruction tag aimed at a model parser. — src/tools/weather.mjs:55
+This code can reach: network · filesystem · environment variables · credential stores
+
+Link to your install (C): nothing was checked — this verdict may be about code that is not your code.
+Reviewed: commit — · blob bBuJU…RzMs · 2026-07-25 · model qwen3-coder-next:surex32k, prompt rv-1. No human audited this.
+Evidence: https://arkiv-surex.vercel.app/r/sxf1_c6b0…    Dispute: https://arkiv-surex.vercel.app/d/sxf1_c6b0…
+
+You can proceed anyway, at your own risk:  node "<plugin>/bin/surex" allow sxf1_c6b0…
+
+Evidence fetched from Walrus and checked: sha256 matched, blob ID recomputed and matched
+```
+
+That last line is not decoration. Blocking is the one moment the gate spends milliseconds on the
+evidence: it fetches the blob from a public Walrus aggregator, checks the bytes against the sha256
+on the record, and **recomputes the Walrus blob ID from those bytes locally** with a vendored
+encoder — trusting neither the aggregator nor the API. [The evidence chain](/concepts/evidence-chain)
+covers what each check means and what it looks like when one fails.
+
+Every line of that message is load-bearing; [Read a verdict](/guides/read-a-verdict) takes it apart
+line by line.
+
+### Override it — this is the point
+
+A block you cannot pass is a block that gets the gate uninstalled the first time it is wrong. So
+the override is printed in **every** block message, resolved to an invocation that exists on your
+machine — copy that line, or use the slash command:
+
+```
+/surex allow sxf1_c6b016134fddd156bb76fce9c9e2cc8d697cbd35e311a4de50af6dbf102b761b
+```
+
+Ask for the weather again and the call goes through. Nothing about the verdict changed; you decided.
+
+```
+surex allow <fp>            proceed, on this machine, until you revoke it
+surex allow <fp> --once     this session only
+surex revoke <fp>           undo it
+```
+
+An override is checked **before the cache and before the network**, so it wins over every other
+path in the gate. It is stored in `${CLAUDE_PLUGIN_DATA}/overrides.json`, it is local, and it is
+reported nowhere — a registry that phones home about which warnings you ignored is a different
+product, and a worse one.
+
+<Callout type="warning">
+**Why the command reads `node "<path>/bin/surex"` and not `surex`.** A plugin's `bin/` is
+documented to join your PATH while the plugin is enabled. Measured on Claude Code 2.1.220, it does
+not — installed from a marketplace the binary lands in the plugin cache and a bare `surex` is
+`command not found` in the shell the agent runs commands in. Rather than print a command that does
+not exist, the gate resolves its own location and prints one that does, and prefers the short form
+when `surex` really is on PATH. The plugin also ships a `/surex` slash command that works either
+way. FRICTION-LOG C7.
+</Callout>
+
+### Put your machine back
+
+```bash
+claude mcp remove rugpull
+```
+
+Then `/plugin uninstall surex@surex` if you are done. Removing the plugin removes the hooks; your
+overrides file goes with the plugin's data directory.
+
+</Steps>
+
+## What you just proved
+
+- A `PreToolUse` hook can stop a real MCP tool call before it executes, and the reason reaches both
+  your terminal and the model.
+- A server was identified **from configuration alone** — the gate never ran it, never connected to
+  it, and never asked it what it was.
+- The verdict came from a public registry over HTTP, and the evidence behind it came from
+  content-addressed storage whose identifier was recomputed from the bytes on your own machine.
+- You could override all of it in one command.
+
+## Next
+
+- [Verdict ⊥ Tier](/concepts/verdict-and-tier) — why that block said **Tier C** even though the
+  verdict is real, and why the two are independent.
+- [Install the plugin](/guides/install) — configuration, where state lives, and what to expect on a
+  machine with real MCP servers on it.
+- [For your agent](/agent) — the same install, as a prompt you hand to an agent.

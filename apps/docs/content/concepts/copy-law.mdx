@@ -1,0 +1,85 @@
+---
+title: The copy law
+description: The word is reviewed. Four adjectives are banned outright, and the rule is a test, not an intention.
+---
+
+import { Callout } from 'nextra/components';
+import { AllowedPhrases, BannedWords, CleanMeans, NoHumanAudit } from '../../components/copy-law.tsx';
+
+# The copy law
+
+SureX makes a narrow claim and the vocabulary is what keeps it narrow. **The word is `reviewed`.**
+A model read a version of some source and reported what it found. That is the entire fact, and
+every adjective that promises more than that is banned from every surface — the block message, the
+CLI, the API, the registry site, and this documentation.
+
+<Callout type="info">
+The rule is enforced by `copyViolations()` in `packages/core/src/copy.mjs`, and it runs in tests
+across the reviewer, the API fixtures, the web app **and every page of this site**. A banned word
+fails a build instead of shipping. The table below is rendered from that module, so it cannot list
+a word the checker no longer bans.
+</Callout>
+
+## The banned list
+
+<BannedWords />
+
+The third column is what makes the rule usable rather than superstitious. Checking bytes against a
+digest really *is* verification — a server is never described that way, but a sha256 comparison is.
+"Certify" is the name of the second Walrus transaction; it is a fact about storage, not a claim
+about code. The exemption is evaluated per **sentence**, so one legitimate mention at the top of a
+page cannot license an unearned claim further down.
+
+These exact phrases are exempt anywhere they appear:
+
+<AllowedPhrases />
+
+## What every verdict must state
+
+Wherever a verdict is presented in full — a block message, a CLI `why`, a registry page — it must
+carry all of:
+
+1. **what** was reviewed: the commit and the evidence blob ID
+2. **when** it was reviewed
+3. **by which model**, and **which prompt version**
+4. the disclosure, verbatim: <NoHumanAudit />
+
+That is one line in the block message and it is never trimmed for space. A verdict is a claim about
+what a specific model concluded from a specific prompt; without the four, it is an opinion with no
+address.
+
+## What `clean` means, in full
+
+<CleanMeans />
+
+Stated on any page that renders one. Not "this server is fine".
+
+## Two rules that are about restraint rather than vocabulary
+
+**Never imply the registry knows what is running on your machine.** It knows what was reviewed. The
+link between the two is the tier, it is stated on every verdict, and it is usually C. See
+[Verdict ⊥ Tier](/concepts/verdict-and-tier).
+
+**Never say anything agent-shaped about standing.** World AgentBook returns an anonymous human id
+and nothing else — no call volume, no history, no score. Two early SureX copy strings claimed
+otherwise and were false; a test now fails on any affirmative use of that vocabulary. Standing means
+one thing: a human registered this wallet. SureX reviews **servers**, not agents.
+
+## Corrections
+
+Verdicts are **superseded, never deleted**, and a correction is as prominent and as durable as the
+original claim. A registry that can quietly retract is a registry whose past claims mean nothing.
+
+## If you are building on SureX
+
+Whatever you build inherits the law the moment you render a verdict. The cheapest way to comply is
+not to paraphrase:
+
+```js
+import { assertCopy } from '@surex/core/copy';
+
+assertCopy(mySurfaceCopy, 'my-banner');   // throws on the first violation
+```
+
+The [agent guide](/agent) states the same thing as invariants an agent must respect when it
+surfaces a verdict on your behalf.

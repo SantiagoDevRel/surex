@@ -1,0 +1,108 @@
+---
+title: surex CLI
+description: Six commands. What each one prints, and where its state lives.
+---
+
+import { Callout } from 'nextra/components';
+
+# The `surex` command
+
+Shipped with the plugin. Every subcommand also works through the `/surex` slash command, which runs
+the CLI and shows you its output verbatim — deliberately not summarised, because the provenance
+lines and the disclosure that no human audited the review are part of the output for a reason.
+
+<pre className="sx-term">{`surex — what is known about the MCP servers your agent can call
+
+  surex list                  every configured server, its fingerprint and its verdict
+  surex why <fingerprint>     the full case: finding, capability surface, provenance,
+                              and the evidence fetched from Walrus and checked
+  surex allow <fingerprint>   proceed anyway, at your own risk. --once = this session only
+  surex revoke <fingerprint>  undo an allow
+  surex status                where state lives, what is cached, what the gate has been doing
+
+Reviews are automated and no human audits them. A verdict describes the version that
+was reviewed — not necessarily the copy installed on this machine. Every verdict says
+which of those two it can actually speak to.`}</pre>
+
+There is a seventh, undocumented in the usage because it is a debugging tool rather than a daily
+one: **`surex check [name]`** prints what each configured server canonicalises to and the
+fingerprint that follows from it. It is the command to reach for when two servers you think are
+different resolve to one entry, or when a server you expect to be recognised comes back `unknown`.
+
+<Callout type="warning">
+**Invoke it as `node "<plugin>/bin/surex"` unless a bare `surex` resolves.** A plugin's `bin/` is
+documented to join your PATH while the plugin is enabled; measured on Claude Code 2.1.220 it does
+not, and from a marketplace install `surex` is `command not found` in the shell the agent runs
+commands in. The gate resolves its own location and prints an invocation that exists, and prefers
+the short form when it is genuinely available. FRICTION-LOG C7.
+</Callout>
+
+## `surex list`
+
+Every server visible from the current directory, in all three config scopes, with the verdict the
+registry returns for each. A server the gate cannot canonicalise says so on its own line rather than
+being omitted — an invisible server looks identical to a reviewed one.
+
+## `surex why <fingerprint>`
+
+The full case, and the only command that goes to Walrus:
+
+- the state, the tier and the tier's sentence
+- the top finding with its file and line
+- the full capability surface, with up to three evidence sites per capability
+- what `clean` means, in full, whenever the state is `clean`
+- provenance: reviewed commit, date, model id, prompt version, and `no human audited this`
+- **the evidence, fetched and checked** — each check listed separately as `✓ passed`, `✗ failed`,
+  `~ asserted` or `? unavailable`, plus the Sui register and certify digests
+- every finding in the certified blob, not only the top one
+- an `ILLUSTRATIVE` warning if the entry is demo data
+- the decision `decide()` would return
+
+## `surex allow <fingerprint>` · `surex revoke`
+
+```
+surex allow <fp>            on this machine, until revoked
+surex allow <fp> --once     this session only
+surex revoke <fp>           undo it
+```
+
+An override is checked **before the cache and before the network**, so it beats every other path in
+the gate. `allow` prints, every time, that SureX had a finding against that server, that enforcement
+stops for it, and that the risk is yours. The `/surex` command instructs the model to say the same
+thing in its own words and not to soften it.
+
+Overrides live in `${CLAUDE_PLUGIN_DATA}/overrides.json`. They are local and are reported nowhere.
+
+## `surex status`
+
+<pre className="sx-term">{`  registry   https://arkiv-surex-api.vercel.app
+  state in   C:\\Users\\you\\.surex   (fallback — not running under the plugin)
+
+  cache      0 entries
+  overrides  0 standing
+
+  last 0 lookups
+    identified from config   0/0  —
+    resolved to an entry     0/0  —   ← registry hit rate
+    blocked                  0
+    overridden               0`}</pre>
+
+Two lines are worth reading carefully.
+
+**`state in … (fallback — not running under the plugin)`** means `CLAUDE_PLUGIN_DATA` was not set,
+so the CLI is using `~/.surex`. That is what you see when you run the binary directly from a clone
+rather than through the installed plugin — and it means the cache and overrides you are looking at
+are **not** the ones the gate is using.
+
+**The registry hit rate** is how many of your configured servers the registry knows anything about.
+It is the first number that should be on any dashboard for a product like this, because a gate that
+recognises almost nothing looks exactly like a gate that is working.
+
+## Configuration
+
+| Variable | Default |
+|---|---|
+| `SUREX_API_URL` | `https://arkiv-surex-api.vercel.app` |
+| `SUREX_WEB_URL` | `https://arkiv-surex.vercel.app` |
+| `CLAUDE_PLUGIN_DATA` | set by Claude Code; `~/.surex` as a fallback |
+| `NO_COLOR` | any value turns off colour, as does a non-TTY stdout |
