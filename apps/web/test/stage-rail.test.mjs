@@ -24,6 +24,9 @@ import {
   DEFAULT_SUI_EXPLORER,
   ENS_LABEL_HEX_LENGTH,
   ENS_LABEL_PREFIX,
+  FLOW_STAGES,
+  FLOW_STEPS,
+  FLOW_TECH,
   STAGE_TECH,
   SUBMISSION_STAGES,
   artifactUrl,
@@ -31,16 +34,24 @@ import {
   ensLabelFor,
   ensNameFor,
   ensParent,
+  flowFacts,
+  flowFocusStage,
+  flowGatePassed,
+  flowPhase,
+  flowProvisional,
+  flowSubStages,
   githubCommitUrl,
   githubRepoUrl,
   npmVersionUrl,
   parseSubmissionStatus,
   railStages,
   shownStage,
+  shownStep,
   stageFacts,
   stageGatePassed,
   stagePhase,
   stageProvisional,
+  stepForStage,
   suiObjectUrl,
   traceFrom,
 } from '../lib/submission.ts';
@@ -418,6 +429,278 @@ test('the walrus copy states the one thing a blob ID is not', () => {
   assert.match(body, /two Sui transactions/i);
   assert.match(body, /contentSha256/);
   assert.match(body, /not the sha256|rather than the sha256/i);
+});
+
+/* ---------------------------------------------------------------- the flow -*/
+
+/**
+ * Six steps, one sequence, and the World step in front of the five the pipeline
+ * reports. The fold is presentational — these tests are about proving it loses
+ * nothing: every stage still belongs to exactly one step, every fact still comes
+ * from the stage that reported it, and no step can reach a state the run did not.
+ */
+
+test('the six steps cover every pipeline stage exactly once', () => {
+  // The fold is lossless or it is a lie. A stage in no step would vanish from the
+  // screen; a stage in two would tick twice.
+  const covered = FLOW_STEPS.flatMap((step) => [...FLOW_STAGES[step]]);
+  assert.deepEqual([...covered].sort(), [...SUBMISSION_STAGES].sort());
+  assert.equal(covered.length, new Set(covered).size, 'a stage is claimed by two steps');
+  for (const stage of SUBMISSION_STAGES) {
+    assert.ok(FLOW_STAGES[stepForStage(stage)].includes(stage), `${stage} maps to the wrong step`);
+  }
+});
+
+test('World is the only step with no stage behind it', () => {
+  assert.deepEqual([...FLOW_STAGES.world], []);
+  for (const step of FLOW_STEPS) {
+    if (step !== 'world') assert.ok(FLOW_STAGES[step].length > 0, `${step} covers nothing`);
+  }
+  // It happens in this browser, before a submission exists, so no run can move it.
+  for (const status of [null, at('reviewing'), at('done', {}, { status: 'done' })]) {
+    assert.equal(flowPhase('world', status, 'idle'), 'pending');
+    assert.equal(flowPhase('world', status, 'checking'), 'active');
+    assert.equal(flowPhase('world', status, 'held'), 'done');
+    assert.equal(flowPhase('world', status, 'failed'), 'stopped');
+  }
+});
+
+test('every step has a name, a caption, a technology and a label for it', () => {
+  for (const step of FLOW_STEPS) {
+    assert.ok(COPY.pipeline.rail.flow.name[step], `no name for ${step}`);
+    assert.ok(COPY.pipeline.rail.flow.caption[step], `no caption for ${step}`);
+    const tech = FLOW_TECH[step];
+    assert.ok(tech, `no technology for ${step}`);
+    assert.ok(COPY.pipeline.rail.tech[tech], `no label for ${tech}`);
+  }
+  // The five the flow names after their technology are the five the product is
+  // built on. If one of these moves, it moved for a reason.
+  assert.equal(FLOW_TECH.world, 'world');
+  assert.equal(FLOW_TECH.source, 'source');
+  assert.equal(FLOW_TECH.review, 'dgx');
+  assert.equal(FLOW_TECH.walrus, 'walrus');
+  assert.equal(FLOW_TECH.arkiv, 'arkiv');
+  assert.equal(FLOW_TECH.published, 'ens');
+});
+
+test('a step is done only when every stage it folds is', () => {
+  // The source step folds four. Three of them being past is still in flight, and
+  // a step that ticked early would be claiming the licence gate had answered.
+  const onLicence = at('licence');
+  assert.equal(flowPhase('source', onLicence, 'held'), 'active');
+  assert.equal(flowPhase('review', onLicence, 'held'), 'pending');
+
+  const onReview = at('reviewing');
+  assert.equal(flowPhase('source', onReview, 'held'), 'done');
+  assert.equal(flowPhase('review', onReview, 'held'), 'active');
+  assert.equal(flowPhase('walrus', onReview, 'held'), 'pending');
+
+  // Nothing reported: nothing has happened, including on the steps that fold four.
+  for (const step of FLOW_STEPS) {
+    if (step === 'world') continue;
+    assert.equal(flowPhase(step, null, 'idle'), 'pending');
+  }
+});
+
+test('a stopped stage stops its step, and the steps after it stay unreached', () => {
+  const s = at('walrus', {}, { status: 'failed' });
+  assert.equal(flowPhase('walrus', s, 'held'), 'stopped');
+  assert.equal(flowPhase('arkiv', s, 'held'), 'pending');
+  assert.equal(flowPhase('published', s, 'held'), 'pending');
+  assert.equal(flowPhase('source', s, 'held'), 'done');
+});
+
+test('a finished run has ticked every step, including one the poll never saw', () => {
+  const s = at('arkiv', {}, { status: 'done' });
+  for (const step of FLOW_STEPS) {
+    if (step === 'world') continue;
+    assert.equal(flowPhase(step, s, 'held'), 'done', `${step} did not tick`);
+  }
+});
+
+test('the panel starts on World, follows the run, and a pick wins', () => {
+  // Before a submission exists the World step is the only one anything is
+  // happening on, so it is where the panel sits — not a default, a true statement.
+  assert.equal(shownStep(null, null), 'world');
+  assert.equal(shownStep(null, at('resolving')), 'source');
+  assert.equal(shownStep(null, at('licence')), 'source');
+  assert.equal(shownStep(null, at('reviewing')), 'review');
+  assert.equal(shownStep(null, at('done', {}, { status: 'done' })), 'published');
+  assert.equal(shownStep('walrus', at('resolving')), 'walrus');
+  assert.equal(shownStep('world', at('arkiv')), 'world');
+});
+
+test('the folded step describes the stage the run is actually on', () => {
+  const trace = walk(at('resolving'), at('licence'));
+  assert.equal(flowFocusStage('source', at('licence'), trace), 'licence');
+  // Past the step entirely: the last of its stages the watch actually saw. Naming
+  // one nobody reported would describe an event as though it had happened.
+  assert.equal(flowFocusStage('source', at('reviewing'), trace), 'licence');
+  // Nothing seen and nothing reported: the first, which is a true statement about
+  // what happens rather than a claim that it has.
+  assert.equal(flowFocusStage('source', null, {}), 'resolving');
+  assert.equal(flowFocusStage('world', at('reviewing'), trace), null);
+  assert.equal(flowFocusStage('review', at('reviewing'), trace), 'reviewing');
+});
+
+test('a stage the pipeline never emits is not folded in either', () => {
+  // `starting` is reserved and never emitted by scripts/ingest-submission.mjs, so
+  // the source step lists three sub-stages, not four — the same rule the rail
+  // already followed, carried through the fold.
+  assert.deepEqual(flowSubStages('source', {}), ['resolving', 'licence', 'fetching']);
+  const started = walk(at('starting', { artifact: 'npm:acme-mcp@1.0.0' }));
+  assert.deepEqual(flowSubStages('source', started), ['resolving', 'licence', 'fetching', 'starting']);
+  assert.deepEqual(flowSubStages('world', started), []);
+});
+
+test('a step that reported nothing produces no facts at all', () => {
+  for (const step of FLOW_STEPS) {
+    assert.deepEqual(flowFacts(step, {}, null), [], `${step} invented a fact`);
+  }
+  // …and World has none even from a full run, because no stage reports for it.
+  const full = walk(at('resolving', { repo: 'acme/acme-mcp' }), at('walrus', { blobId: 'b' }));
+  assert.deepEqual(flowFacts('world', full, at('done', {}, { status: 'done' })), []);
+});
+
+test('folding merges the facts the stages reported, and cannot add one', () => {
+  const trace = walk(
+    at('resolving', { repo: 'acme/acme-mcp', commit: 'a'.repeat(40) }),
+    at('licence', { spdx: 'MIT' }),
+    at('fetching', { artifact: `github:acme/acme-mcp@${'a'.repeat(40)}` }),
+  );
+  const merged = flowFacts('source', trace, null);
+  const labels = merged.map((f) => f.label);
+
+  // The three things the step exists to show: the repo, the commit, the licence.
+  assert.ok(labels.includes(COPY.pipeline.rail.fact.repo));
+  assert.ok(labels.includes(COPY.pipeline.rail.fact.commit));
+  assert.ok(labels.includes(COPY.pipeline.rail.fact.licence));
+
+  // Nothing that `stageFacts` would not have produced on its own.
+  const separately = FLOW_STAGES.source.flatMap((stage) => stageFacts(stage, trace, null));
+  assert.deepEqual(
+    merged.map((f) => `${f.label}=${f.value}`).sort(),
+    [...new Set(separately.map((f) => `${f.label}=${f.value}`))].sort(),
+  );
+});
+
+test('when two folded stages report the same label, the earlier stage wins', () => {
+  // `fetching` and `starting` both carry an artifact. Pipeline order decides, so
+  // the row cannot flip between polls depending on which stage answered last.
+  const trace = walk(
+    at('fetching', { artifact: 'npm:acme-mcp@1.0.0' }),
+    at('starting', { artifact: 'npm:acme-mcp@9.9.9' }),
+  );
+  const artifacts = flowFacts('source', trace, null).filter(
+    (f) => f.label === COPY.pipeline.rail.fact.artifact,
+  );
+  assert.equal(artifacts.length, 1, 'the same label rendered twice');
+  assert.equal(artifacts[0].value, 'npm:acme-mcp@1.0.0');
+});
+
+test('the licence gate colours its step only once the whole step is past', () => {
+  const trace = walk(at('licence', { spdx: 'MIT' }));
+  // Still inside the step — it is running, whatever one of its stages answered.
+  assert.equal(flowGatePassed('source', trace, at('fetching')), false);
+  assert.equal(flowGatePassed('source', trace, at('licence')), false, 'still on the gate');
+  // Out the other side, with a licence actually reported.
+  assert.equal(flowGatePassed('source', trace, at('reviewing')), true);
+  assert.equal(flowGatePassed('source', {}, at('reviewing')), false, 'no licence reported, no pass');
+  for (const step of FLOW_STEPS) {
+    if (step !== 'source') assert.equal(flowGatePassed(step, trace, at('done')), false);
+  }
+});
+
+test('only the publisher-registered blob makes a step provisional', () => {
+  const publisher = walk(at('walrus', { blobId: 'b', registeredBy: 'publisher' }));
+  const ours = walk(at('walrus', { blobId: 'b', registeredBy: 'wallet' }));
+  assert.equal(flowProvisional('walrus', publisher), true);
+  assert.equal(flowProvisional('walrus', ours), false);
+  for (const step of FLOW_STEPS) {
+    if (step !== 'walrus') assert.equal(flowProvisional(step, publisher), false);
+  }
+});
+
+test('every step draws a real mark, and no mark reaches the network', () => {
+  /**
+   * The logos are inlined, never linked. A page that hotlinks someone's CDN for a
+   * logo makes a request to them from every reader on every render, and leaks who
+   * is looking at a verdict — so the marks are `<svg>` in the component and this
+   * reads the component as text to prove it stayed that way.
+   */
+  const source = readFileSync(new URL('../app/_components/StageRail.tsx', import.meta.url), 'utf8');
+  const marks = source.slice(source.indexOf('function TechMark'), source.indexOf('export function StageRail'));
+
+  for (const step of FLOW_STEPS) {
+    assert.ok(marks.includes(`case '${FLOW_TECH[step]}':`), `no mark for ${step}`);
+  }
+  assert.ok(!/<img|xlink:href|url\(|https?:\/\//i.test(marks), 'a mark reaches outside the bundle');
+  // `currentColor` throughout: the tile's colour is its phase, and a hard-coded
+  // brand hex here would fight the one thing colour means in this product.
+  assert.ok(!/fill="#|stroke="#/i.test(marks), 'a mark hard-codes a colour');
+  assert.ok(marks.includes("fill: 'currentColor'"), 'the marks stopped inheriting the phase colour');
+});
+
+test('the World step ticks in words of its own, and never in the run’s', () => {
+  // "not reached" is wrong for a step the reader is being asked to start, and
+  // there is no run for it to be "past".
+  const { worldPhase } = COPY.pipeline.rail.flow;
+  assert.match(worldPhase.active, /check/i);
+  assert.match(worldPhase.done, /proof/i);
+  assert.ok(!/past/i.test(worldPhase.done), 'the World step has no run to be past');
+  assert.equal(
+    new Set(Object.values(worldPhase)).size,
+    4,
+    'the four World phases must not share wording',
+  );
+  const runWords = [
+    COPY.pipeline.rail.phasePending,
+    COPY.pipeline.rail.phaseActive,
+    COPY.pipeline.rail.phaseDone,
+    COPY.pipeline.rail.phaseStopped,
+  ];
+  for (const word of Object.values(worldPhase)) {
+    assert.ok(!runWords.includes(word), `the World step reuses a run phase word: "${word}"`);
+  }
+});
+
+test('the walls this page threw out do not come back', () => {
+  /**
+   * Deleted deliberately: a column of inert `◌` markers with no state behind them,
+   * a four-point explainer of what happens to your code, and a six-panel essay
+   * about what to do if the review finds something. The flow narrates all three,
+   * step by step, from what the run actually reported. A key reappearing here is
+   * the wall being rebuilt.
+   */
+  for (const key of [
+    'stepHuman',
+    'stepHumanNote',
+    'stepRepo',
+    'stepRepoNote',
+    'stepRelease',
+    'stepReleaseNote',
+    'stepReview',
+    'stepReviewNote',
+    'whatHappensLabel',
+    'whatHappens1',
+    'whatHappens2',
+    'whatHappens3',
+    'whatHappens4',
+    'outcomeLabel',
+    'outcomeBody',
+    'outcomeIs',
+    'outcomeIsNot',
+    'answerTitle',
+    'fixTitle',
+    'leaveTitle',
+    'windowNote',
+  ]) {
+    assert.equal(COPY.submit[key], undefined, `COPY.submit.${key} is back`);
+  }
+  // …and the page is the flow plus the form, not a page of panels.
+  const page = readFileSync(new URL('../app/submit/page.tsx', import.meta.url), 'utf8');
+  assert.ok(!page.includes('◌'), 'the inert checklist is back');
+  assert.ok(!/\bPanel\b/.test(page), 'the submit page is composing panels again');
 });
 
 test('nothing in the rail says the gate blocks', () => {

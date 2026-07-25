@@ -19,14 +19,12 @@ import {
   traceFrom,
   writeReceipts,
   type PipelineTrace,
-  type SubmissionStage,
   type SubmissionStatus,
 } from '@/lib/submission.ts';
 
 import { Banner, type BannerTone } from './Banner.tsx';
 import { Panel, PanelHeader, SectionLabel } from './Panel.tsx';
 import { Disagreement, Halftone, ReadingPulse, WriteLanded } from './PipelineMotion.tsx';
-import { StageRail } from './StageRail.tsx';
 
 /**
  * The live loader: what the registry is actually doing with a submission, while
@@ -44,6 +42,11 @@ import { StageRail } from './StageRail.tsx';
  * value that can be absent has a rendering for being absent, and none of those
  * renderings looks like a value.
  *
+ * The WATCH is `useSubmissionWatch` and lives one level up, in `SubmitForm` —
+ * because the flow it feeds starts at the World step, before a submission exists,
+ * and a hook that only exists once a run has been accepted cannot draw a step that
+ * happens before one. This component renders what the watch found.
+ *
  * The motion is CSS (`app/globals.css`, SUREX MOTION v1) and this component only
  * chooses what to mount:
  *
@@ -54,23 +57,40 @@ import { StageRail } from './StageRail.tsx';
  *   write      once per write that landed, keyed on the id it carries
  */
 
-type Gap =
+export type Gap =
   | { kind: 'unknown' }
   | { kind: 'notBuilt'; detail?: string }
   | { kind: 'lost'; detail: string };
 
-export function SubmissionMonitor({ id }: { id: string }) {
+export interface SubmissionWatch {
+  status: SubmissionStatus | null;
+  trace: PipelineTrace;
+  gap: Gap | null;
+}
+
+/**
+ * Poll one submission, or none.
+ *
+ * `id === null` is a first-class state and not an edge case: on `/submit` the flow
+ * is on screen from the first paint, and for the whole time before a release is
+ * queued there is nothing to poll. Passing `null` reports exactly that — no
+ * status, no trace, no gap — rather than a run with no stages, which is what a
+ * screen would have to invent to fill the space.
+ */
+export function useSubmissionWatch(id: string | null): SubmissionWatch {
   const [status, setStatus] = useState<SubmissionStatus | null>(null);
   const [trace, setTrace] = useState<PipelineTrace>({});
   const [gap, setGap] = useState<Gap | null>(null);
-  /**
-   * A stage the reader chose to look at. `null` — the default and the state it
-   * returns to — means the detail panel follows the run, so nobody has to keep
-   * clicking to stay with it. Choosing the same tile again clears the pick.
-   */
-  const [picked, setPicked] = useState<SubmissionStage | null>(null);
 
   useEffect(() => {
+    // A second submission starts a fresh watch. Carrying the previous run's trace
+    // into it would show one submission's blob id under another's id.
+    setStatus(null);
+    setTrace({});
+    setGap(null);
+    if (!id) return;
+    const watching = id;
+
     /**
      * A timeout chain rather than an interval: an interval fires whether or not
      * the previous request came back, so a slow registry produces overlapping
@@ -82,7 +102,7 @@ export function SubmissionMonitor({ id }: { id: string }) {
     let failures = 0;
 
     async function tick(): Promise<void> {
-      const res = await fetchSubmissionStatus(id, controller.signal);
+      const res = await fetchSubmissionStatus(watching, controller.signal);
       // Unmounted while the request was in flight: touch no state, set no timer.
       if (stopped) return;
 
@@ -122,6 +142,10 @@ export function SubmissionMonitor({ id }: { id: string }) {
     };
   }, [id]);
 
+  return { status, trace, gap };
+}
+
+export function SubmissionMonitor({ id, status, trace, gap }: { id: string } & SubmissionWatch) {
   const fraction = progressFraction(status);
   const label = stageLabel(status);
   const receipts = writeReceipts(trace);
@@ -169,22 +193,6 @@ export function SubmissionMonitor({ id }: { id: string }) {
             ) : null}
           </div>
         </div>
-
-        {/*
-          WHERE the run is, and what it is touching there. Hidden for the two gaps
-          that mean there is no run to describe — a deployment with no writer has
-          no pipeline, and an id the registry never heard of has no stages. A LOST
-          watch still had a real run behind it, so the rail stays for that one and
-          simply stops advancing.
-        */}
-        {!gap || gap.kind === 'lost' ? (
-          <StageRail
-            status={status}
-            trace={trace}
-            picked={picked}
-            onPick={(stage) => setPicked((prev) => (prev === stage ? null : stage))}
-          />
-        ) : null}
 
         {/*
           Mounted while the source is open and unmounted when it closes, which is

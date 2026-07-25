@@ -691,7 +691,7 @@ export function ensAppUrl(name: string | undefined | null): string | null {
  * just landed where. `null` is a real answer — the licence gate touches none of
  * the four, and a tile that invented a chip for it would be decorating.
  */
-export type StageTech = 'source' | 'dgx' | 'walrus' | 'arkiv' | 'ens';
+export type StageTech = 'world' | 'source' | 'dgx' | 'walrus' | 'arkiv' | 'ens';
 
 export const STAGE_TECH: Record<SubmissionStage, StageTech | null> = {
   resolving: 'source',
@@ -904,6 +904,206 @@ export function stageFacts(
   }
 
   return out.filter((f): f is StageFact => f !== null);
+}
+
+/* --------------------------------------------------------------- the flow --*/
+
+/**
+ * SIX STEPS, ONE SEQUENCE — including the one that happens before the registry
+ * has anything to report.
+ *
+ * The pipeline reports eight stages. Four of them (`resolving`, `licence`,
+ * `fetching`, `starting`) answer one question — *where did the source come from,
+ * and may it be stored* — and reading them as four separate things is what made
+ * the screen feel like a debug log. So the flow folds those four into one step,
+ * and the panel under the tiles names whichever of them the run is actually on.
+ *
+ * The folding is presentational and nothing more. Every fact still comes from the
+ * stage that reported it (`flowFacts` merges `stageFacts`, it does not invent),
+ * every phase still comes from `stagePhase`, and a stage the pipeline never emits
+ * is still never drawn.
+ *
+ * `world` is the only step with no stage behind it: it happens in this browser,
+ * before a submission exists. Its phase therefore comes from the World widget
+ * rather than from the API, and it can never be derived from a run — which is why
+ * it is a separate argument everywhere below rather than something inferred.
+ */
+
+/**
+ * The three credentials this app can request.
+ *
+ * Named here rather than in `lib/world.ts` on purpose: that module reads the
+ * relying-party signing key, so a client component that imported it would be one
+ * bundler decision away from shipping the key to the browser. This module is
+ * already in the browser bundle and holds no secrets.
+ */
+export type WorldCredential = 'face' | 'orb' | 'device';
+
+/**
+ * Where the World step is. `checking` covers both halves of the wait — preparing
+ * the signed request, and the widget being open — because from the reader's side
+ * they are one thing. `held` means a proof reached this browser and NOTHING more:
+ * the registry has not seen it, which is what `COPY.world.heldShort` says on
+ * screen next to it.
+ */
+export type WorldPhase = 'idle' | 'checking' | 'held' | 'failed';
+
+export const FLOW_STEPS = ['world', 'source', 'review', 'walrus', 'arkiv', 'published'] as const;
+
+export type FlowStep = (typeof FLOW_STEPS)[number];
+
+/** Which pipeline stages each step covers. `world` covers none, by definition. */
+export const FLOW_STAGES: Record<FlowStep, readonly SubmissionStage[]> = {
+  world: [],
+  source: ['resolving', 'licence', 'fetching', 'starting'],
+  review: ['reviewing'],
+  walrus: ['walrus'],
+  arkiv: ['arkiv'],
+  published: ['done'],
+};
+
+/** The technology whose mark and name the step carries. */
+export const FLOW_TECH: Record<FlowStep, StageTech> = {
+  world: 'world',
+  source: 'source',
+  review: 'dgx',
+  walrus: 'walrus',
+  arkiv: 'arkiv',
+  published: 'ens',
+};
+
+const STEP_OF_STAGE: Record<SubmissionStage, FlowStep> = (() => {
+  const map = {} as Record<SubmissionStage, FlowStep>;
+  for (const step of FLOW_STEPS) {
+    for (const stage of FLOW_STAGES[step]) map[stage] = step;
+  }
+  return map;
+})();
+
+/** Which step a reported stage belongs to. Total over `SUBMISSION_STAGES`. */
+export function stepForStage(stage: SubmissionStage): FlowStep {
+  return STEP_OF_STAGE[stage];
+}
+
+const WORLD_PHASE: Record<WorldPhase, StagePhase> = {
+  idle: 'pending',
+  checking: 'active',
+  held: 'done',
+  failed: 'stopped',
+};
+
+/**
+ * The phase of a step that covers stages, from the phases of those stages.
+ *
+ * Order matters and is deliberate: a stopped stage wins over an active one (the
+ * run ended there), and `done` requires ALL of the covered stages to be done —
+ * anything less is still in progress, not finished.
+ */
+function pipelinePhase(step: FlowStep, status: SubmissionStatus | null): StagePhase {
+  const phases = FLOW_STAGES[step].map((stage) => stagePhase(stage, status));
+  if (phases.includes('stopped')) return 'stopped';
+  if (phases.includes('active')) return 'active';
+  if (phases.length > 0 && phases.every((phase) => phase === 'done')) return 'done';
+  return 'pending';
+}
+
+export function flowPhase(
+  step: FlowStep,
+  status: SubmissionStatus | null,
+  world: WorldPhase,
+): StagePhase {
+  return step === 'world' ? WORLD_PHASE[world] : pipelinePhase(step, status);
+}
+
+/**
+ * The stages of a step that are actually drawn — `starting` only for a run that
+ * reported it, exactly as `railStages` decides for the rail as a whole.
+ */
+export function flowSubStages(step: FlowStep, trace: PipelineTrace): SubmissionStage[] {
+  const drawn = railStages(trace);
+  return FLOW_STAGES[step].filter((stage) => drawn.includes(stage));
+}
+
+/**
+ * Which of a step's stages the panel describes.
+ *
+ * The stage the run is ON when it is inside this step; otherwise the last one of
+ * this step's stages the watch actually saw; otherwise the first. Never a stage
+ * nobody reported *and* nobody is on — that would be describing an event as
+ * though it had happened.
+ */
+export function flowFocusStage(
+  step: FlowStep,
+  status: SubmissionStatus | null,
+  trace: PipelineTrace,
+): SubmissionStage | null {
+  const stages = flowSubStages(step, trace);
+  if (!stages.length) return null;
+  const current = stageOf(status);
+  if (current && stages.includes(current)) return current;
+  const seen = trace.seen ?? [];
+  for (let i = stages.length - 1; i >= 0; i -= 1) {
+    if (seen.includes(stages[i])) return stages[i];
+  }
+  return stages[0];
+}
+
+/**
+ * Every fact the step's stages reported, in pipeline order, first label wins.
+ *
+ * Merging is the only thing this does. It cannot produce a row `stageFacts` would
+ * not, so the "an absent field renders as absent" rule survives the fold intact.
+ */
+export function flowFacts(
+  step: FlowStep,
+  trace: PipelineTrace,
+  status: SubmissionStatus | null,
+): StageFact[] {
+  const out: StageFact[] = [];
+  const seen = new Set<string>();
+  for (const stage of FLOW_STAGES[step]) {
+    for (const item of stageFacts(stage, trace, status)) {
+      if (seen.has(item.label)) continue;
+      seen.add(item.label);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+/**
+ * A gate inside this step answered and let the run through — and the run is out
+ * the other side.
+ *
+ * The second half is what stops the licence gate painting the whole source step
+ * as a passed gate while it is still fetching: a step that is mid-flight is
+ * `active`, whatever one of its stages has already answered.
+ */
+export function flowGatePassed(
+  step: FlowStep,
+  trace: PipelineTrace,
+  status: SubmissionStatus | null,
+): boolean {
+  if (pipelinePhase(step, status) !== 'done') return false;
+  return FLOW_STAGES[step].some((stage) => stageGatePassed(stage, trace, status));
+}
+
+/** Something in this step is reported but provisional — today, a publisher blob. */
+export function flowProvisional(step: FlowStep, trace: PipelineTrace): boolean {
+  return FLOW_STAGES[step].some((stage) => stageProvisional(stage, trace));
+}
+
+/**
+ * Which step the panel describes.
+ *
+ * A pick wins. Otherwise it follows the run, and with nothing reported it sits on
+ * `world` — which is not a default so much as the truth: before a submission
+ * exists, the World step is the only one anything is happening on.
+ */
+export function shownStep(picked: FlowStep | null, status: SubmissionStatus | null): FlowStep {
+  if (picked) return picked;
+  const stage = stageOf(status);
+  return stage ? stepForStage(stage) : 'world';
 }
 
 /* --------------------------------------------------------------- the poll --*/

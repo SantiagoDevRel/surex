@@ -218,9 +218,14 @@ test('the signing key is never exposed to the browser', () => {
 });
 
 test('the World copy holds the two distinctions it exists for', () => {
-  // a proof in the browser is not an accepted claim
-  assert.match(COPY.world.heldLabel, /NOT SEEN|NOT YET/i);
+  // A proof in the browser is not an accepted claim. This used to be a four-line
+  // banner and is now one line plus a disclosure — the SHORT one is the one always
+  // on screen, so it is the one that has to carry the distinction. Compressing
+  // this was allowed; letting it become implicit is what the assertion prevents.
+  assert.match(COPY.world.heldShort, /NOT SEEN|NOT YET/i);
   assert.match(COPY.world.heldBody, /not acceptance/i);
+  // …and the disclosure is labelled with what is behind it, not "more".
+  assert.match(COPY.world.heldWhy, /acceptance/i);
   // a non-production proof is not a person
   assert.match(COPY.world.simulatedLabel, /NOT A PERSON/i);
   assert.match(COPY.world.simulatedBody, /simulator/i);
@@ -265,22 +270,39 @@ test('each credential copy states its OWN bar, and Face Check is never sold as u
   // → https://docs.world.org/world-id/idkit/credentials
   const { face, orb, device } = COPY.world.credential;
 
+  // `short` is the line that is ALWAYS on screen — beside the World step of the
+  // flow, and again at the button. `body` is the same claim in full, one
+  // disclosure away. The short one carries the weight, so it is asserted first.
+  assert.match(face.short, /live person|liveness/i);
+  assert.ok(
+    !/\bunique\b/i.test(`${face.short} ${face.body}`),
+    'Face Check must not be described as uniqueness',
+  );
   // Face Check says liveness, says where the camera actually opens, and says what
   // it does NOT establish. Losing that last sentence is how this becomes a lie.
   assert.match(face.body, /live face|liveness/i);
   assert.match(face.body, /camera/i);
   assert.match(face.body, /does not establish/i);
-  assert.match(face.label, /LIVENESS/);
-  assert.ok(!/\bunique\b/i.test(`${face.label} ${face.body}`), 'Face Check must not be described as uniqueness');
 
   // The Orb is the only one allowed to make the strong claim.
+  assert.match(orb.short, /Orb/);
   assert.match(orb.body, /Orb/);
   assert.match(orb.body, /cannot come back as somebody else/i);
 
   // Device level says the quiet part: nothing biometric was checked.
+  assert.match(device.short, /nothing biometric is checked/i);
   assert.match(device.body, /nothing biometric is checked/i);
 
   assert.equal(new Set([face.body, orb.body, device.body]).size, 3, 'the three credentials must not share wording');
+  assert.equal(new Set([face.short, orb.short, device.short]).size, 3, 'the three one-liners must not share wording');
+
+  // Every credential has BOTH, so a new one cannot ship with only the long form —
+  // which would render as a step with no claim beside it, the exact failure the
+  // one-liner exists to prevent.
+  for (const [name, copy] of Object.entries(COPY.world.credential)) {
+    assert.ok(copy.short?.length, `credential "${name}" has no one-line claim`);
+    assert.ok(copy.body?.length, `credential "${name}" has no full claim`);
+  }
 });
 
 test('no static string claims a uniqueness the default credential does not establish', () => {

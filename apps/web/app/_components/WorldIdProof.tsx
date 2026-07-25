@@ -4,7 +4,7 @@
  * The World ID step, on both screens that need it: `/submit` (a maintainer offers a
  * release) and `/d/[fp]` (a person contests a verdict).
  *
- * Three rules this component exists to keep:
+ * Four rules this component exists to keep:
  *
  * 1. NOTHING IS SIGNED IN THE BROWSER. The relying-party signature and the signal
  *    come from `POST /api/world/rp-signature`, on the server. If that route says the
@@ -13,21 +13,25 @@
  *
  * 2. A PROOF IN HAND IS NOT AN ACCEPTED CLAIM. IDKit returning a result means World
  *    produced a proof; it does not mean the registry took it. The registry checks it
- *    server-side, and only its answer is shown as an outcome. So the success state
- *    here says exactly "proof in hand — the registry has not checked it yet".
+ *    server-side, and only its answer is shown as an outcome. This used to be a
+ *    four-line banner and is now one line with the reasoning behind a disclosure —
+ *    compressed, never dropped, because a screen that goes quiet here lets a reader
+ *    assume the registry accepted something it has never seen.
  *
  * 3. A STAGING OR SANDBOX PROOF SAYS SO, LOUDLY. Those come from a simulator, not
  *    from a person. A screen that looked identical either way would be the most
- *    misleading thing on the site.
+ *    misleading thing on the site, so this one stayed a banner.
  *
  * 4. THE SCREEN NAMES THE CREDENTIAL, AND STATES WHAT THAT CREDENTIAL PROVES.
- *    Added when this app switched from device level to Face Check. The three
- *    credentials this app can request do not prove the same thing — the Orb is the
- *    one-human-one-action bar, Face Check is liveness that World rates as "some"
- *    sybil resistance, device level is an account with no biometric at all — so a
- *    single sentence about "personhood" would be a false claim under two of the
- *    three. The claim is made HERE because this is the only place that knows which
- *    one the server chose.
+ *    The three credentials this app can request do not prove the same thing — the
+ *    Orb is the one-human-one-action bar, Selfie Check is liveness that World rates
+ *    as "some" sybil resistance, device level is an account with no biometric at all
+ *    — so a single sentence about "personhood" would be a false claim under two of
+ *    the three. `WorldClaim` makes it, from the credential the SERVER chose, and it
+ *    renders both here at the button and on the World step of the flow.
+ *
+ * It also reports where it is (`onPhase`), because World is step one of the flow on
+ * `/submit` and that step happens in this browser — there is no run to poll for it.
  */
 
 import {
@@ -41,22 +45,23 @@ import {
 import { useCallback, useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
+import type { WorldCredential, WorldPhase } from '@/lib/submission.ts';
 
 import { Banner } from './Banner.tsx';
+import { WorldClaim } from './StageRail.tsx';
 
 export type WorldIdContext =
   | { action: 'maintainer-submit'; repo: string }
   | { action: 'contest-verdict'; verdictKey: string; evidence: string };
 
 /**
- * Deliberately duplicated from the server-only World module rather than imported
- * from it: that module reads the relying-party key, so a client component that
- * imported it would be one bundler decision away from shipping that key to the
- * browser. A test asserts this file never imports it — and that same test greps
- * this file for the key's variable name, so do not name it here even in a
- * comment. Three string literals are the cheap side of that trade.
+ * `WorldCredential` comes from `lib/submission.ts` and NOT from the server-only
+ * World module: that module reads the relying-party signing key, so a client
+ * component importing it would be one bundler decision away from shipping that key
+ * to the browser. A test asserts this file never imports it — and that same test
+ * greps this file for the key's variable name, so do not name it here even in a
+ * comment.
  */
-type Credential = 'face' | 'orb' | 'device';
 
 /**
  * The credential → preset map, and the reason each one is what it is.
@@ -73,7 +78,7 @@ const PRESET_FOR = {
   face: selfieCheckLegacy,
   orb: proofOfHuman,
   device: deviceLegacy,
-} as const satisfies Record<Credential, (opts?: { signal?: string }) => unknown>;
+} as const satisfies Record<WorldCredential, (opts?: { signal?: string }) => unknown>;
 
 interface RpResponse {
   app_id: `app_${string}`;
@@ -81,7 +86,7 @@ interface RpResponse {
   action: string;
   signal: string;
   /** Chosen server-side. The browser never picks its own bar. */
-  credential: Credential;
+  credential: WorldCredential;
   rp_context: RpContext;
 }
 
@@ -93,25 +98,67 @@ type Phase =
   | { kind: 'ready'; rp: RpResponse }
   // The credential survives into `held`: the statement of what was proven has to
   // stay on screen next to the proof, not disappear the moment one arrives.
-  | { kind: 'held'; environment: RpResponse['environment']; credential: Credential };
+  | { kind: 'held'; environment: RpResponse['environment']; credential: WorldCredential };
+
+/**
+ * The local phase, as the flow reads it. `loading` and `ready` are one thing from
+ * out here — the reader is waiting — and both configuration errors land on
+ * `failed`, because from the step's point of view no proof was obtained. Which of
+ * the two it was is on screen, in the banner, unchanged.
+ */
+export function worldPhaseOf(phase: Phase['kind']): WorldPhase {
+  switch (phase) {
+    case 'idle':
+      return 'idle';
+    case 'loading':
+    case 'ready':
+      return 'checking';
+    case 'held':
+      return 'held';
+    default:
+      return 'failed';
+  }
+}
+
+function credentialOf(phase: Phase): WorldCredential | null {
+  if (phase.kind === 'ready') return phase.rp.credential;
+  if (phase.kind === 'held') return phase.credential;
+  return null;
+}
 
 export function WorldIdProof({
   context,
   onProof,
+  onPhase,
   label,
   disabled,
 }: {
   context: WorldIdContext;
   /** Handed the IDKit result unmodified — the caller forwards it as-is to the API. */
   onProof: (proof: IDKitResult | null) => void;
+  /** Where this step is, for a caller that draws it as part of a larger flow. */
+  onPhase?: (phase: WorldPhase, credential: WorldCredential | null) => void;
   label: string;
   disabled?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [open, setOpen] = useState(false);
 
+  /**
+   * One place that moves this component, so the flow cannot fall out of step with
+   * it. Called from event handlers only — never during a render, which is what
+   * would make a parent `setState` here a loop.
+   */
+  const advance = useCallback(
+    (next: Phase) => {
+      setPhase(next);
+      onPhase?.(worldPhaseOf(next.kind), credentialOf(next));
+    },
+    [onPhase],
+  );
+
   const begin = useCallback(async () => {
-    setPhase({ kind: 'loading' });
+    advance({ kind: 'loading' });
     onProof(null);
     try {
       const res = await fetch('/api/world/rp-signature', {
@@ -121,19 +168,23 @@ export function WorldIdProof({
       });
       const body = await res.json().catch(() => null);
       if (res.status === 503) {
-        setPhase({ kind: 'unconfigured', detail: body?.detail ?? COPY.world.unconfiguredBody, missing: body?.missing });
+        advance({
+          kind: 'unconfigured',
+          detail: body?.detail ?? COPY.world.unconfiguredBody,
+          missing: body?.missing,
+        });
         return;
       }
       if (!res.ok || !body?.rp_context) {
-        setPhase({ kind: 'failed', detail: body?.detail ?? `HTTP ${res.status}` });
+        advance({ kind: 'failed', detail: body?.detail ?? `HTTP ${res.status}` });
         return;
       }
-      setPhase({ kind: 'ready', rp: body as RpResponse });
+      advance({ kind: 'ready', rp: body as RpResponse });
       setOpen(true);
     } catch (err) {
-      setPhase({ kind: 'failed', detail: err instanceof Error ? err.message : 'network error' });
+      advance({ kind: 'failed', detail: err instanceof Error ? err.message : 'network error' });
     }
-  }, [context, onProof]);
+  }, [advance, context, onProof]);
 
   return (
     <div className="grid gap-2.5">
@@ -159,17 +210,31 @@ export function WorldIdProof({
         </Banner>
       ) : null}
 
+      {/* Named before the widget opens, so the bar is known going in — and it stays
+          named after a proof arrives, because "proof in hand" without the credential
+          is the exact place a reader fills in the strongest bar they can imagine. */}
+      {phase.kind === 'ready' || phase.kind === 'held' ? (
+        <WorldClaim credential={credentialOf(phase)} />
+      ) : null}
+
       {phase.kind === 'held' ? (
         <>
-          <Banner tone="neutral" label={COPY.world.heldLabel}>
-            {COPY.world.heldBody}
-          </Banner>
-          {/* What that proof is a proof OF. Stays visible after success, because
-              "proof in hand" without the credential named is the exact place a
-              reader fills in the strongest bar they can imagine. */}
-          <Banner tone="neutral" label={COPY.world.credential[phase.credential].label}>
-            {COPY.world.credential[phase.credential].body}
-          </Banner>
+          {/* One line, and the reasoning one disclosure away. The registry has not
+              seen this proof, and the screen must not stop saying so. */}
+          <p className="flex items-baseline gap-1.5 text-mini text-ink-2">
+            <span aria-hidden="true" className="text-clean">
+              ✓
+            </span>
+            {COPY.world.heldShort}
+          </p>
+          <details>
+            <summary className="cursor-pointer text-mini text-faint underline decoration-line underline-offset-2 hover:text-ink-3">
+              {COPY.world.heldWhy}
+            </summary>
+            <p className="mt-1.5 max-w-[70ch] text-mini leading-relaxed text-ink-3">
+              {COPY.world.heldBody}
+            </p>
+          </details>
           {phase.environment !== 'production' ? (
             <Banner tone="stale" label={COPY.world.simulatedLabel}>
               {COPY.world.simulatedBody} (environment: {phase.environment})
@@ -180,10 +245,6 @@ export function WorldIdProof({
 
       {phase.kind === 'ready' ? (
         <>
-          {/* Named before the widget opens, so the bar is known going in. */}
-          <Banner tone="neutral" label={COPY.world.credential[phase.rp.credential].label}>
-            {COPY.world.credential[phase.rp.credential].body}
-          </Banner>
           {phase.rp.environment !== 'production' ? (
             <Banner tone="stale" label={COPY.world.simulatedLabel}>
               {COPY.world.simulatedBody} (environment: {phase.rp.environment})
@@ -206,16 +267,20 @@ export function WorldIdProof({
             // and files it under bot deterrence rather than one-human-one-action.
             // `proofOfHuman` is the Orb path and the only one of the three under
             // which one person cannot come back as somebody else. Whichever it is,
-            // the banner above says so — the preset and the claim change together
+            // `WorldClaim` above says so — the preset and the claim change together
             // or the screen lies.
             preset={PRESET_FOR[phase.rp.credential]({ signal: phase.rp.signal })}
             onSuccess={(result) => {
               onProof(result);
-              setPhase({ kind: 'held', environment: phase.rp.environment, credential: phase.rp.credential });
+              advance({
+                kind: 'held',
+                environment: phase.rp.environment,
+                credential: phase.rp.credential,
+              });
             }}
             onError={(code) => {
               onProof(null);
-              setPhase({ kind: 'failed', detail: String(code) });
+              advance({ kind: 'failed', detail: String(code) });
             }}
           />
         </>

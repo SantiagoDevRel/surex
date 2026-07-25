@@ -347,7 +347,17 @@ export const COPY = {
     failedLabel: 'NO PROOF OBTAINED',
     failedBody:
       'World ID did not return a proof, so there is nothing to send. The error is shown as it arrived rather than replaced with a screen that claims otherwise.',
-    heldLabel: 'PROOF IN HAND — THE REGISTRY HAS NOT SEEN IT YET',
+    /**
+     * A PROOF IN HAND IS NOT AN ACCEPTED CLAIM — said in one line, with the
+     * reasoning one disclosure away.
+     *
+     * It used to be a four-line banner. The distinction is not optional (a screen
+     * that goes quiet here lets a reader assume the registry took something it has
+     * never seen), but it does not need a paragraph on the happy path either. So
+     * `heldShort` is always on screen and `heldBody` sits behind `heldWhy`.
+     */
+    heldShort: 'Proof in hand — the registry has not seen it yet.',
+    heldWhy: 'why that is not acceptance',
     heldBody:
       'World ID returned a proof to this browser. That is not acceptance: the registry checks the proof server-side when you submit, and only its answer decides anything.',
     simulatedLabel: 'SIMULATED IDENTITY — NOT A PERSON',
@@ -368,42 +378,40 @@ export const COPY = {
      * what World itself rates as "some" sybil resistance, and device level is an
      * account with no biometric behind it at all. Wording them alike would make
      * two of the three a false claim.
+     *
+     * `short` is the line that is ALWAYS on screen, beside the World step of the
+     * flow. `body` is the same claim in full, one disclosure away. Compressing
+     * this was allowed; dropping it was not — a screen that names no credential is
+     * a screen where the reader supplies the strongest bar they can imagine.
      */
     credential: {
       face: {
-        label: 'FACE CHECK — LIVENESS, NOT ONE-HUMAN-ONE-SUBMISSION',
+        short: 'Selfie Check — a live person answered. Not one person, one submission.',
         body:
-          'This deployment requests Selfie Check. World App opens the camera on your phone, checks that a live face is there, and matches it against the face you enrolled — on a desktop that means scanning the QR first, and the camera is never opened by this browser. World rates its sybil resistance as "some", explicitly weaker than the Orb, and files it under lower-friction liveness rather than one-human-one-action. So it establishes that a live person answered. It does not establish that this person has not already answered under another World ID.',
+          'World App opens the camera on your phone, checks that a live face is there, and matches it against the face you enrolled — on a desktop that means scanning the QR first, and the camera is never opened by this browser. World rates its sybil resistance as "some", explicitly weaker than the Orb, and files it under lower-friction liveness rather than one-human-one-action. So it establishes that a live person answered. It does not establish that this person has not already answered under another World ID.',
       },
       orb: {
-        label: 'PROOF OF HUMAN — ORB, ONE PERSON CANNOT BE TWO',
+        short: 'Proof of Human — Orb. The same person cannot come back as somebody else.',
         body:
-          'This deployment requests Proof of Human: an Orb-verified World ID. That is the strong anti-sybil credential — the same person cannot come back as somebody else — so the per-person limits the registry applies actually hold. It is also the highest bar to clear, and a maintainer who has never been to an Orb cannot clear it.',
+          'This deployment requests Proof of Human: an Orb-checked World ID. That is the strong anti-sybil credential — the same person cannot come back as somebody else — so the per-person limits the registry applies actually hold. It is also the highest bar to clear, and a maintainer who has never been to an Orb cannot clear it.',
       },
       device: {
-        label: 'DEVICE LEVEL — AN ACCOUNT, NO BIOMETRIC',
+        short: 'Device level — a World App account. Nothing biometric is checked.',
         body:
           'This deployment requests device level: the person holds a World App account. Nothing biometric is checked. It raises the cost of bulk automation and says nothing at all about a live person being present, which is the weakest of the three bars this app can ask for.',
       },
     },
+
+    /** The `<summary>` on the disclosure that holds `credential[…].body`. */
+    credentialWhy: 'what that credential proves',
+    /** Before the request is prepared, no credential is known — and that is said. */
+    credentialUnknown: 'World ID — the credential is named the moment the request is prepared.',
   },
 
   submit: {
     title: 'Submit your server for review',
     lede:
       'Submission is consent to a public record. Whatever the review concludes, the verdict blob publishes to the index when the run completes — and you are told first, so a rebuttal can ship with it from hour zero.',
-    // "Unique human" was true only while this app requested an Orb. It now requests
-    // Face Check by default, which is liveness — so the step label says what is
-    // constant across all three credentials, and the precise claim is made at the
-    // button, where the credential is actually known.
-    stepHuman: 'Person check',
-    stepHumanNote: 'World ID — the credential requested is named at the button',
-    stepRepo: 'Repo control',
-    stepRepoNote: '.well-known/surex.txt found at the repo root',
-    stepRelease: 'Release picked',
-    stepReleaseNote: 'one tag, one commit, one blob',
-    stepReview: 'Review',
-    stepReviewNote: 'three passes over the stored blob',
     formLabel: 'THE RELEASE TO REVIEW',
     repoLabel: 'Repository',
     repoPlaceholder: 'github.com/acme/acme-mcp',
@@ -441,8 +449,14 @@ export const COPY = {
       'The commit is what the review is about. A tag can be moved or deleted, so a submission that names only a tag can never link a verdict to the bytes you shipped.',
     inspectNoShaNote:
       'No commit was resolved, so this submission names a tag only — the verdict cannot be linked to specific bytes.',
+    /**
+     * One line, not a paragraph. It keeps the ordering fact (the proof is checked
+     * first) and the one that stops a screen from over-claiming: a deployment with
+     * no ingest path behind the gate answers *not built*, and that answer is
+     * rendered as the API sent it.
+     */
     worldIdNote:
-      'World ID personhood is checked by the registry before a submission is looked at, so the proof comes first and the release second. What is NOT built yet is everything after that gate — repo-ownership proof, licence gate, blob upload and the index write — so a submission with a good proof still comes back as not built. That answer is shown below exactly as the API sends it, rather than a screen pretending a review was queued.',
+      'The proof is checked by the registry before a submission is looked at, so it comes first and the release second. A deployment with no ingest path behind that gate answers "not built", and that answer is shown as it arrives.',
     resultAcceptedLabel: 'ACCEPTED',
     resultAcceptedBody:
       'The registry queued the release. A verdict blob publishes to the index when the run completes.',
@@ -459,35 +473,6 @@ export const COPY = {
     // submission and a stronger identifier than a tag.
     resultMissingBody:
       'Paste a repository. SureX resolves its versions and its latest commit for you; you never type one in.',
-    whatHappensLabel: 'WHAT HAPPENS TO YOUR CODE',
-    whatHappens1:
-      'The release is fetched at the commit you name and normalised — sorted paths, zeroed timestamps — so two people submitting the same release produce the same bytes.',
-    whatHappens2:
-      'Those bytes are written to Walrus as a content-addressed blob and the blob is certified on Sui. The review is about that blob, and the blob does not change afterwards.',
-    whatHappens3:
-      'An open-source model reads the code against what your server says it does. The finding, the model ID and the prompt version are written as their own blob and indexed on Arkiv.',
-    whatHappens4:
-      'A licence that does not permit redistribution stops the process before anything is stored. Unmatched licences are treated as ineligible.',
-    outcomeLabel: 'IF THE REVIEW FINDS SOMETHING',
-    outcomeBody:
-      'Not a judgement of you or your work — a model reading of one code path, written down where you can answer it.',
-    outcomeIsLabel: 'What this is',
-    outcomeIs:
-      'automated, with no human reading your code · about one blob and one commit only · already on the public index',
-    outcomeIsNotLabel: 'What it is not',
-    outcomeIsNot:
-      'not a claim that you are malicious — the verdict says what the code can do · not final, because rebuttals show with equal weight, forever · not a takedown, because nothing is delisted or deleted',
-    answerTitle: 'Answer it — file a rebuttal',
-    answerBody:
-      'If the model misread the path, say so with file and line. Shown beside the finding, same size, same permanence.',
-    fixTitle: 'Fix it — resubmit a release',
-    fixBody:
-      'A new release gets a fresh review. If it comes back clean, this verdict is superseded — it stays readable, marked as answered by the newer version.',
-    leaveTitle: 'Leave it — it may be intended',
-    leaveBody:
-      'Some servers legitimately need broad access. A shell-execution server is flagged and stays flagged; the finding simply remains visible.',
-    windowNote:
-      'Maintainer window: a verdict reads unconfirmed — maintainer notified — for 72 hours before confirmation can begin. Protection is never delayed; only the wording changes.',
   },
 
   /**
@@ -602,9 +587,9 @@ export const COPY = {
      * nobody reported.
      */
     rail: {
-      label: 'WHERE THE RUN IS',
+      label: 'THE FLOW',
       legend:
-        'One tile per stage the pipeline reports, and the technology each one touches. A link appears when the run reports an identifier for it, and not before.',
+        'Six steps, in order. Each one ticks when the run actually reports it, and a link appears the moment it reports an identifier — never before.',
       /** Which stage the panel below is describing, and how it got chosen. */
       following: 'following the run',
       picked: 'you picked this stage — choose it again to follow the run',
@@ -640,11 +625,68 @@ export const COPY = {
 
       /** The technology a stage touches. A stage that touches none has no chip. */
       tech: {
+        world: 'World ID',
         source: 'GitHub · npm',
         dgx: 'NVIDIA DGX',
         walrus: 'Walrus on Sui',
         arkiv: 'Arkiv · Braga',
         ens: 'ENS · mainnet',
+      },
+
+      /**
+       * THE SIX STEPS THE PAGE READS AS.
+       *
+       * The pipeline reports eight stages and four of them are the same question —
+       * *where did the source come from* — so the flow folds those four into one
+       * step and the panel underneath names whichever of them the run is on. The
+       * folding is presentational and nothing else: every fact still comes from the
+       * stage that reported it, and `flowFacts()` merges rather than invents.
+       *
+       * `world` is the one step with no stage behind it. It happens in this browser
+       * before the registry has anything to report, which is exactly why it belongs
+       * in the same sequence — a form and then a separate rail reads as two
+       * unrelated things, and it is one sequence.
+       */
+      flow: {
+        name: {
+          world: 'World',
+          source: 'GitHub',
+          review: 'NVIDIA DGX',
+          walrus: 'Walrus',
+          arkiv: 'Arkiv',
+          published: 'Published',
+        },
+        /** What the step is FOR. One line, in the vocabulary the verdict will use. */
+        caption: {
+          world: 'proving a person is here',
+          source: 'the repo, the commit, the licence',
+          review: 'the model reads the source',
+          walrus: 'the blob',
+          arkiv: 'the entity',
+          published: 'readable as a name',
+        },
+        /**
+         * The World step's own panel. The other five borrow the stage copy above,
+         * so there is one description per thing rather than two vocabularies.
+         */
+        world: {
+          lede: 'A person, checked by World ID, before the registry looks at anything.',
+          body:
+            'Nothing is signed in this browser. The request is signed server-side and World App answers on a phone, so what the proof establishes depends on the credential this deployment asked for — which is named beside this step the moment the request is prepared, and again once a proof is in hand.',
+        },
+        /**
+         * Phase words for the World step. The pipeline's four do not fit it: there
+         * is no run to be "past", and "not reached" is wrong for a step the reader
+         * is being asked to start.
+         */
+        worldPhase: {
+          pending: 'not started',
+          active: 'checking…',
+          done: 'proof in hand',
+          stopped: 'no proof',
+        },
+        /** The sub-steps folded into `source`, listed in the panel that describes it. */
+        subStagesLabel: 'this step, in the pipeline',
       },
 
       /**
