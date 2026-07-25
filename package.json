@@ -1,0 +1,16 @@
+{
+  "name": "surex",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A trust registry for MCP servers, and a gate that reads it.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test packages/core/test/*.test.mjs packages/plugin/test/*.test.mjs",
+    "sync:core": "node scripts/sync-core.mjs",
+    "check:sync": "node scripts/sync-core.mjs --check"
+  },
+  "packageManager": "pnpm@9.12.3"
+}

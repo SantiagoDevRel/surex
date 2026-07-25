@@ -149,13 +149,18 @@ unresolved — test it, do not guess.
 - Record `blobId`, `suiObjectId`, and both tx digests on every record, and link them to an explorer.
 - The Lisbon Sui track names Walrus explicitly and calls it *"the most natural entry point"*, so Walrus alone qualifies. It also says *"the deeper you reach into the Sui stack, the stronger the submission"* — depth is scored separately.
 
-**Arkiv (Braga)**
+**Arkiv (Braga)** — measured on `@arkiv-network/sdk@0.7.0` via `probes/arkiv-write-read.mjs`, twice.
+Write-ups in `FRICTION-LOG.md` A1–A5.
+
 - Chain ID `60138453102`, RPC `https://braga.hoodi.arkiv.network/rpc`, gas token GLM.
-- Writer wallet: `0xBD33E1855F68Ce2DF1979377f3bc9fCaCd0015e6` (index 2 in `golem-project/tooling/hackathon-wallets/wallets.json`, 1 GLM confirmed live). Backup is index 3. Key is in `.secrets/`, never here.
-- Entities **always expire** — pass a positive integer `expiresIn`. Renewal is a design requirement, not a deployment detail.
-- `updateEntity` is a **full replacement**: read, merge, write, and always re-include the project attribute or the entity silently drops out of every scoped query.
-- **Filter every consumer read with `.createdBy(WRITER_ADDRESS)`.** A shared public testnet has no uniqueness constraint; without it anyone can write a colliding fingerprint and the gate would read their verdict.
-- Indexing lags the transaction — poll `getEntity` at ~250 ms for up to 5 s before trusting a read that depends on a write you just made.
+- Writer wallet: `0xBD33E1855F68Ce2DF1979377f3bc9fCaCd0015e6` (index 2 in `golem-project/tooling/hackathon-wallets/wallets.json`, 1 GLM confirmed live). Foreign/second wallet for adversarial tests: index 3 `0x4C12202c7A818f9e6A34627dd3B71951d8Abfa85`. ⚠️ The `[arkiv-writer]` entry in `.secrets/surex-wallets.txt` has a **zero balance** — do not reach for it, use index 2. Keys are in `.secrets/`, never here.
+- **SDK 0.7.0 no longer re-exports viem.** `import { http } from 'viem'` and `import { privateKeyToAccount } from 'viem/accounts'`; the `@arkiv-network/sdk/accounts` subpath is gone. Every 0.6.x snippet on the internet fails at the import line and there is no CHANGELOG. (A1)
+- `expiresIn` is in **seconds** and must be a positive **even** integer — 0.7.0 throws `InvalidExpirationError` on an odd value where 0.6.8 silently rounded. 2 s per block, so `3600` → 1800 blocks. Compute it, then round to even. (A3)
+- `updateEntity` is a **full replacement**: read, merge, write, and always re-include the project attribute or the entity silently drops out of every scoped query. Confirmed — dropping it made the entity vanish from the scoped query in 35 ms while still existing on chain.
+- **Filter every consumer read with `.createdBy(WRITER_ADDRESS)`.** Proven, not assumed: a colliding entity written from a second wallet with the same project + entityType + fingerprint and the opposite verdict shows up in the unfiltered query (2 results), and `.createdBy` partitions them cleanly in both directions.
+- ⚠️ **Use `createdBy`, never `ownedBy`.** They sit side by side with near-identical JSDoc, but the SDK also ships `changeOwnership` — ownership is transferable, so `ownedBy` is attacker-influenceable and `createdBy` is not. Getting this wrong is a silent authorisation bypass. (A5)
+- **Index lag is ~40 ms to `getEntity` and ~80 ms to the query index**, not the 5 s previously written here. The real cost is that `createEntity()` **awaits the receipt** — ~4.6 s — which the JSDoc reads as a submit. Budget for that, not for the index. (A4)
+- **`orderBy` exists, is accepted silently, and does nothing** — 0.7.0 marks it `@deprecated: "Server-side ordering is not supported by the network."` **Sort client-side, always.** (A2)
 - No attribute-to-attribute comparison in queries, so anything derived must be precomputed and stored.
 
 ## 8. What is next

@@ -1,0 +1,134 @@
+// The /v1 contract. FROZEN — 2026-07-25.
+//
+// Frozen early and on purpose. The failure mode this avoids is the classic one
+// (failure-modes §2.3): five components, one chain, and nothing proving the
+// chain until Sunday morning. With this file agreed, the gate, the API, the web
+// app and the reviewer can each be built and demoed standalone against the same
+// shapes, and integration is an afternoon instead of a cliff.
+//
+// Additive changes only. Anything that would break a shipped gate goes to /v2.
+// Node stdlib only — vendored into the plugin.
+
+export const API_VERSION = 'v1';
+export const CONTRACT_FROZEN_AT = '2026-07-25';
+
+/** Default public base URL. Overridable with SUREX_API_URL for local work. */
+export const DEFAULT_API_BASE = 'https://api.surex.dev';
+
+export const ROUTES = Object.freeze({
+  /** Hot path. Cacheable, must never block on a write. */
+  verdict: (fp) => `/${API_VERSION}/verdict?fp=${encodeURIComponent(fp)}`,
+  /** SessionStart prefetch — one round trip for every server in the config. */
+  verdictBatch: () => `/${API_VERSION}/verdicts/batch`,
+  entry: (fp) => `/${API_VERSION}/entry/${encodeURIComponent(fp)}`,
+  source: (key) => `/${API_VERSION}/source/${encodeURIComponent(key)}`,
+  review: (key) => `/${API_VERSION}/review/${encodeURIComponent(key)}`,
+  submissions: () => `/${API_VERSION}/submissions`,
+  disputes: () => `/${API_VERSION}/disputes`,
+  /** Public feed, for org-level gateways that want to mirror the flags (FR-14). */
+  flagged: () => `/${API_VERSION}/flagged`,
+  /** Registry hit rate and friends. Failure-modes §3.1 calls this the first number. */
+  stats: () => `/${API_VERSION}/stats`,
+});
+
+/**
+ * @typedef {Object} VerdictHead   the whole hot-path answer
+ * @property {string}  fingerprint
+ * @property {string}  state           clean|flagged|disputed|unreviewable|stale|unknown
+ * @property {number}  severity        0-4
+ * @property {'A'|'B'|'C'} tier
+ * @property {string=} reason          licence|source-unavailable|remote-endpoint
+ * @property {string=} name            display name, e.g. "@acme/mcp-tools@2.1.0"
+ * @property {number=} enforceAfter    epoch ms; selects block WORDING, not whether we block
+ * @property {string=} reviewedCommit
+ * @property {string=} reviewedAt      ISO date
+ * @property {string=} modelId
+ * @property {string=} promptVersion
+ * @property {string=} integrity       npm dist.integrity recorded at review time (Tier A)
+ * @property {Object=} capabilities    deterministic scan, not model output
+ * @property {Object=} topFinding      {file,line,description,severity,category}
+ * @property {string=} disputeSummary
+ * @property {Object=} evidence        {blobId, suiObjectId, registerTx, certifyTx, encodingType}
+ * @property {string=} arkivEntityKey
+ * @property {string=} updatedAt
+ * @property {boolean=} illustrative   TRUE when this row is demo data, never omitted when it is
+ */
+
+/** Everything the gate needs, and nothing that needs a second fetch to act on. */
+export const VERDICT_HEAD_FIELDS = Object.freeze([
+  'fingerprint', 'state', 'severity', 'tier', 'reason', 'name', 'enforceAfter',
+  'reviewedCommit', 'reviewedAt', 'modelId', 'promptVersion', 'integrity',
+  'capabilities', 'topFinding', 'disputeSummary', 'evidence', 'arkivEntityKey',
+  'updatedAt', 'illustrative',
+]);
+
+/** The one shape every error uses, so a client never has to guess. */
+export function apiError(code, message, extra = {}) {
+  return { error: { code, message, ...extra } };
+}
+
+export const ERROR_CODES = Object.freeze({
+  BAD_FINGERPRINT: 'bad_fingerprint',
+  NOT_FOUND: 'not_found',
+  RATE_LIMITED: 'rate_limited',
+  UNAUTHENTICATED: 'unauthenticated',
+  AGENT_NOT_HUMAN_BACKED: 'agent_not_human_backed',
+  UPSTREAM_UNAVAILABLE: 'upstream_unavailable',
+  INVALID_BODY: 'invalid_body',
+});
+
+const FINGERPRINT_RE = /^sxf1_[0-9a-f]{64}$/;
+
+export function isFingerprint(value) {
+  return typeof value === 'string' && FINGERPRINT_RE.test(value);
+}
+
+/**
+ * Validate a head coming off the wire before the gate acts on it.
+ * The gate makes a security decision from this object, so a malformed response
+ * must degrade to `unknown` (fail open, visibly) and never to `clean`.
+ */
+export function parseVerdictHead(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (!isFingerprint(raw.fingerprint)) return null;
+  if (typeof raw.state !== 'string') return null;
+
+  const severity = Number(raw.severity);
+  const head = {
+    fingerprint: raw.fingerprint,
+    state: raw.state,
+    severity: Number.isFinite(severity) ? severity : 0,
+    tier: ['A', 'B', 'C', 'MISMATCH'].includes(raw.tier) ? raw.tier : 'C',
+  };
+  for (const key of VERDICT_HEAD_FIELDS) {
+    if (key in head) continue;
+    if (raw[key] !== undefined && raw[key] !== null) head[key] = raw[key];
+  }
+  return head;
+}
+
+/** The `unknown` answer, so callers never have to synthesise one inconsistently. */
+export function unknownHead(fingerprint) {
+  return { fingerprint, state: 'unknown', severity: 0, tier: 'C' };
+}
+
+/**
+ * Cache policy. Sits in the contract because the gate and the API must agree:
+ * a positive TTL the server does not honour is a stale block waiting to happen.
+ */
+export const CACHE = Object.freeze({
+  positiveTtlMs: 15 * 60 * 1000,
+  negativeTtlMs: 120 * 1000,
+  /**
+   * A cached `flagged` outlives its TTL when the registry cannot be reached.
+   * A network blip must never un-flag a server we already know is bad.
+   */
+  flaggedGraceMs: 30 * 24 * 60 * 60 * 1000,
+});
+
+/** The gate's own budget. Must sit well inside the hook timeout — FRICTION-LOG C1. */
+export const GATE_BUDGET = Object.freeze({
+  hookTimeoutSeconds: 10,
+  networkTimeoutMs: 1500,
+  batchNetworkTimeoutMs: 6000,
+});

@@ -1,0 +1,18 @@
+{
+  "name": "@surex/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SXF-1 fingerprint, verdict decision + copy law, and the frozen /v1 contract. Zero dependencies by rule: this code is vendored into the Claude Code plugin, which runs on a user's machine with nothing installed.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./sxf1": "./src/sxf1.mjs",
+    "./verdict": "./src/verdict.mjs",
+    "./contract": "./src/contract.mjs",
+    "./copy": "./src/copy.mjs",
+    "./blob": "./src/blob.mjs"
+  },
+  "files": ["index.mjs", "src"],
+  "dependencies": {}
+}
