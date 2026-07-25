@@ -49,8 +49,10 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | **Reviewer calibration** | **built and measured** — `scripts/calibrate.mjs` scores every fixture against the ground truth its own specification recorded *before* any review ran, and exits non-zero on a regression. It is the precondition for reviewing anyone else's code: §7 carries the numbers. |
 | The registry, live | **85 entries** · 10 clean · 7 flagged · 10 unreviewable(licence) · 58 unknown. Every clean and every flag is one of our own fixtures; the 58 unknowns are real servers nobody has reviewed yet — `scripts/review-known.mjs` is the pass that changes that. |
+| **ENS** offchain resolver + CCIP-Read gateway | **deployed on Ethereum mainnet; wildcard verified; gateway pending.** `surex.eth` is ours (expires 2027-07-25) and its resolver is `SureXOffchainResolver` at `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559`. **Wildcard resolution is proven live**: `getEnsResolver('sxf1-<40 hex>.surex.eth')` — a subname that was never registered — returns our contract through the standard Universal Resolver, and `resolve()` reverts with a real `OffchainLookup` carrying the gateway URL. What is **not** live is the gateway itself: `arkiv-surex.vercel.app/api/ens/` 404s until this branch deploys, so `getEnsText` returns `null`. ⚠️ A missing gateway is indistinguishable from an empty record client-side — viem swallows the failed fetch. No further transactions are needed; the route going live is sufficient. This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
 
-**Total: 448 tests green** (`pnpm test`), plus 22 in the web app including the copy-law walk.
+**Total: 520 tests green** (`pnpm test`), plus 66 in the web app including the copy-law
+walk and the ENS record walk.
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
 the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
@@ -109,12 +111,20 @@ be unqualified unless the team can prove when the work was done. Small, real, da
 | **Walrus on Sui** (testnet) | content-addressed record store for source, verdicts, disputes | a verdict points at the exact bytes it judged; nobody, including us, can quietly swap them |
 | **World ID** | proves a person is behind a maintainer submission or a human dispute. **How strongly is a deployment setting**, `WORLD_CREDENTIAL`: `face` (default, Selfie Check → *liveness*, sybil resistance World itself rates "some") · `orb` (Proof of Human → *uniqueness*) · `device` (an account, no biometric). Only `orb` establishes one-human-one-action | anti-sybil on submissions and appeals — at the strength the configured credential actually provides, never as claimed |
 | **World AgentKit / AgentBook** | proves a human stands behind an autonomous agent that contests a verdict | gives an agent *standing to dispute*, which is the novel use |
+| **ENS** (Ethereum mainnet) | wildcard offchain resolver — every registry entry readable as `sxf1-<40 hex>.surex.eth` | a read interface nobody has to integrate, and the only form of a verdict a contract can check |
 
-Sponsor SDK budget is **3** and we use **2** (Sui/Walrus, World). Arkiv is not an event sponsor so it does
-not count. ENS is a deliberate later phase — do not add it without an explicit decision.
+Sponsor SDK budget is **3** and we use **3** (Sui/Walrus, World, ENS). Arkiv is not an event sponsor so it
+does not count. ENS was a deliberate later phase; the decision to add it was taken and written up in
+[`docs/surex-ens.md`](./docs/surex-ens.md), which is also where the reasons NOT to overclaim it live.
 
-**Do not add Move contracts, x402 payment flows, Seal, or ENS** unless someone decides to. They have been
-discussed and deliberately deferred. Adding scope silently is the failure mode here.
+**ENS does not close PRD risk #10.** The Gate acts on unsigned HTTP responses and still does — it is
+`packages/plugin/lib/registry.mjs`, and the ENS work does not touch it. Never let "signed read" become
+"the gate is now signed" in a README, a demo script or an answer to a judge. `docs/surex-ens.md` §2 gives
+the three reasons in full.
+
+**Do not add Move contracts, x402 payment flows, or Seal** unless someone decides to. They have been
+discussed and deliberately deferred. Adding scope silently is the failure mode here — and the budget is
+now full, so anything further replaces something rather than joining it.
 
 ## 6. ETHGlobal integrity
 
@@ -242,6 +252,70 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
 - ⚠️ **`QueryResult` pagination fails three ways, two of them silently.** `hasNextPage` is a **method**, so reading it as a property is always truthy; `next()` **mutates and returns undefined**; and pagination needs an explicit `.limit()` or the result declares itself finished after one page. Getting this wrong means quietly serving only the first page — a flagged server missing from the public feed and undercounted in stats. **Always loop explicitly with an explicit limit, and test against more rows than one page holds.** (A6)
 - No attribute-to-attribute comparison in queries, so anything derived must be precomputed and stored.
 
+**ENS** — measured while building `contracts/` and `apps/web/app/api/ens/`, on
+`@adraffy/ens-normalize@1.11.1`, `viem@2.55.8`, `ethers@6.13.5`, `solc@0.8.28`. Probe:
+`node probes/ens-resolve.mjs <labels|contract|mock|gateway|sepolia>`. Write-ups in `FRICTION-LOG.md` E1–E7.
+
+- ❌ **`sxf1_<64 hex>` is not a legal ENS label.** ENSIP-15 rejects a mid-label underscore —
+  `underscore allowed only at start`. Our own published identifier cannot be used as a subname as
+  written, which is why `apps/web/lib/ens.ts` defines a separate `sxf1-<40 hex>` encoding. Do not
+  write `<fingerprint>.surex.eth` anywhere; it does not resolve. (E1)
+- ⚠️ **Clients disagree on label length, silently.** `ethers.dnsEncode` defaults to 63 bytes and throws
+  above it; `viem`'s `packetToBytes` accepts up to 255 verbatim and labelhashes beyond that. **Anything
+  64–255 characters resolves in viem and fails in ethers.** Our label is 45 and a test pins it under 64.
+  ethers' limit is a second positional argument almost nobody passes. (E2)
+- The digest is the ENS reference construction, unchanged:
+  `keccak256(abi.encodePacked(hex"1900", resolver, expires, keccak256(callData), keccak256(result)))`.
+  `0x1900` is EIP-191 v0 — "intended validator" — which is what binds a signature to one resolver.
+- ⚠️ **Sign the RAW digest.** `privateKeyToAccount(key).sign({ hash })`, never `signMessage()` — the
+  latter adds a second EIP-191 prefix and `ecrecover` returns an address nobody holds. This is the most
+  likely single way to break the whole path, so the same golden vector is pinned in
+  `apps/web/lib/ens.ts`, `contracts/test/SureXOffchainResolver.t.sol` and `apps/web/test/ens.test.mjs`,
+  which reads the Solidity as text to prove the two literals are the same one.
+- **Wildcard resolution needs `supportsInterface(0x9061b923)`** (`IExtendedResolver`) as well as ERC-165
+  `0x01ffc9a7`. Without the second, clients resolve the parent's records and never call `resolve()` —
+  and nothing errors, so it looks like an empty registry rather than a misconfigured resolver.
+- **Deploying the resolver changes nothing until `setResolver` is called on the parent.** That one
+  transaction is what turns wildcard resolution on for all 51 entries at once. ENS registry is
+  `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e`, same address on Sepolia as on mainnet.
+
+**The live mainnet deployment** — 2026-07-25. These are the real addresses; do not invent others.
+
+| | |
+|---|---|
+| name | `surex.eth`, expires 2027-07-25, **not** wrapped |
+| name owner | `0xFE388539e3fffeA23ba4C5aa4c750cb90f369b2E` — the only key that can `setResolver` |
+| resolver | `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` |
+| resolver owner | `0xC19a460767CcD13c63e0a2470Ee10c75804c3dB4` — the only key that can `setSigner` / `setUrls` |
+| pinned signer | `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`, key in `~/.secrets/surex-ens.env`, never in this repo |
+| gateway URL baked in | `https://arkiv-surex.vercel.app/api/ens/{sender}/{data}.json` |
+
+- ✅ **Wildcard resolution is verified on mainnet.** `getEnsResolver` on a subname that was never
+  registered returns our resolver, and `resolve()` reverts with a genuine `OffchainLookup` carrying the
+  URL above. Roles are split across two wallets on purpose; both are needed and neither substitutes.
+- ⚠️ **A dead gateway looks exactly like an empty record.** With `/api/ens/` returning 404, viem's
+  `getEnsText` returns `null` rather than throwing. Never read `null` as "the registry has no verdict" —
+  check the gateway answers before drawing any conclusion from a `null`.
+- ⚠️ **`surex.eth` was registered on mainnet BECAUSE Sepolia is broken**, not by preference. Earlier
+  drafts of this file said the name belonged to `0x8FA4C314…` and that we were on Sepolia; both were
+  wrong. That address held an expired registration — it lapsed 2024-07-21, and the registry never clears
+  records on expiry, so an expired name still resolves. **`available()` is the answer; a resolution is
+  not.** (E5)
+- ❌ **`.eth` registration on Sepolia has been broken network-wide since ~2026-06-02.** 54 successes
+  2026-02-07→2026-05-24, then 13 failures, then nothing. The controller in ENS's own Sepolia manifest is
+  0-for-32 and has never worked. Every `register` reverts with **bare `0x`** because the BaseRegistrar no
+  longer authorises the NameWrapper, and `commit()` still succeeds, so gas is spent on a first step that
+  can never be redeemed. Do not spend time debugging a Sepolia registration; it is not your code. (E5, E6)
+- ⚠️ **Setting a primary name for a name you do not own makes the ENS app render it as owned**, with a
+  registration date and an expiry that are not real, and makes `getEnsAddress` return the address. This
+  cost an hour of chasing a migration that never happened. Trust `registry.owner()` and the account's
+  transaction list, not the app. (E7)
+- ⚠️ **Foundry cannot be installed behind a locked-down egress policy** — `foundry.paradigm.xyz` 403s at
+  CONNECT and there is no npm-distributed `forge`. `probes/ens-resolve.mjs contract` compiles the
+  resolver with solc-js and runs it on an in-process EVM instead; `forge test` remains canonical. (E4)
+- solc's legacy code generator **cannot copy a nested calldata dynamic array to storage** —
+  `string[] calldata` in a setter is an `UnimplementedFeatureError`. Use `memory` or via-ir. (E3)
+
 ## 8. What is next
 
 1. Decide the final product name — `surex` is the working name and the repo can be renamed.
@@ -257,8 +331,15 @@ Write-ups in `FRICTION-LOG.md` A1–A5.
 ## 9. Layout
 
 ```
-docs/       product specs (PRD, tech spec, track fit, failure modes)
+apps/       api (the /v1 read path) and web (the four screens + the CCIP-Read gateway)
+packages/   core, plugin (the gate), reviewer, worker, fixture-mcp
+contracts/  the ENS offchain resolver — Foundry, no dependencies beyond forge-std
+probes/     throwaway measurement scripts; every §7 fact points at one
+docs/       product specs (PRD, tech spec, track fit, failure modes, ENS)
 design/     Claude Design output — prototype, tokens, verdict system, architecture plate
 public/     the static site currently deployed (explainer as landing)
+demo/       chain.mjs — the end-to-end walk
+scripts/    seeding, review-and-publish, agent registration
+infra/      the DGX reviewer proxy and its systemd unit
 FRICTION-LOG.md   sponsor SDK feedback, written as it happens
 ```

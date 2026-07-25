@@ -196,7 +196,16 @@ export const COPY = {
     provenancePrompt: 'PROMPT',
     provenanceIndex: 'INDEX',
     provenanceIntegrity: 'INTEGRITY',
+    provenanceEns: 'ENS NAME',
     provenanceUnknown: 'not recorded',
+    /**
+     * What the ENS name is for, and what it is not for. On the surface rather
+     * than only in `docs/`, because "signed" is a word people finish the
+     * sentence of themselves, and they finish it wrong.
+     */
+    ensNote:
+      'Any Ethereum client can read this verdict from the name above, and the response carries a signature made by the key the resolver names. That signature says the answer came from SureX. It does not say the review is right, and the gate that blocks tool calls does not read it.',
+    ensExample: "getEnsText({ name, key: 'surex:state' })",
     /** The disclosure sentence. Appears on every verdict rendered in full. */
     automatedDisclosure:
       'This review was automated. No human audited this code. The model and prompt version above produced every word of the finding.',

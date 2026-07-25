@@ -18,6 +18,7 @@ Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 | **The registry** | **https://arkiv-surex.vercel.app** |
 | **The API** | **https://arkiv-surex-api.vercel.app** — [`/v1/registry`](https://arkiv-surex-api.vercel.app/v1/registry) · [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) · [`/v1/flagged`](https://arkiv-surex-api.vercel.app/v1/flagged) |
 | **The docs** | **https://surex-docs.vercel.app** — install it, read a verdict, dispute one. Machine-readable at [`/llms.txt`](https://surex-docs.vercel.app/llms.txt) |
+| **The name** | **[`surex.eth`](https://app.ens.domains/surex.eth)** on Ethereum mainnet → resolver [`0xCb140fF3…`](https://etherscan.io/address/0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559). Wildcard resolution is live: any `sxf1-<40 hex>.surex.eth` resolves to it. The CCIP-Read gateway is **not deployed yet**, so records read `null` — see [`contracts/`](./contracts) |
 
 Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
 official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model
@@ -50,7 +51,8 @@ describes our own fixture; the *mechanism* is what is real. Arkiv is stood in fo
 | [`packages/core`](./packages/core) | `SXF-1` fingerprint, the frozen `/v1` contract, the verdict decision, the copy law as executable rules, blob verification |
 | [`packages/plugin`](./packages/plugin) | the gate + the `surex` command. Zero dependencies, installable straight from this repo |
 | [`packages/fixture-mcp`](./packages/fixture-mcp) | the malicious fixture — the only thing SureX ever flags. [Why it is safe to run](./packages/fixture-mcp/SAFETY.md) |
-| [`probes/`](./probes) | the throwaway scripts that measured the enforcement surface, Walrus and Arkiv before any feature code was written |
+| [`contracts/`](./contracts) | the ENS offchain resolver — one wildcard resolver makes every entry readable as a name. **Deployed on Ethereum mainnet** and resolving; the CCIP gateway ships with the next web deploy |
+| [`probes/`](./probes) | the throwaway scripts that measured the enforcement surface, Walrus, Arkiv and ENS before any feature code was written |
 | [`demo/`](./demo) | the end-to-end run |
 | [`apps/docs`](./apps/docs) | the documentation site. Its reference tables are rendered from `packages/core`, so they cannot drift from the frozen contract |
 
@@ -60,7 +62,7 @@ describes our own fixture; the *mechanism* is what is real. Arkiv is stood in fo
 | [Prototype](./public/prototype.html) | the product screens — placeholder data, labelled on the page |
 | [Architecture](./public/architecture.html) | the two loops, the state matrix, the tier matrix |
 | [Tokens](./public/tokens.html) | the design token and component set |
-| [`docs/`](./docs) | PRD, technical specification, track fit, failure modes |
+| [`docs/`](./docs) | PRD, technical specification, track fit, failure modes, [ENS](./docs/surex-ens.md) |
 | [`FRICTION-LOG.md`](./FRICTION-LOG.md) | verified problems found in sponsor SDKs while building — with repro commands |
 
 ## How it is meant to work
@@ -95,8 +97,10 @@ Reviews are automated. No human audits them. The appeal process exists because t
 
 Claude Code `PreToolUse` hooks for enforcement · [Arkiv](https://arkiv.network) for the queryable index ·
 [Walrus](https://docs.wal.app/) on [Sui](https://sui.io) for content-addressed records ·
-[World ID and AgentKit](https://docs.world.org) for human and agent identity · an open-source model on an
-NVIDIA DGX for the review.
+[World ID and AgentKit](https://docs.world.org) for human and agent identity ·
+[ENS](https://docs.ens.domains) wildcard resolution so a verdict is readable as a name — one line for
+anything already holding an Ethereum client, and the only form of a verdict a contract can check
+([`docs/surex-ens.md`](./docs/surex-ens.md)) · an open-source model on an NVIDIA DGX for the review.
 
 ## What we measured, and what it cost us to believe otherwise
 
@@ -119,6 +123,11 @@ Everything here was found by running something, not by reading a doc. Full write
 - **An MCP server config is not portable across platforms.** Windows writes `cmd /c npx <pkg>`; macOS writes
   `npx <pkg>`. Read literally, a Windows user and a macOS user running the same server never match, and the
   Windows form loses the package name entirely.
+- **Our own fingerprint is not a legal ENS label.** `sxf1_<64 hex>` fails ENSIP-15 normalisation —
+  `underscore allowed only at start` — so the obvious `<fingerprint>.surex.eth` resolves nowhere. And the
+  two major clients disagree about how long a label may be: ethers throws above 63 characters, viem accepts
+  up to 255, so anything in between works for some callers and not others, with nothing raised either way.
+  The name we publish is 45 characters for both reasons.
 - **A Walrus blob ID is not `sha256(bytes)`.** Recomputing it needs the Walrus encoder, so we vendor it —
   otherwise the gate could only *assert* that a content-addressed store returned what it asked for, which is
   trusting the aggregator, and is not a check.
@@ -128,8 +137,9 @@ Everything here was found by running something, not by reading a doc. Full write
 
 Named because a hackathon submission that lists only what it built is not telling you anything.
 
-- **ENS, Move contracts, Seal, x402 payment flows** — deliberately deferred, not attempted. The sponsor SDK
-  budget was 3 and we used 2.
+- **Move contracts, Seal, x402 payment flows** — deliberately deferred, not attempted. The sponsor SDK
+  budget was 3 and we used all 3. ENS was on this list until we built it; it is not a security feature and
+  the bullet below is unchanged by it.
 - **Response signing for `/v1/verdict`.** The gate trusts an unsigned HTTP response to make a security
   decision. This is the largest knowingly-open gap in the design.
 - **Walrus storage renewal.** Arkiv expiry and Walrus epochs are independent clocks and will drift apart. An

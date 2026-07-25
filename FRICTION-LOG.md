@@ -479,6 +479,200 @@ Reading back a 50-entity seed with `@arkiv-network/sdk@0.7.0`.
 
 ---
 
+## ENS
+
+> All entries below found while building the offchain resolver and CCIP-Read gateway
+> (`contracts/`, `apps/web/app/api/ens/`). Repro for every entry: `node probes/ens-resolve.mjs <mode>`
+> after `cd probes && pnpm install --ignore-workspace`. Versions: `@adraffy/ens-normalize@1.11.1`,
+> `viem@2.55.8`, `ethers@6.13.5`, `solc@0.8.28`, node v22.22.2.
+
+### E1 · Our own published identifier is not a legal ENS label, because of its separator — **[VERIFIED, measured]**
+**Severity: medium.** Found in ten minutes rather than ten hours, but it invalidates the obvious design —
+`<fingerprint>.surex.eth` — and anyone who writes that in a spec without running it will not find out
+until a wallet silently refuses to resolve the name.
+
+- **Expected:** an SXF-1 fingerprint, `sxf1_` + 64 lowercase hex, would be usable as a subname label.
+  It is 69 characters of `[a-z0-9_]`, which reads as conservative.
+- **Happened:** ENSIP-15 normalisation rejects it outright. The underscore is legal only as the FIRST
+  character of a label:
+
+  ```
+  Invalid label "sxf1_b1dad32ff73fe0791aa5430006…ec235b1af446740e81b53fcef92edb1": underscore allowed only at start
+  ```
+
+- **How we found out:** ran it, before writing the label encoding. `probes/ens-resolve.mjs labels`
+  normalises both the raw fingerprint and the candidate label and prints what each did.
+- **Repro:**
+
+  ```bash
+  cd probes && pnpm install --ignore-workspace
+  node ens-resolve.mjs labels
+  ```
+
+- **Fix we shipped:** a distinct label encoding, `sxf1-` + the first 40 hex characters, in
+  `apps/web/lib/ens.ts`. The hyphen normalises. The full fingerprint is returned as the
+  `surex:fingerprint` text record, so the truncation is a naming convenience and never the identity.
+- **Fix we'd suggest:** ENSIP-15 is precise and `@adraffy/ens-normalize` is a genuinely good library —
+  the error message names the exact rule, which is more than most validators do. The gap is upstream of
+  it: nothing in the ENS *documentation* for subname or wildcard designs mentions that a namespace
+  built on hashes with a conventional separator will not normalise. One sentence in the ENSIP-10
+  wildcard docs — *"labels must pass ENSIP-15; `_` is legal only in first position"* — would have saved
+  the lookup.
+
+### E2 · viem and ethers disagree about how long a label may be, and the disagreement is silent — **[VERIFIED, measured]**
+**Severity: medium.** Nothing throws at the boundary; a name simply resolves for some of your users and
+not others, and which ones depends on a library they chose, not on anything you did.
+
+- **Expected:** one limit, applied by everyone. DNS says 63 bytes per label; ENSIP-10 defines an
+  encoded-label form for longer ones. Both clients implement ENS, so both should behave the same.
+- **Happened:** they behave differently in the 64–255 range, and neither warns.
+
+  | label length | `viem` `packetToBytes` | `ethers` `dnsEncode` |
+  |---|---|---|
+  | 45 | ok, 51 bytes | ok, 51 bytes |
+  | 63 | ok, 69 bytes | ok, 69 bytes |
+  | **64** | **ok, 70 bytes** | **throws** |
+  | **69** | **ok, 75 bytes** | **throws** |
+  | **255** | **ok, 261 bytes** | **throws** |
+  | 256 | ok, 72 bytes — switches to the ENSIP-10 labelhash form | throws |
+
+  ethers' message is clear once you hit it — `label "aaa…" exceeds 63 bytes`, `code:
+  INVALID_ARGUMENT` — and the limit *is* configurable: `dnsEncode(name, 255)` succeeds. But it is a
+  second positional argument almost nobody passes, so the default is what ships.
+- **How we found out:** measured across both libraries at 45/63/64/69/255/256 rather than reading either
+  one's source, because the question was what real callers would experience.
+- **Repro:** `node probes/ens-resolve.mjs labels` — rows where the two disagree are marked `!`.
+- **Fix we shipped:** a 45-character label. Under both limits, with no reliance on either library's
+  defaults. `apps/web/test/ens.test.mjs` asserts the length stays under 64 so a future change to the
+  encoding cannot quietly re-enter the disagreement band.
+- **Fix we'd suggest:** ethers should default `dnsEncode` to 255 to match ENSIP-10 and the rest of the
+  ecosystem, or say in the error that the limit is a parameter. Failing that, both libraries could warn
+  in the 64–255 band that portability is not guaranteed there.
+
+### E3 · A `string[]` setter cannot be written the obvious way without via-ir — **[VERIFIED, reproduced]**
+**Severity: low.** A compile error, so it fails loudly. Logged because the fix is non-obvious and the
+error message does not name it.
+
+- **Expected:** `function setUrls(string[] calldata next) external { _urls = next; }` — `calldata` being
+  the cheaper and more idiomatic choice for an external setter.
+- **Happened:** `UnimplementedFeatureError: Copying nested calldata dynamic arrays to storage is not
+  implemented in the old code generator.` The message describes the internal limitation, not the
+  remedy, and does not mention that either `memory` or `via_ir = true` resolves it.
+- **How we found out:** first compile of `SureXOffchainResolver.sol`.
+- **Repro:** `node probes/ens-resolve.mjs contract` with the parameter changed back to `calldata`.
+- **Fix we shipped:** `string[] memory`. Turning on via-ir for one setter is a poor trade on a contract
+  this small, and the setter is owner-only and rare.
+- **Fix we'd suggest:** append the remedy to the error — *"use `memory`, or enable via-ir"*.
+
+### E4 · Foundry cannot be installed behind a locked-down egress policy, and there is no offline path — **[VERIFIED]**
+**Severity: low for us, high for anyone in a managed environment.** Not a sponsor SDK issue; logged
+because it shaped how this contract is tested and someone else will hit it.
+
+- **Expected:** `curl -L https://foundry.paradigm.xyz | bash && foundryup`, the documented install.
+- **Happened:** `foundry.paradigm.xyz` is refused at the proxy (`403` to `CONNECT`), and the fallback of
+  pulling release binaries from the `foundry-rs/foundry` GitHub repository is also unavailable in that
+  environment. There is no npm-distributed `forge`, so there is no path that uses an
+  already-allowed registry.
+- **How we found out:** tried it, then read the proxy's own failure record rather than guessing at the
+  cause.
+- **Repro:** `curl -L https://foundry.paradigm.xyz` from behind a policy that allowlists
+  `registry.npmjs.org` but not `paradigm.xyz`.
+- **Workaround we shipped:** `probes/ens-resolve.mjs contract` compiles the resolver with `solc` from
+  npm and executes it on `@ethereumjs/vm`, in process. It covers the digest, both interface IDs and six
+  `resolveWithProof` acceptance and rejection paths. `contracts/test/SureXOffchainResolver.t.sol`
+  remains the canonical suite for anyone who has `forge`.
+- **Fix we'd suggest:** publish `forge` and `anvil` to npm as platform-specific optional dependencies,
+  the way esbuild and swc distribute their binaries. It would make Foundry installable in every
+  environment that already permits an npm install, which is most of them.
+
+---
+
+### E5 · `.eth` registration on Sepolia has been broken network-wide since early June 2026 — **[VERIFIED, from on-chain transaction history]**
+**Severity: critical for anyone developing against ENS on a testnet.** This is not a bug in our code, and
+it is not specific to us: **nobody** has registered a `.eth` name on Sepolia in seven weeks.
+
+- **Expected:** register `surex.eth` on Sepolia the documented way — `commit`, wait `minCommitmentAge`,
+  `register` — before pointing the parent at our offchain resolver.
+- **Happened:** every `register` reverts with **bare `0x`** — no revert string, no error selector. The
+  commitment is valid and mature, `available()` and `valid()` both return true, and the value sent exceeds
+  `rentPrice`. We rebuilt the commitment hash on-chain and confirmed it matched byte for byte.
+- **How we found out:** stopped debugging our own call and read other people's. Counting `register`
+  calls (`0x74694a2b` and `0xef9c8805`) in the most recent 200 transactions to each controller:
+
+  | Controller | register calls | succeeded | failed | last success |
+  |---|---|---|---|---|
+  | `0xFED6a969…` (wrapper-era) | 67 | 54 | 13 | **2026-05-24** |
+  | `0xfb3cE5D0…` (current, per ENS's own manifest) | 32 | **0** | 32 | **never** |
+  | `0x7e02892c…` (legacy) | 3 | 3 | 0 | — |
+
+  Successes on `0xFED6a969…` run 2026-02-07 → 2026-05-24. Failures start 2026-06-02. Nothing has
+  succeeded on any controller since **2026-06-15**.
+- **Root cause, as far as we can see from outside:** `BaseRegistrarImplementation.controllers()` returns
+  `false` for the NameWrapper and for every controller in ENS's published Sepolia deployment. The
+  registrar that owns the `.eth` node no longer authorises the contracts that register into it, so every
+  attempt dies in `onlyController` — a bare `require`, hence the empty revert data.
+- **Repro:**
+  ```bash
+  cast call 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85 'controllers(address)(bool)' \
+    0x0635513f179D50A207757E05759CbD106d7dFcE8 --rpc-url https://sepolia.drpc.org   # → false
+  curl -s "https://eth-sepolia.blockscout.com/api?module=account&action=txlist\
+&address=0xFED6a969AaA60E4961FCD3EBF1A2e8913ac65B72&sort=desc&offset=200"
+  ```
+- **What made it expensive:** `commit()` still succeeds. We counted **53 successful commits** on
+  `0xfb3cE5D0…`, a controller that has never completed a single registration. Users are paying gas for
+  the first half of a two-step flow that cannot finish, and the second half fails with no message.
+- **Fix we'd suggest:** two things, in order. Re-authorise a controller on the Sepolia registrar so the
+  testnet works at all. Then make `register` fail loudly — the current controller declares eleven custom
+  errors (`NameNotAvailable`, `InsufficientValue`, `CommitmentTooNew`…) and this path returns none of
+  them, because the failure happens one contract deeper. A `ControllerNotAuthorised()` error on the
+  registrar would have saved us most of an afternoon. Failing that, have `commit()` revert when the
+  controller cannot register, so nobody pays for step one of a dead flow.
+
+---
+
+### E6 · ENS's published Sepolia deployment manifest points at a controller that has never worked — **[VERIFIED]**
+**Severity: high.** The manifest is the thing an integrator is supposed to trust.
+
+- **Expected:** `ensdomains/ens-contracts@deployments/sepolia/ETHRegistrarController.json` names the
+  controller to integrate against.
+- **Happened:** it names `0xfb3cE5D01e0f33f41DbB39035dB9745962F1f968`, which is **0 for 32** on
+  `register` and is not authorised on the registrar. The one that used to work, `0xFED6a969…`, is not in
+  that file. An integrator reading the official manifest builds against a contract that cannot succeed.
+- **How we found out:** built against the manifest, failed, then compared with on-chain history.
+- **Repro:** `gh api repos/ensdomains/ens-contracts/contents/deployments/sepolia/ETHRegistrarController.json`
+  then check `BaseRegistrar.controllers()` for the address it returns.
+- **Fix we'd suggest:** either deploy-and-wire in one step, or mark unwired deployments in the manifest.
+  A deployed-but-unauthorised address is indistinguishable from a working one until you spend gas.
+
+---
+
+### E7 · An unregistered name renders as *registered and owned* in the ENS app, because of a reverse record — **[VERIFIED]**
+**Severity: medium, but it is the single most misleading thing we hit all weekend.** It sent us down an
+hour-long wrong path, chasing a migration that had not happened.
+
+- **Expected:** if the app shows a name with an owner, a registration date and an expiry, the name is
+  registered.
+- **Happened:** `app.ens.dev/surex.eth` showed **Owner `0x9d49…d3e5`, Registered JUL.25.2026, Expires
+  JUL.26.2027** for a name that was never registered. `viem.getEnsAddress('surex.eth')` on Sepolia also
+  returned that address. The account had only ever called `setName(string)` on the reverse registrar —
+  setting a *primary name* pointing at a name it does not own. No registration transaction exists in its
+  history, and no ETH was ever spent on one.
+- **How we found out:** the on-chain registry disagreed with the app. `registry.owner(namehash)` was
+  zero and `available()` was true, so we read the account's full transaction list: six transactions,
+  two of them `setName` (`0xc47f0027`), none of them `register`. We had already concluded from the app
+  that the name lived in a newer registry — it did not. Nothing did.
+- **Repro:** call `setName("<any unregistered name>.eth")` on the Sepolia reverse registrar from a fresh
+  account, then open that name in the app and resolve it with viem. Compare against
+  `registry.owner(namehash(name))`.
+- **Control:** an unrelated unregistered name (`definitely-not-registered-zzq7x.eth`) resolves to `null`,
+  so the forward resolution genuinely comes from the reverse record.
+- **Fix we'd suggest:** do not accept a primary name for a name the account does not own — or, if that
+  is deliberate, do not render an unowned name with an ownership block and registration dates. The dates
+  shown were not real. A "not registered — claim it" state would be correct and is what the underlying
+  data supports.
+
+---
+
 ## Claude Code (not a sponsor, but the enforcement surface — worth sending upstream)
 
 > Probes: `probes/hook/` — a minimal zero-dependency stdio MCP server plus a hook script, driven by
