@@ -30,7 +30,9 @@ import { findLocalIntegrity } from './integrity.mjs';
 import { fetchVerdict, fetchVerdictBatch, ttlFor } from './registry.mjs';
 import { cacheGet, cachePut, cachePutMany, isOverridden, logDecision } from './store.mjs';
 
-const WEB_BASE = () => (process.env.SUREX_WEB_URL || 'https://surex.dev').replace(/\/+$/, '');
+// Must resolve: every block message prints an evidence and a dispute link, and a
+// link to a domain nobody owns is worse than no link.
+const WEB_BASE = () => (process.env.SUREX_WEB_URL || 'https://arkiv-surex.vercel.app').replace(/\/+$/, '');
 
 /** Fetching the evidence must never be what makes the gate miss its budget. */
 const EVIDENCE_BUDGET_MS = 3000;

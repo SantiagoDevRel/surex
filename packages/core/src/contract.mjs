@@ -12,8 +12,16 @@
 export const API_VERSION = 'v1';
 export const CONTRACT_FROZEN_AT = '2026-07-25';
 
-/** Default public base URL. Overridable with SUREX_API_URL for local work. */
-export const DEFAULT_API_BASE = 'https://api.surex.dev';
+/**
+ * Default public base URL — the deployed registry.
+ *
+ * This has to be a host that actually answers. It was `api.surex.dev`, a domain
+ * nobody owns, which meant anyone installing the plugin from the marketplace got
+ * "could not reach the registry" on every single tool call: the gate would fail
+ * open, visibly, forever, and read as broken rather than as unconfigured.
+ * Overridable with SUREX_API_URL for local work.
+ */
+export const DEFAULT_API_BASE = 'https://arkiv-surex-api.vercel.app';
 
 export const ROUTES = Object.freeze({
   /** Hot path. Cacheable, must never block on a write. */

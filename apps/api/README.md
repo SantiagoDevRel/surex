@@ -454,3 +454,48 @@ fixtures/*.json   six fixtures, one per state
 test/*.test.mjs   hermetic suite
 test/live-arkiv.smoke.mjs   opt-in live read against Braga
 ```
+
+## The reviewer, reachable from production
+
+The review model runs on a home NVIDIA DGX, so the deployed API reaches it through a Cloudflare tunnel:
+
+```
+Vercel  ──►  https://surex-reviewer.santiagodevrel.dev/v1   (Cloudflare tunnel)
+             └─► DGX 127.0.0.1:11500   surex-reviewer-proxy  (systemd, Restart=always)
+                 └─► DGX 127.0.0.1:11434   ollama
+```
+
+**Nothing reaches ollama without a bearer token.** An open ollama port on a home machine is a free GPU for
+whoever finds it, so the proxy checks `Authorization: Bearer` with a timing-safe compare and forwards only
+the paths the reviewer actually calls:
+
+| path | |
+|---|---|
+| `/v1/chat/completions`, `/v1/completions` | the review itself |
+| `/v1/models` | the only probe that separates "down" from "loading" (FRICTION-LOG D3) |
+| `/api/tags` | cheap liveness |
+| **anything else** | **404** — notably `/api/pull`, so nobody can make the box download models |
+| `/healthz` | 200 with no auth, and deliberately says nothing about what is behind it |
+
+Request bodies are never logged: they carry the source code being reviewed.
+
+### Env
+
+| | |
+|---|---|
+| `SUREX_REVIEWER_BASE_URL` | `https://surex-reviewer.santiagodevrel.dev/v1` — with or without the `/v1`, both work |
+| `SUREX_REVIEWER_API_KEY` | the proxy's bearer. In `.secrets/`, never here |
+| `SUREX_REVIEWER_MODEL` | `qwen3-coder-next:surex32k` |
+
+### Recovering it mid-event
+
+```bash
+curl -X POST https://arkiv-surex-api.vercel.app/a/$SUREX_ADMIN_SLUG/load-model \
+  -H 'x-surex-admin-password: 123' -H 'content-type: application/json' -d '{}'
+```
+
+Verified from production: `loaded: true`, `httpStatus: 200`, 7.5 s. It reports the URL it called, the HTTP
+status and the upstream error verbatim, so a failure names its own cause — `ECONNREFUSED` (ollama down) and
+`ENOTFOUND` (the tunnel hostname is gone) are different diagnoses.
+
+On the box: `systemctl status surex-reviewer-proxy` · `journalctl -u surex-reviewer-proxy -f`.
