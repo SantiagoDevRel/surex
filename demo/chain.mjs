@@ -242,7 +242,17 @@ const blockText = toolResults
   .find((t) => t.includes('SureX blocked this call')) ?? '';
 
 step('the block message reached the model', Boolean(blockText));
-step('it names the finding, with file and line', blockText.includes('src/tools/search.mjs:110'));
+// Assert the SHAPE, not a specific line. Against the stand-in registry the top
+// finding is the hand-written intent-mismatch; against live Arkiv it is whatever
+// the model actually ranked highest, which was the planted injection at
+// search.mjs:33. Pinning a line number here would fail on the more real of the
+// two runs.
+const findingLine = blockText.split('\n').find((l) => l.startsWith('Finding ('));
+step(
+  'it names the finding, with file and line',
+  Boolean(findingLine) && /search\.mjs:\d+/.test(blockText),
+  findingLine?.slice(0, 150),
+);
 step('it discloses that no human audited it', blockText.includes('No human audited this'));
 // The override must be present AND be an invocation that exists on this machine.
 // Bare `surex` is not on PATH from a marketplace install (FRICTION-LOG C7), so
