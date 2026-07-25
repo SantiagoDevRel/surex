@@ -145,3 +145,68 @@ test('scanFiles records what it skipped instead of pretending it scanned it', ()
   assert.equal(meta.filesScanned, 1);
   assert.deepEqual(meta.filesSkipped.map((s) => s.path).sort(), ['bin/blob', 'src/c.ts']);
 });
+
+// ---------------------------------------------------------------------------
+// aliased fetch — the deterministic lane must not be walkable around
+// ---------------------------------------------------------------------------
+
+test('a fetch held under another name is still network', () => {
+  // Found by our own `ambiguous-telemetry` fixture, whose entire subject is an
+  // undeclared outbound POST and which this scanner reported as `network:
+  // absent`. The call-site rule needs the literal token `fetch(`, so anything
+  // that takes the function and calls it under another name was invisible — and
+  // this is the lane that exists BECAUSE the model can be argued with and a
+  // regex cannot. An alias must not be a way around it.
+  const evasions = {
+    'const held':      'const send = globalThis.fetch;\nawait send(url, {});',
+    'param default':   'export async function report(e, { f = globalThis.fetch } = {}) { await f(url); }',
+    'window':          'const f = window.fetch;',
+    'self':            'const f = self.fetch;',
+    'global':          'const f = global.fetch;',
+    'destructured':    'const { fetch: go } = globalThis;\nawait go(url);',
+  };
+  for (const [name, src] of Object.entries(evasions)) {
+    const sites = scanFile('t.mjs', src).filter((s) => s.category === 'network');
+    assert.ok(sites.length > 0, `${name}: an aliased fetch must still register as network`);
+  }
+});
+
+test('the alias rule does not fire on an unrelated .fetch method', () => {
+  // `db.fetch(q)` and `cache.fetch(k)` are ordinary method names and have nothing
+  // to do with the network. A capability surface that cries network on every ORM
+  // is a surface developers learn to ignore.
+  for (const src of [
+    'await db.fetch(query);',
+    'await cache.fetch(key);',
+    'const fetchData = 1; fetchData();',
+    'row.fetchAll();',
+  ]) {
+    const sites = scanFile('t.mjs', src).filter((s) => s.category === 'network');
+    assert.equal(sites.length, 0, `must not match: ${src}`);
+  }
+});
+
+test('a plain fetch() call is still reported as a call, not as a reference', () => {
+  // The two rules must stay distinguishable in the evidence a developer reads.
+  const call = scanFile('t.mjs', 'await fetch(url);').filter((s) => s.category === 'network');
+  assert.equal(call.length, 1);
+  assert.equal(call[0].label, 'fetch()');
+
+  const ref = scanFile('t.mjs', 'const f = globalThis.fetch;').filter((s) => s.category === 'network');
+  assert.equal(ref.length, 1);
+  assert.equal(ref[0].label, 'fetch reference');
+});
+
+test('destructuring fetch off a NON-global object is not network', () => {
+  // `const { fetch } = myHttpClient` is somebody's API surface, not the platform
+  // primitive. Pinning the right-hand side to a global is what keeps the alias
+  // rule from firing on every wrapper in the ecosystem.
+  for (const src of [
+    'const { fetch } = myHttpClient;',
+    'const { fetch: go } = deps;',
+    'const { get, fetch } = this.transport;',
+  ]) {
+    const sites = scanFile('t.mjs', src).filter((s) => s.category === 'network');
+    assert.equal(sites.length, 0, `must not match: ${src}`);
+  }
+});

@@ -20,28 +20,21 @@
  * to its author. No tool description says so. The README does not say so. There
  * is no setting to turn it off.
  *
- * The question this puts to a reviewer is the one the middle of the range is
- * made of: what is undeclared telemetry worth?
+ * The argument about what verdict that deserves is in ../AMBIGUOUS.md, and it is
+ * deliberately NOT here.
  *
- *   - It is NOT clean. The whole review compares stated intent against code, and
- *     here the code makes a network call that the stated intent does not account
- *     for. `network` will come back present on a server whose every description
- *     reads purely local. That gap is the finding.
- *   - It is NOT the malicious tier either. The event body is a constant shape,
- *     built in one visible function, carrying no argument values, no document
- *     text, no paths, no environment and no identifier. The destination is a
- *     constant. Nothing is conditional, delayed, obfuscated, or triggered by what
- *     the caller sends. A reader who opens telemetry.mjs sees all of it.
+ * The first version of this file made that argument inline — it walked through
+ * why the server is not clean, why it is not malicious either, and what severity
+ * that adds up to. The reviewer read it and reported the whole header as
+ * `reviewer-injection`: text inside the reviewed material addressed to whoever is
+ * reviewing it, telling them what to conclude. Which is exactly right, and
+ * exactly what the standing directive exists to catch. It was also the wrong
+ * finding — the fixture would have been flagged for its comments instead of for
+ * its behaviour, and a demo built on that would have been demonstrating the wrong
+ * thing.
  *
- * So the honest reading is a real finding at moderate severity: a developer
- * should be told, and should then decide. `@surex/core`'s `decide()` blocks at
- * severity 3 — severity 1-2 warns and shows its evidence, which is exactly the
- * treatment this earns.
- *
- * This pattern is not hypothetical. Analytics that ship on by default, are
- * mentioned nowhere near the interface contract, and have no opt-out are common
- * in real developer tooling. It is worth a registry being able to say so without
- * calling it malware.
+ * So: this file describes what the code does. The case for how to judge it lives
+ * in the tier document, where it is not part of the material under review.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';

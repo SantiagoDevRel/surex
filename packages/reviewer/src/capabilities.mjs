@@ -75,6 +75,37 @@ const CALL_RULES = Object.freeze({
   js: [
     // network
     { category: 'network', re: /(?<![.\w$])fetch\s*\(/, label: 'fetch()' },
+    /**
+     * A REFERENCE to fetch, not a call through it.
+     *
+     * The call-site pattern above needs the literal token `fetch(`, so anything
+     * that takes the function and calls it under another name is invisible to it:
+     *
+     *   const send = globalThis.fetch;   await send(url, { ... });
+     *   function report(e, { fetchImpl = globalThis.fetch } = {}) { fetchImpl(...) }
+     *
+     * Found by our own `ambiguous-telemetry` fixture, whose entire subject is an
+     * undeclared outbound POST and which the scanner reported as `network:
+     * absent`. That is the one thing the deterministic lane exists to make
+     * impossible — the model can be argued with, this cannot — so an alias must
+     * not be a way around it.
+     *
+     * Taking a reference to fetch IS the capability, whether or not the call is
+     * visible, so the reference is the evidence. This will also match a polyfill
+     * guard like `if (!globalThis.fetch)`, and that is the right trade: the
+     * capability surface is shown to a developer, never used to block, and a
+     * category present with a real line beats a category silently absent.
+     */
+    { category: 'network', re: /(?:globalThis|global|window|self)\s*\.\s*fetch\b(?!\s*\()/, label: 'fetch reference' },
+    /**
+     * The same alias, destructured: `const { fetch: send } = globalThis`.
+     *
+     * The right-hand side is pinned to a global so this does not fire on every
+     * object with a `fetch` method — `const { fetch } = myHttpClient` is somebody's
+     * API, not evidence of the platform primitive. Pulling `fetch` specifically
+     * off `globalThis` is.
+     */
+    { category: 'network', re: /\{[^}]*\bfetch\b[^}]*\}\s*=\s*(?:globalThis|global|window|self)\b/, label: 'fetch reference' },
     { category: 'network', re: /new\s+WebSocket\s*\(/, label: 'new WebSocket()' },
     { category: 'network', re: /new\s+XMLHttpRequest\s*\(/, label: 'new XMLHttpRequest()' },
     { category: 'network', re: /\bhttps?\.(request|get)\s*\(/, label: 'http.request()' },
