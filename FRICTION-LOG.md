@@ -1041,6 +1041,36 @@ so `text-clean` is frozen at build time and re-declaring `--color-clean` under
 `:root[data-theme="light"]` changes nothing. Only `@theme inline { --color-clean: var(--sx-clean) }` emits
 `color: var(--sx-clean)` into the utility, which is what lets one class follow the theme.
 
+### V7 · A project with a Root Directory can only be deployed by CLI from the **repo root**, and the error message points at a path nobody wrote — **[VERIFIED]**
+
+Adding the third app in this monorepo (`apps/docs`) hit this twice, once in each direction.
+
+- **First direction — link from the subdirectory, get a project with no root.** `vercel link --yes --project
+  surex-docs` run inside `apps/docs` creates the project and writes a `.vercel/project.json` with **no
+  `settings` block**, so `rootDirectory` is unset. The next `vercel deploy` uploads only `apps/docs`
+  (220 KB, 66 files) and the build dies on `npm install` — because `@surex/core` is a `workspace:*`
+  dependency that does not exist outside the workspace root. The failure names npm, not the layout.
+- **Second direction — set the Root Directory, and the CLI stops working from that directory.** With
+  `rootDirectory: "apps/docs"` set on the project, running `vercel deploy` from `apps/docs` fails with:
+
+  ```
+  Error: The provided path “…\projects\surex\apps\docs\apps\docs” does not exist.
+  ```
+
+  The CLI resolves `rootDirectory` **relative to the working directory** rather than to the repository, so
+  the correct place to run it is the repo root — which is the one directory that is not linked to the
+  project. Copying `.vercel/project.json` to the root and deploying from there works first time.
+- **Also:** there is no `vercel project update`, so `rootDirectory` cannot be set from the CLI at all. It is a
+  dashboard field, or `PATCH /v9/projects/{id}` with `{"rootDirectory": "..."}`. Connecting the project to
+  the GitHub repository is `POST /v9/projects/{id}/link` — `gitRepository` on the PATCH body is rejected
+  with *"should NOT have additional property"*.
+- **What would have prevented it:** `vercel link` inside a workspace member could offer to set the Root
+  Directory it can already infer from `pnpm-workspace.yaml` — it detects the framework in that same step. And
+  the path error could say which directory it resolved from: `apps/docs/apps/docs` is unmistakably a doubled
+  prefix, and naming the base would have made the fix obvious instead of a guess.
+- **Fix we shipped:** the project is connected to the repository, so a push to `main` deploys it and nobody
+  needs the CLI dance. The dance is written down in `apps/docs/AGENTS.md` for the day someone does.
+
 **How we found out:** reading the compiled `layout.css` — the utility contained the literal hex.
 
 **What would have prevented it:** the v4 docs lead with `@theme` and treat `inline` as an optimisation
