@@ -46,6 +46,48 @@ Reviewer bearer + the `/admin/load-model` path live in `infra/dgx-reviewer/` (no
 > working tree and owns the dev server on port 4311. `pnpm-lock.yaml` is dirty because of that, not because of
 > the work above. Do not stage either.
 
+## ⛳ WHERE WE ARE — 2026-07-25 late (read this before anything)
+
+**The one thing standing between here and a complete demo:** the writer must live somewhere always-on, and
+the demo runs from a laptop that is NOT the one this was built on.
+
+- The DGX cannot write to Walrus **via the SDK** — but it CAN via the **HTTP publisher**. Diagnosed
+  exhaustively, do not re-derive it: the SDK uploads slivers to all 101 committee members in parallel and a
+  residential uplink does not complete that (`NotEnoughBlobConfirmationsError`, 4/4, ~23 s). Ruled out with
+  their own tests: balance, Node 22 vs 24, IPv6, file descriptors, general connectivity. The laptop on a
+  European connection succeeds in 32 s; the DGX fails every time. **`PUT https://publisher.walrus-testnet.walrus.space/v1/blobs?epochs=53`
+  returned HTTP 200 in 14.5 s from the DGX**, and a second publisher in 8.4 s.
+- **NEXT TASK, and it is small:** give `packages/worker/src/walrus.mjs` a publisher mode behind
+  `SUREX_WALRUS_PUBLISHER`, use HTTP when set and the SDK when not. Two things to be honest about in the
+  record: with the publisher it is the PUBLISHER's wallet that registers the blob, so `suiObjectId` and the
+  digests are theirs and the wording "our wallet registered this" stops being true; and the public publisher
+  DOES return `alreadyCertified` for free, unlike the SDK (S3 has this backwards).
+  Test: write a blob from the DGX, fetch it from the aggregator, recompute the blob ID from the bytes and
+  check it matches — that is the property the gate relies on and it is unaffected by who paid.
+
+**Live and verified today:**
+
+| | |
+|---|---|
+| Web | `arkiv-surex.vercel.app` + `surex-app.vercel.app` |
+| API | `arkiv-surex-api.vercel.app` + `surex-api.vercel.app` |
+| Docs | `surex-docs.vercel.app` (parallel session) |
+| DGX reviewer | `surex-reviewer.santiagodevrel.dev` |
+| **DGX ingest** | `surex-ingest.santiagodevrel.dev` — systemd `surex-ingest`, queue of one, wallet on the box |
+| Registry | **6 third-party servers published `clean`** (playwright/mcp, server-redis, -memory, -google-maps, -gitlab, -brave-search) + 12 unreviewable + 2 flags HELD |
+
+- `surex.vercel.app` is **taken by another Vercel account** — `surex-app.vercel.app` is ours instead.
+  `surex-diagram.vercel.app` has no project yet.
+- ENS (PR #1, Marcos) is **merged** — tested against this branch before merging, 520 root + 66 web tests.
+  `sxf1-<hash>.surex.eth` resolves by wildcard on mainnet. **The CCIP gateway lives in
+  `apps/web/app/api/ens/…` and goes live on the next web deploy** — verify end-to-end resolution then.
+- The reviewer is **calibrated**: 48 readings, honest 15/15 clean, malicious 18/18 blocking with the right
+  mechanism, ambiguous 15/15. `scripts/calibrate.mjs` re-runs it and exits non-zero on a regression. Prompt
+  is at `rv-4`.
+
+**Still open:** the web loader (the API already serves `status` + `reviewer.model` + `stage`); removing the
+`unknown` seeds and defaulting the registry to decided entries; `docs/FEEDBACK.md`.
+
 ## Blocked (external — not our code)
 
 - **World on-chain registration** reverts `NonExistentRoot()` (W14). The Orb proof is valid; World Chain's
