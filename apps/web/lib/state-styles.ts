@@ -7,8 +7,18 @@
  *
  * The rule this table exists to enforce (design/tokens.html §01):
  *   state owns hue · tier and confirmation own form.
- *   accent (#7aa3cc) NEVER appears in a verdict — it is for links and actions.
+ *   accent NEVER appears in a verdict — it is for links and actions, and under
+ *   the SureX palette it is achromatic for exactly that reason: colour in this
+ *   product means verdict, so the one token that must never be read as one does
+ *   not get a hue at all.
  *   unknown and unreviewable use ink-3. Grey is the honest colour of ignorance.
+ *
+ * The four hues are the brand's, mapped onto the states that already existed:
+ *   clean → Dark Emerald · flagged → Burnt Tangerine · stale/warn → Sunbeam
+ *   Yellow · disputed → Deep Mocha pushed to a plum, since it is the one state
+ *   with no brand colour of its own and inventing a fifth hue would break the
+ *   palette. Every one of them is measured against the surfaces it lands on in
+ *   app/globals.css — the values are not adjustable by eye.
  */
 
 import type { RowStatus } from './types.ts';

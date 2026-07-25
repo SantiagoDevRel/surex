@@ -3,58 +3,114 @@
 /* ============================================================================
    SUREX — token layer.
 
-   Verbatim from design/tokens.html (§01 colour, §02 type, §03 space/radius/
-   border/motion) and design/prototype.html (the light variant).
+   The palette is the brand's five colours (surex2.png):
+
+     #046A38  Dark Emerald      → clean
+     #DA291C  Burnt Tangerine   → flagged
+     #FFE900  Sunbeam Yellow    → stale / warn   (the loudest — used sparingly)
+     #DAD6D6  Dust Grey         → light surfaces, dark-theme ink
+     #4B3B40  Deep Mocha        → dark surfaces, light-theme ink, disputed plum
+
+   THE THREE LOUD HUES ARE ACCENTS, NEVER SURFACES. Every page and panel
+   surface below is built out of Deep Mocha (dark) or Dust Grey (light) with a
+   low-opacity brand tint; emerald, tangerine and sunbeam appear at full
+   strength only on state chips, the stamp, the mark and the hazard band.
+
+   The ladders are derived, not eyeballed: each hue is the brand hue at the
+   lightness that clears WCAG AA (4.5:1) against the WORST pixel it can land
+   on in that theme. "Worst pixel", not "the surface colour" — the page is not
+   one flat colour, it is bg + the brand wash + the halftone screen, and the
+   binding case is the centre of a dot inside the wash, which is darker (light
+   theme) or lighter (dark theme) than either layer alone. Getting that wrong
+   is how a token ladder passes on paper and fails on screen; the first pass of
+   this file did exactly that and `--sx-faint` measured 4.04:1 in the corners.
+
+   Measured floor, worst composed pixel, every text token, both themes:
+   dark 4.75:1 · light 4.78:1 — both times `faint` on the tangerine wash under
+   a dot. Panels are opaque enough to sit above the texture, so their pairs are
+   higher. Do not raise `--sx-dot` or the wash without re-running the numbers,
+   and do not nudge a hue here without re-measuring: `--sx-stale` in particular
+   is Sunbeam Yellow only in the dark theme, because Sunbeam on a light surface
+   is ~1.3:1 and unreadable.
 
    Two-step on purpose:
      1. `--sx-*` on :root  → the runtime values, which flip with the theme.
      2. `@theme inline`    → makes them real Tailwind tokens, so a component
-                             writes `text-clean`, never `#6aa87c`.
+                             writes `text-clean`, never a hex.
 
    `inline` matters: it emits `color: var(--sx-clean)` into the utility rather
    than resolving the hex at build time, which is what lets one class follow
-   the theme.
+   the theme. A plain `@theme { --color-x: #hex }` bakes the hex in and CANNOT
+   be re-themed — the light variant then silently does not apply.
 
    Dark is the default. `prefers-color-scheme: light` moves to the light
    variant; an explicit `data-theme` on <html> beats both, in either direction.
    ============================================================================ */
 
 :root {
-  --sx-bg: #141310;
-  --sx-panel: #1c1a16;
-  --sx-panel-2: #181713;
-  --sx-line: rgba(255, 255, 255, 0.09);
-  --sx-line-2: rgba(255, 255, 255, 0.06);
+  /* surfaces — Deep Mocha, darkened. Never a brand hue. */
+  --sx-bg: #171213;
+  --sx-panel: #241c1e;
+  --sx-panel-2: #1d1618;
+  --sx-line: rgba(218, 214, 214, 0.11);
+  --sx-line-2: rgba(218, 214, 214, 0.065);
 
-  --sx-ink: #e8e4da;
-  --sx-ink-2: #b5afa0;
-  --sx-ink-3: #8b8578;
-  --sx-faint: #5c584e;
+  /* ink — Dust Grey, stepped down. The floor is 4.5:1 on panel-2. */
+  --sx-ink: #dad6d6;
+  --sx-ink-2: #beb6b6;
+  --sx-ink-3: #a8999e;
+  --sx-faint: #99858b;
 
-  /* links, focus, actions — NEVER inside a verdict */
-  --sx-accent: #7aa3cc;
-  --sx-accent-t: rgba(122, 163, 204, 0.09);
+  /* links, focus, actions — NEVER inside a verdict.
+     Deliberately achromatic: in this product colour means verdict, so the one
+     hue that must never be mistaken for one does not get a hue at all. */
+  --sx-accent: #e3dede;
+  --sx-accent-t: rgba(218, 214, 214, 0.08);
+  --sx-select: rgba(218, 214, 214, 0.2);
 
-  --sx-clean: #6aa87c;
-  --sx-clean-t: rgba(106, 168, 124, 0.13);
-  --sx-clean-l: rgba(106, 168, 124, 0.5);
+  /* Dark Emerald, lifted to 4.5:1+ on a dark surface */
+  --sx-clean: #43b67f;
+  --sx-clean-hi: #6bd4a1;
+  --sx-clean-t: rgba(67, 182, 127, 0.1);
+  --sx-clean-l: rgba(67, 182, 127, 0.6);
 
-  --sx-flagged: #c95b4d;
-  --sx-flagged-t: rgba(201, 91, 77, 0.13);
-  --sx-flagged-l: rgba(201, 91, 77, 0.55);
+  /* Burnt Tangerine, lifted */
+  --sx-flagged: #e26d65;
+  --sx-flagged-hi: #f2938c;
+  --sx-flagged-t: rgba(226, 109, 101, 0.1);
+  --sx-flagged-l: rgba(226, 109, 101, 0.68);
 
-  --sx-disputed: #9c86c9;
-  --sx-disputed-t: rgba(156, 134, 201, 0.13);
-  --sx-disputed-l: rgba(156, 134, 201, 0.55);
+  /* Deep Mocha, pushed to a plum — the one state with no brand hue of its own,
+     so it is built from the surface colour rather than invented. */
+  --sx-disputed: #c892b8;
+  --sx-disputed-t: rgba(200, 146, 184, 0.1);
+  --sx-disputed-l: rgba(200, 146, 184, 0.6);
 
-  --sx-stale: #c9a15a;
-  --sx-stale-t: rgba(201, 161, 90, 0.13);
-  --sx-stale-l: rgba(201, 161, 90, 0.55);
+  /* Sunbeam Yellow. Legible on a dark surface at nearly full strength. */
+  --sx-stale: #ded145;
+  --sx-stale-t: rgba(222, 209, 69, 0.1);
+  --sx-stale-l: rgba(222, 209, 69, 0.48);
+
+  /* glass — a translucent panel, for the surfaces that earn depth */
+  --sx-glass: rgba(36, 28, 30, 0.8);
+
+  /* halftone dot + the two-hue wash: the mark's split, as page atmosphere */
+  --sx-dot: rgba(218, 214, 214, 0.035);
+  --sx-wash-a: rgba(4, 106, 56, 0.08);
+  --sx-wash-b: rgba(218, 41, 28, 0.08);
 
   /* the terminal keeps its own surface in both themes — it is a screenshot of
      a real TTY, not a page element */
-  --sx-termbg: #0c0b09;
-  --sx-termink: #d8d4c8;
+  --sx-termbg: #100c0d;
+  --sx-termink: #d3cfcf;
+
+  /* THE HAZARD BAND — the illustrative-data disclosure, and the only place
+     Sunbeam Yellow is a fill. It does NOT theme: a hazard band that dimmed
+     itself in one theme would be quieter exactly where it must not be. Deep
+     Mocha on Sunbeam Yellow is 8.46:1. */
+  --sx-band: #ffe900;
+  --sx-band-ink: #4b3b40;
+  --sx-band-line: rgba(75, 59, 64, 0.38);
 
   color-scheme: dark;
 }
@@ -62,70 +118,90 @@
 /* the light variant, factored out so the media query and the explicit
    override cannot drift apart */
 :root[data-theme="light"] {
-  --sx-bg: #f5f2ea;
-  --sx-panel: #fdfbf6;
-  --sx-panel-2: #edeade;
-  --sx-line: rgba(30, 28, 20, 0.14);
-  --sx-line-2: rgba(30, 28, 20, 0.08);
+  --sx-bg: #efebeb;
+  --sx-panel: #fcfafa;
+  --sx-panel-2: #e8e3e3;
+  --sx-line: rgba(75, 59, 64, 0.17);
+  --sx-line-2: rgba(75, 59, 64, 0.09);
 
-  --sx-ink: #22201a;
-  --sx-ink-2: #4a463c;
-  --sx-ink-3: #6e6a5e;
-  --sx-faint: #a49e90;
+  --sx-ink: #4b3b40;
+  --sx-ink-2: #58464c;
+  --sx-ink-3: #615156;
+  --sx-faint: #6c5a60;
 
-  --sx-accent: #33608f;
-  --sx-accent-t: rgba(51, 96, 143, 0.08);
+  --sx-accent: #403035;
+  --sx-accent-t: rgba(75, 59, 64, 0.07);
+  --sx-select: rgba(75, 59, 64, 0.16);
 
-  --sx-clean: #2e7047;
-  --sx-clean-t: rgba(46, 112, 71, 0.09);
-  --sx-clean-l: rgba(46, 112, 71, 0.45);
+  --sx-clean: #046a38;
+  --sx-clean-hi: #0b8f4d;
+  --sx-clean-t: rgba(4, 106, 56, 0.1);
+  --sx-clean-l: rgba(4, 106, 56, 0.66);
 
-  --sx-flagged: #a33d2f;
-  --sx-flagged-t: rgba(163, 61, 47, 0.09);
-  --sx-flagged-l: rgba(163, 61, 47, 0.5);
+  --sx-flagged: #a91e14;
+  --sx-flagged-hi: #d0271a;
+  --sx-flagged-t: rgba(169, 30, 20, 0.1);
+  --sx-flagged-l: rgba(169, 30, 20, 0.6);
 
-  --sx-disputed: #6b4fa0;
-  --sx-disputed-t: rgba(107, 79, 160, 0.09);
-  --sx-disputed-l: rgba(107, 79, 160, 0.5);
+  --sx-disputed: #6e2b5a;
+  --sx-disputed-t: rgba(110, 43, 90, 0.1);
+  --sx-disputed-l: rgba(110, 43, 90, 0.58);
 
-  --sx-stale: #8a6a24;
-  --sx-stale-t: rgba(138, 106, 36, 0.1);
-  --sx-stale-l: rgba(138, 106, 36, 0.5);
+  /* Sunbeam Yellow is ~1.3:1 on white. As TEXT it has to be the same hue at a
+     lightness that reads — anything brighter is an unreadable page. */
+  --sx-stale: #665e00;
+  --sx-stale-t: rgba(102, 94, 0, 0.1);
+  --sx-stale-l: rgba(102, 94, 0, 0.7);
+
+  --sx-glass: rgba(252, 250, 250, 0.82);
+
+  --sx-dot: rgba(75, 59, 64, 0.045);
+  --sx-wash-a: rgba(4, 106, 56, 0.04);
+  --sx-wash-b: rgba(218, 41, 28, 0.04);
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --sx-bg: #f5f2ea;
-    --sx-panel: #fdfbf6;
-    --sx-panel-2: #edeade;
-    --sx-line: rgba(30, 28, 20, 0.14);
-    --sx-line-2: rgba(30, 28, 20, 0.08);
+    --sx-bg: #efebeb;
+    --sx-panel: #fcfafa;
+    --sx-panel-2: #e8e3e3;
+    --sx-line: rgba(75, 59, 64, 0.17);
+    --sx-line-2: rgba(75, 59, 64, 0.09);
 
-    --sx-ink: #22201a;
-    --sx-ink-2: #4a463c;
-    --sx-ink-3: #6e6a5e;
-    --sx-faint: #a49e90;
+    --sx-ink: #4b3b40;
+    --sx-ink-2: #58464c;
+    --sx-ink-3: #615156;
+    --sx-faint: #6c5a60;
 
-    --sx-accent: #33608f;
-    --sx-accent-t: rgba(51, 96, 143, 0.08);
+    --sx-accent: #403035;
+    --sx-accent-t: rgba(75, 59, 64, 0.07);
+    --sx-select: rgba(75, 59, 64, 0.16);
 
-    --sx-clean: #2e7047;
-    --sx-clean-t: rgba(46, 112, 71, 0.09);
-    --sx-clean-l: rgba(46, 112, 71, 0.45);
+    --sx-clean: #046a38;
+    --sx-clean-hi: #0b8f4d;
+    --sx-clean-t: rgba(4, 106, 56, 0.1);
+    --sx-clean-l: rgba(4, 106, 56, 0.66);
 
-    --sx-flagged: #a33d2f;
-    --sx-flagged-t: rgba(163, 61, 47, 0.09);
-    --sx-flagged-l: rgba(163, 61, 47, 0.5);
+    --sx-flagged: #a91e14;
+    --sx-flagged-hi: #d0271a;
+    --sx-flagged-t: rgba(169, 30, 20, 0.1);
+    --sx-flagged-l: rgba(169, 30, 20, 0.6);
 
-    --sx-disputed: #6b4fa0;
-    --sx-disputed-t: rgba(107, 79, 160, 0.09);
-    --sx-disputed-l: rgba(107, 79, 160, 0.5);
+    --sx-disputed: #6e2b5a;
+    --sx-disputed-t: rgba(110, 43, 90, 0.1);
+    --sx-disputed-l: rgba(110, 43, 90, 0.58);
 
-    --sx-stale: #8a6a24;
-    --sx-stale-t: rgba(138, 106, 36, 0.1);
-    --sx-stale-l: rgba(138, 106, 36, 0.5);
+    --sx-stale: #665e00;
+    --sx-stale-t: rgba(102, 94, 0, 0.1);
+    --sx-stale-l: rgba(102, 94, 0, 0.7);
+
+    --sx-glass: rgba(252, 250, 250, 0.82);
+
+    --sx-dot: rgba(75, 59, 64, 0.045);
+    --sx-wash-a: rgba(4, 106, 56, 0.04);
+    --sx-wash-b: rgba(218, 41, 28, 0.04);
 
     color-scheme: light;
   }
@@ -136,6 +212,7 @@
   --color-bg: var(--sx-bg);
   --color-panel: var(--sx-panel);
   --color-panel-2: var(--sx-panel-2);
+  --color-glass: var(--sx-glass);
   --color-line: var(--sx-line);
   --color-line-2: var(--sx-line-2);
 
@@ -148,10 +225,12 @@
   --color-accent-t: var(--sx-accent-t);
 
   --color-clean: var(--sx-clean);
+  --color-clean-hi: var(--sx-clean-hi);
   --color-clean-t: var(--sx-clean-t);
   --color-clean-l: var(--sx-clean-l);
 
   --color-flagged: var(--sx-flagged);
+  --color-flagged-hi: var(--sx-flagged-hi);
   --color-flagged-t: var(--sx-flagged-t);
   --color-flagged-l: var(--sx-flagged-l);
 
@@ -162,6 +241,10 @@
   --color-stale: var(--sx-stale);
   --color-stale-t: var(--sx-stale-t);
   --color-stale-l: var(--sx-stale-l);
+
+  --color-band: var(--sx-band);
+  --color-band-ink: var(--sx-band-ink);
+  --color-band-line: var(--sx-band-line);
 
   --color-termbg: var(--sx-termbg);
   --color-termink: var(--sx-termink);
@@ -284,6 +367,23 @@
   }
 }
 
+/* ------------------------------------------------------------- halftone --*/
+/* Texture, not ornament: a printed-dot screen at the size a stamp pad leaves.
+   It paints in `currentColor`, so a halftone layer inside a stamp takes the
+   state hue and a layer on the hazard band takes the band's ink — one utility,
+   no per-colour variants. Always on an aria-hidden layer under the content,
+   never on the element that carries the text: dots behind glyphs cost
+   legibility, and legibility is not a thing this product trades. */
+@utility halftone {
+  background-image: radial-gradient(currentColor 0.7px, transparent 0.75px);
+  background-size: 6px 6px;
+}
+
+@utility halftone-fine {
+  background-image: radial-gradient(currentColor 0.5px, transparent 0.55px);
+  background-size: 4px 4px;
+}
+
 @layer base {
   html {
     background: var(--sx-bg);
@@ -291,11 +391,33 @@
 
   body {
     margin: 0;
-    background: var(--sx-bg);
+    min-height: 100dvh;
     color: var(--sx-ink);
     font-family: var(--font-mono);
     font-size: 12.5px;
     -webkit-font-smoothing: antialiased;
+
+    /* Three layers, all of them quiet:
+         1. the halftone screen — texture you feel before you see it
+         2/3. the mark's split, as a wash — emerald from the left shoulder,
+              tangerine from the right, both short-range and under 10%.
+       ⚠️ These three alphas are a CONTRAST BUDGET, not a taste setting. Body
+       text sits on top of all of them, so the binding measurement is a dot
+       centre inside the wash, not the flat `--sx-bg`. At these values the
+       worst text pair is 4.75:1 (dark) / 4.78:1 (light); at the values this
+       file shipped with first — dot .055/.07, wash .10/.05 — the same pair was
+       4.31:1 / 4.04:1, i.e. failing. Raise either layer and re-measure, or do
+       not raise it. */
+    background-color: var(--sx-bg);
+    background-image:
+      radial-gradient(var(--sx-dot) 0.7px, transparent 0.75px),
+      radial-gradient(120% 44% at 0% 0%, var(--sx-wash-a), transparent 70%),
+      radial-gradient(120% 44% at 100% 0%, var(--sx-wash-b), transparent 70%);
+    background-size:
+      6px 6px,
+      100% 620px,
+      100% 620px;
+    background-repeat: repeat, no-repeat, no-repeat;
   }
 
   /* §03 — focus: 2px offset outline in accent */
@@ -305,7 +427,8 @@
   }
 
   ::selection {
-    background: var(--sx-accent-t);
+    background: var(--sx-select);
+    color: var(--sx-ink);
   }
 }
 

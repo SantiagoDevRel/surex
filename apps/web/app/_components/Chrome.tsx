@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn.ts';
 import { COPY } from '@/lib/copy.ts';
 
 import { ThemeToggle } from './ThemeToggle.tsx';
+import { SplitRule, Wordmark } from './Wordmark.tsx';
 
 const LINKS = [
   { href: '/', label: COPY.nav.registry, match: (p: string) => p === '/' || p.startsWith('/r/') },
@@ -21,17 +22,23 @@ const LINKS = [
  * third destination. It is a description, so it belongs to the mark: same
  * cluster, tied to it by a hairline, one step quieter (`text-faint`, no
  * uppercase tracking). Everything you can go to now lives on the right.
+ *
+ * Glass rather than a solid bar: the page carries a halftone screen and a
+ * two-hue wash, and a translucent chrome lets both run under it instead of
+ * ending at a hard edge. The split rule beneath is the mark's own division,
+ * restated at page width.
  */
 export function Chrome() {
   const pathname = usePathname() ?? '/';
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line px-7 py-3.5">
-      <Link
-        href="/"
-        className="border-2 border-ink px-2.5 py-[3px] text-body font-semibold tracking-[0.24em] text-ink no-underline"
-      >
-        {COPY.brand.name}
+    <>
+    <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 bg-glass px-7 py-3.5 backdrop-blur-md">
+      {/* No aria-label on the link: the mark is an `img` that already carries
+          the brand name, and labelling both makes one control announce two
+          names. The SVG's label IS the link's accessible name. */}
+      <Link href="/" className="no-underline">
+        <Wordmark />
       </Link>
       <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
       <span className="text-mini text-faint">{COPY.brand.tagline}</span>
@@ -57,5 +64,7 @@ export function Chrome() {
         <ThemeToggle />
       </nav>
     </header>
+    <SplitRule />
+    </>
   );
 }

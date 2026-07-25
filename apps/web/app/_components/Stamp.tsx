@@ -15,6 +15,19 @@ import type { RowStatus, Tier } from '@/lib/types.ts';
  * It slams in once on arrival and is a document from then on. The counter-stamp
  * carries confirmation, which is the part most products bury: an automated flag
  * says so on its face.
+ *
+ * The impression is a halftone screen in the state hue, on its own aria-hidden
+ * layer BEHIND the words — a stamp is ink pressed through a screen, and this is
+ * the one element in the system where that reads as meaning rather than
+ * decoration.
+ *
+ * ⚠️ 14% IS A MEASURED CEILING, not a taste call. Text over a pattern has to
+ * clear AA against the pattern's WORST pixel, not its average, and the worst
+ * pixel here is the centre of a dot in the brightest state hue (stale, on the
+ * dark theme). At 14% that pixel gives the sub-line 6.2:1 and the state word
+ * far more; at 20% the sub-line falls under 4.5:1. Raising it needs the same
+ * arithmetic done again. The sub-line is `ink-2` rather than `ink-3` for the
+ * same reason — it is the smallest type in the system and it sits on texture.
  */
 
 export type CounterTone = 'clean' | 'flagged' | 'disputed' | 'stale' | 'neutral' | 'muted';
@@ -58,17 +71,21 @@ export function Stamp({
     <div className="relative inline-block">
       <div
         className={cn(
-          'border-2 px-6 py-4',
+          'relative overflow-hidden border-2 bg-glass px-6 py-4 backdrop-blur-[3px]',
           s.stampBorder,
           isDashed && 'border-dashed',
           doubleStruck && s.stampDouble,
           superseded ? 'rotate-[-2deg] opacity-40' : 'animate-stamp-in',
         )}
       >
-        <div className={cn('text-stamp font-semibold tracking-[0.24em]', s.text)}>
+        <span
+          aria-hidden="true"
+          className={cn('halftone pointer-events-none absolute inset-0 opacity-[0.14]', s.text)}
+        />
+        <div className={cn('relative text-stamp font-semibold tracking-[0.24em]', s.text)}>
           {state.toUpperCase()}
         </div>
-        <div className="mt-1.5 text-nano uppercase text-ink-3">{impression}</div>
+        <div className="relative mt-1.5 text-nano uppercase text-ink-2">{impression}</div>
       </div>
 
       {counter ? (

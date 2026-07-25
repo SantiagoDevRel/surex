@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The SureX mark, reduced for a favicon.
+
+       SQUARE AND WORDLESS ON PURPOSE. The chrome mark is 126:52; letterboxed
+       into a 16x16 slot it renders about 6px tall, which puts the wordmark at
+       roughly 2px and makes the one identifying element unreadable. SVG <text>
+       is also font-dependent — a favicon has no webfont — so the letters would
+       rasterise differently per consumer. What survives at 16px is the shape:
+       a split capsule with a leg breaking out of the lower right.
+
+       A favicon cannot read CSS variables, so this is the brand palette at
+       full strength: Dark Emerald #046A38 and Burnt Tangerine #DA291C. It is a
+       logo, which is where full-strength brand colour belongs. -->
+  <defs>
+    <linearGradient id="c" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B8F4D"/>
+      <stop offset="1" stop-color="#046A38"/>
+    </linearGradient>
+    <linearGradient id="f" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8412F"/>
+      <stop offset="1" stop-color="#DA291C"/>
+    </linearGradient>
+  </defs>
+  <!-- stadium: x 4->60, y 15->49, caps r=17 at (21,32) and (43,32) -->
+  <path d="M32 15 H21 A17 17 0 0 0 21 49 H32"
+        fill="none" stroke="url(#c)" stroke-width="6" stroke-linecap="round"/>
+  <!-- right half, interrupted between theta 66deg and the cap's foot -->
+  <path d="M32 15 H43 A17 17 0 0 1 49.91 47.53 M43 49 H32"
+        fill="none" stroke="url(#f)" stroke-width="6" stroke-linecap="round"/>
+  <!-- the leg through the break, crossing the outline at theta ~78deg -->
+  <path d="M38 40 L52 54"
+        fill="none" stroke="url(#f)" stroke-width="6" stroke-linecap="round"/>
+</svg>
