@@ -29,6 +29,50 @@ wallet, the GPU, the writes — happens on this box and never on Vercel.
 `{ok, fingerprint, state, blobId, verdictUrl}`. `failed` carries `error`, the
 `exitCode`, and a scrubbed `stderrTail`.
 
+### `progress` — where the pipeline has got to
+
+A review is minutes, and `running` on its own says nothing about which of those
+minutes you are in. So `GET /v1/ingest/:id` also carries the last thing the
+pipeline said about itself:
+
+```json
+"progress": {
+  "stage": "walrus", "label": "Blob 5PLd… certified", "done": 6, "total": 8,
+  "detail": { "blobId": "5PLd…", "contentSha256": "f0457c30…", "registeredBy": "wallet" },
+  "at": "2026-07-25T22:14:03.118Z"
+}
+```
+
+- **Stages**, in canonical order: `resolving` · `licence` · `fetching` · `starting` ·
+  `reviewing` · `walrus` · `arkiv` · `done`. A run **skips** stages it does not need —
+  a licence refusal never reaches `reviewing` — and `done` jumps forward when it does.
+  `starting` is reserved for the pass that installs and starts a server for a real
+  `tools/list`; `scripts/ingest-submission.mjs` reads the tool list from the README and
+  never emits it, rather than announcing a step that did not happen.
+- **`detail` carries only facts that are already known.** An unknown value is absent,
+  never `null`: `blobId: null` on a screen is not an absent fact, it is a claim that
+  there is no blob.
+- **`progress` is not `stage`.** `progress.stage` is where the pipeline IS.
+  `stage` (on a failed job) is where it STOPPED. Merging them reports a submission
+  still writing its blob as one that failed at the blob.
+- Absent until the pipeline has said something. A queued job has no progress, and the
+  queue position is what is true then.
+
+**How it travels.** The pipeline prints one JSON object per line to **stdout** —
+`{"surexProgress":1,…}` — the same stream the result goes to. Exactly one field keeps
+the two apart: **the result line has `ok` and a progress line must never have one.**
+`resultFrom()` finds the result by scanning stdout backwards for the last line that
+HAS `ok`, so a progress line carrying one would be served as a verdict for a review
+that was still running. The emitter cannot produce one and `parseProgressLine()`
+refuses one; both halves are in `infra/dgx-ingest/stdout.mjs` and
+`apps/api/test/ingest-progress.test.mjs`.
+
+stdout arrives in **arbitrary chunks** — a 200-byte object routinely lands as two
+`data` events — so lines are reassembled across chunks before anything is parsed.
+Parsing per chunk does not fail loudly; it drops stages at random, which reads as a
+hung pipeline. Progress is persisted on a **stage change only**: a stage speaks more
+than once as its facts land, and `persist()` is a full rewrite of the state file.
+
 ## Four decisions, and the failure each one prevents
 
 **202, never the answer.** A review is minutes. An HTTP handler that waits for one
@@ -101,9 +145,11 @@ ssh spark 'test -d /home/santiagodevrel/surex \
 ssh spark 'cd /home/santiagodevrel/surex && git pull && pnpm install --frozen-lockfile'
 
 # 2. the service. Once this directory is committed, step 1's `git pull` is enough and
-#    this scp is only the shortcut before that.
+#    this scp is only the shortcut before that. BOTH files — ingest.mjs imports
+#    stdout.mjs, and without it the service will not start.
 ssh spark 'mkdir -p /home/santiagodevrel/surex/infra/dgx-ingest'
-scp infra/dgx-ingest/ingest.mjs spark:/home/santiagodevrel/surex/infra/dgx-ingest/ingest.mjs
+scp infra/dgx-ingest/ingest.mjs infra/dgx-ingest/stdout.mjs \
+  spark:/home/santiagodevrel/surex/infra/dgx-ingest/
 
 # 3. the bearer. Generate it with `openssl rand -hex 32`.
 ssh spark 'sudo mkdir -p /etc/surex \

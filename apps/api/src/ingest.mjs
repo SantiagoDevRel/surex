@@ -103,6 +103,20 @@ export async function submissionStatus(id, { env = process.env, fetchImpl = fetc
       durationMs: body.durationMs ?? null,
       result: body.result ?? null,
       error: body.error ?? null,
+      /**
+       * Where the pipeline IS, carried through untouched:
+       * `{stage, label, done, total, detail, at}`.
+       *
+       * This is not the same field as `stage` below and they must not be merged.
+       * `progress.stage` is where the pipeline has got to while it is running;
+       * `stage` is the stage that FAILED, which only exists once it has stopped.
+       * A screen that read the first as the second would report a submission
+       * still writing its blob as one that failed at the blob.
+       *
+       * Forwarded rather than reshaped. The writer already narrowed it to the
+       * agreed fields, and a second opinion here is a second place to drift.
+       */
+      progress: body.progress ?? null,
       // The stage that failed, when the pipeline said. "exited 1" tells a
       // watcher nothing; "the review completed and the storage did not" tells
       // them whether re-submitting is worth anything.

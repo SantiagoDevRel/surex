@@ -918,6 +918,11 @@ export function createApp(options = {}) {
       startedAt: status.startedAt ?? undefined,
       durationMs: status.durationMs ?? undefined,
       reviewer: status.reviewer,
+      // What the writer is doing right now — stage, a sentence, done/total, and
+      // whatever that stage already knows (a blob id, a transaction hash). Absent
+      // until the pipeline has said something, and never invented: a job that has
+      // not started has no progress, and the queue position is what is true then.
+      progress: status.progress ?? undefined,
       result: status.result ?? undefined,
       error: status.error ?? undefined,
       stage: status.stage,

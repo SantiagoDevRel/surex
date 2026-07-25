@@ -31,6 +31,11 @@ import { timingSafeEqual, createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+// Reading the child's stdout is two pure functions and one invariant — the result
+// line carries `ok`, a progress line never does. They live in their own file so a
+// test can hold both halves to that rule; this one starts a server on import.
+import { drainLines, parseProgressLine, resultFrom } from './stdout.mjs';
+
 // ── configuration ────────────────────────────────────────────────────────────
 
 const PORT = Number(process.env.SUREX_INGEST_PORT ?? 11600);
@@ -302,8 +307,22 @@ function run(job) {
 
   let out = '';
   let err = '';
+  /**
+   * What is left of a line that arrived cut in half. It is separate from `out` on
+   * purpose: `out` is a capped TAIL kept for resultFrom() at the end, and a review
+   * long enough to overflow 256 KB would lose its early stages if progress were
+   * read from it. Progress is read off the stream as it arrives, so every stage is
+   * seen exactly once no matter how chatty the pipeline gets.
+   */
+  let carry = '';
   child.stdout.on('data', (b) => {
     out = (out + b).slice(-MAX_STDOUT_BYTES);
+    const drained = drainLines(carry, b);
+    carry = drained.carry;
+    for (const line of drained.lines) {
+      const progress = parseProgressLine(line);
+      if (progress) noteProgress(job, progress);
+    }
   });
   child.stderr.on('data', (b) => {
     err = (err + b).slice(-MAX_STDERR_BYTES);
@@ -337,23 +356,32 @@ function run(job) {
 }
 
 /**
- * The last line of stdout that parses as a JSON object with an `ok` field.
- * Scanned from the end so a pipeline that prints progress before its result still
- * reports correctly, and `null` when there is nothing — never a fabricated success.
+ * Keep the LATEST progress line on the job, and persist only when the STAGE changes.
+ *
+ * Why not on every line: a stage speaks more than once as its facts land — `walrus`
+ * says it is writing, then says which blob it wrote — and persist() is a full
+ * serialise of every job the service is holding plus a write and a rename of the
+ * state file. Per line that is dozens of rewrites of the same file for information
+ * that is superseded milliseconds later, on the same disk the wallet and the model
+ * are using.
+ *
+ * And stage granularity loses nothing that survives a restart anyway. restore()
+ * marks a job that was `running` as FAILED rather than re-running it, so the
+ * persisted progress is only ever read as "how far it had got before the box went
+ * down" — and the stage is exactly that answer. The finer detail is served live
+ * from memory, which is where every reader of it actually looks.
+ *
+ * A job that is no longer running is left alone: a straggling `data` event after
+ * finish() must not reopen a terminal job or trigger a write for it.
  */
-function resultFrom(stdout) {
-  const lines = String(stdout).split(/\r?\n/);
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const line = lines[i].trim();
-    if (!line.startsWith('{')) continue;
-    try {
-      const parsed = JSON.parse(line);
-      if (parsed && typeof parsed === 'object' && 'ok' in parsed) return parsed;
-    } catch {
-      /* not the result line */
-    }
+function noteProgress(job, progress) {
+  if (job.status !== 'running') return;
+  const stageChanged = job.progress?.stage !== progress.stage;
+  job.progress = { ...progress, at: now() };
+  if (stageChanged) {
+    log(`job ${job.id} ${progress.stage}${progress.done ? ` (${progress.done}/${progress.total})` : ''}`);
+    persist();
   }
-  return null;
 }
 
 function finish(job, { stdout = '', stderr = '', code = null, signal = null, error = null } = {}) {
@@ -450,6 +478,11 @@ function publicJob(job) {
     startedAt: job.startedAt ?? null,
     finishedAt: job.finishedAt ?? null,
   };
+  // Where the pipeline has got to, in its own words. Served for terminal jobs too:
+  // on a failure the last stage it reached is the difference between "the review
+  // never ran" and "the review ran and the storage did not", which is the only
+  // part of a failure worth re-submitting for.
+  if (job.progress) view.progress = job.progress;
   if (job.status === 'queued') {
     const at = queue.indexOf(job.id);
     // Position among the jobs still WAITING — the one currently running is not counted,
@@ -599,7 +632,10 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 restore();
 server.listen(PORT, '127.0.0.1', () => {
-  log(`surex ingest on 127.0.0.1:${PORT}`);
+  // The BOUND port, not the configured one. They differ whenever `PORT` is 0 —
+  // which is how the service is exercised against a stub without picking a port
+  // that something else on the box might already hold.
+  log(`surex ingest on 127.0.0.1:${server.address()?.port ?? PORT}`);
   log(`repo dir ${REPO_DIR} · state ${STATE_FILE} · timeout ${TIMEOUT_MS}ms · concurrency 1`);
   pump();
 });

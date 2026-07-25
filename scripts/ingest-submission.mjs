@@ -30,7 +30,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 import { canonicalise, fingerprintOf, tierOf, SEVERITY_LABEL } from '../packages/core/index.mjs';
-import { reviewServer } from '../packages/reviewer/src/review.mjs';
+import { reviewServer, PROMPT_VERSION } from '../packages/reviewer/src/review.mjs';
 import { resolveConfig } from '../packages/reviewer/src/model.mjs';
 import { licenceGate } from '../packages/worker/index.mjs';
 import {
@@ -48,9 +48,77 @@ const DRY = argv.includes('--dry-run');
 const WEB = flag('--web', 'https://arkiv-surex.vercel.app');
 const WORK = flag('--work', join(tmpdir(), 'surex-ingest'));
 
-// Progress goes to stderr so `--json` leaves exactly one machine-readable line on
-// stdout — the ingest service parses it, and a stray log line would break it.
+// The human log goes to stderr and always has. stdout is the machine channel.
 const log = (...a) => console.error(...a);
+
+// ---------------------------------------------------------------------------
+// progress — what the pipeline is doing, while it is doing it
+// ---------------------------------------------------------------------------
+//
+// A review is MINUTES. Without this, everything between "accepted" and a verdict
+// URL is a spinner, and a screen with nothing true to say invents something —
+// which is the exact class of lie this project exists to make impossible. So the
+// pipeline says where it is, one JSON object per line, on stdout:
+//
+//   {"surexProgress":1,"stage":"walrus","label":"…","done":6,"total":8,"detail":{…}}
+//
+// stdout now carries TWO kinds of line, and exactly one field keeps them apart:
+// the result line has `ok`, a progress line must NEVER have one. infra/dgx-ingest
+// finds the result by scanning stdout backwards for the last line that HAS `ok`,
+// so a progress line carrying one would be read as the pipeline's verdict and put
+// a verdict URL in front of a maintainer for a review that was still running.
+// `progress()` below cannot emit `ok`; stdout.mjs refuses any progress line that
+// does. Both halves, because one of them alone is a comment.
+
+/**
+ * The canonical order. Shared with the reader — one list, so the two cannot drift.
+ *
+ * `starting` is RESERVED and this pipeline never emits it: it reads the tool list
+ * out of the README (`toolSource: 'readme-only'` below) and does not run the
+ * server. `scripts/review-known.mjs` is the pass that installs and starts one.
+ * Announcing a stage that did not happen would be a fabricated fact on a progress
+ * screen, so the slot stays empty rather than being filled with a plausible
+ * sentence.
+ */
+export const STAGES = ['resolving', 'licence', 'fetching', 'starting', 'reviewing', 'walrus', 'arkiv', 'done'];
+
+/**
+ * @param {(line: string) => void} [write] injected so a test reads the lines
+ *   instead of the ingest service.
+ *
+ * `done` is the stage's position in STAGES, held to never move backwards, and
+ * `total` is the length of that list. Two consequences, both deliberate:
+ *
+ *   · A SKIPPED stage jumps the number forward. A licence refusal goes straight
+ *     from `licence` to `walrus` — 2 to 6 — and that jump is the honest reading:
+ *     those stages will not happen for this submission.
+ *   · The stages are not emitted in list order everywhere. This pipeline
+ *     downloads the npm tarball BEFORE the licence gate, because the record for a
+ *     licence-refused package names the artifact it would have read. So `fetching`
+ *     can arrive before `licence`, and the clamp is what stops the bar going
+ *     backwards when it does. Do not reorder the emissions to make the numbers
+ *     tidy — that would mean announcing a gate before it ran.
+ *
+ * `done` is last in STAGES, so the terminal stage always reports `done === total`:
+ * whatever route a run took, when it is finished it is finished.
+ */
+export function createProgress(write = (line) => process.stdout.write(line)) {
+  let highest = 0;
+  return function progress(stage, label, detail = {}) {
+    const at = STAGES.indexOf(stage);
+    if (at === -1) throw new Error(`unknown stage: ${stage}`);
+    highest = Math.max(highest, at + 1);
+    // Only facts that are ALREADY KNOWN travel here. An undefined or null value is
+    // dropped rather than published, because `blobId: null` on a screen is not an
+    // absent fact, it is a claim that there is no blob.
+    const known = Object.fromEntries(
+      Object.entries(detail).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+    );
+    write(`${JSON.stringify({ surexProgress: 1, stage, label, done: highest, total: STAGES.length, detail: known })}\n`);
+  };
+}
+
+const progress = createProgress();
 
 function done(payload, code = 0) {
   if (JSON_OUT) process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -142,6 +210,11 @@ async function main() {
 
   mkdirSync(WORK, { recursive: true });
   log(`ingest ${owner}/${repo} @ ${commit.slice(0, 12)}${release ? ` (${release})` : ''}`);
+  progress('resolving', `Reading ${owner}/${repo} at ${commit.slice(0, 7)}`, {
+    repo: `${owner}/${repo}`,
+    commit,
+    release,
+  });
 
   // 1. the repository, at that commit
   let repoDir;
@@ -166,25 +239,51 @@ async function main() {
   const fingerprint = fingerprintOf(canonical);
   const tier = tierOf(canonical);
 
+  // The fingerprint is the id the verdict will be published under, so it is said
+  // here rather than at the end — a watcher can open /r/<fp> before the review has
+  // finished and see the entry appear under the name they were already given.
+  progress(
+    'resolving',
+    onNpm
+      ? `Published as ${npmName}@${published.version}`
+      : 'Not published to npm — the repository is what a user installs',
+    { repo: `${owner}/${repo}`, commit, package: npmName, version: published?.version, fingerprint, tier },
+  );
+
   // 3. review the bytes that execute
   let sourceDir = repoDir;
   let integrityCheck = null;
   let reviewedArtifact = `github:${owner}/${repo}@${commit}`;
   if (onNpm) {
+    progress('fetching', `Downloading the published tarball ${npmName}@${published.version}`, {
+      artifact: `npm:${npmName}@${published.version}`,
+    });
     try {
       const got = await fetchNpmTarball(npmName, published);
       sourceDir = got.dir;
       integrityCheck = got.integrityCheck;
       reviewedArtifact = `npm:${npmName}@${published.version}`;
       log(`  reviewing the published tarball ${reviewedArtifact} (integrity ${integrityCheck.detail})`);
+      progress('fetching', `Reading ${reviewedArtifact}`, {
+        artifact: reviewedArtifact,
+        integrity: integrityCheck.detail,
+      });
     } catch (err) {
       log(`  ! npm tarball unusable (${err.message}) — reviewing the repository at the submitted commit instead`);
+      // The fallback is stated, not hidden. A verdict about the repository when the
+      // user installs from npm is a different claim, and the screen says so while
+      // it is happening rather than only in the record afterwards.
+      progress('fetching', 'The npm tarball could not be read — reading the repository at the submitted commit', {
+        artifact: reviewedArtifact,
+      });
     }
   } else {
     log('  not published to npm — reviewing the repository at the submitted commit');
+    progress('fetching', 'Reading the repository at the submitted commit', { artifact: reviewedArtifact });
   }
 
   // 4. licence gate, before anything is stored
+  progress('licence', 'Checking the licence permits redistribution', { artifact: reviewedArtifact });
   const gate = await licenceGate(
     {
       name: npmName ?? `${owner}/${repo}`,
@@ -197,17 +296,25 @@ async function main() {
     fail('the licence could not be read, and refusing to claim ineligibility on a failed request', { detail: gate.detail });
   }
   if (!gate.eligible) {
+    // The remaining stages will not happen for this submission, and the jump in
+    // the number says so. It is still written down: an unreviewable entry is a
+    // published fact about why nobody can review this, not a silent drop.
+    progress('licence', `Not redistribution-permitting (${gate.spdx ?? 'licence unclear'}) — nothing can be reviewed`, {
+      spdx: gate.spdx,
+    });
     return publishOutcome({
       fingerprint, tier, state: 'unreviewable', reason: 'licence',
       why: `licence not redistribution-permitting (${gate.spdx ?? gate.detail})`,
       name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
     });
   }
+  progress('licence', `Licence permits redistribution (${gate.spdx ?? 'permissive'})`, { spdx: gate.spdx });
 
   // 5. can it be read at all?
   const files = readPackage(sourceDir);
   const read = readability(files);
   if (!read.readable) {
+    progress('fetching', `The source cannot be read: ${read.reason}`, { artifact: reviewedArtifact });
     return publishOutcome({
       fingerprint, tier, state: 'unreviewable', reason: 'source-unavailable', why: read.reason,
       name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
@@ -223,10 +330,37 @@ async function main() {
     readme: readme ? readFileSync(readme, 'utf8').slice(0, REVIEW_LIMITS.maxReadmeChars) : null,
   };
   const selection = selectForReview(files);
+
+  // Named, not implied. The model and the prompt version are stamped on the
+  // verdict forever, so whoever is watching sees the same two strings while the
+  // reading is happening — and they are read from the same config the reviewer
+  // itself uses, so the screen cannot drift from what actually ran.
+  //
+  // `run` is deliberately absent. reviewServer does two paraphrased readings, and
+  // four when they disagree, but it does not report which one is in flight — and
+  // an invented run number on a progress screen is an invented fact.
+  progress('reviewing', `${config.modelId} is reading ${selection.kept.length} file(s)`, {
+    model: config.modelId,
+    promptVersion: PROMPT_VERSION,
+    files: selection.kept.length,
+  });
+
   const result = await reviewServer(
     { files: selection.kept, statedIntent },
     { config, limits: REVIEW_LIMITS, allowCache: false, writeCache: false },
   );
+
+  // The RAW verdict does not go on this line, and that is not squeamishness. A flag
+  // against a submitted third-party project is HELD a few lines below — published as
+  // `unreviewable / withheld` with no findings, because a maintainer consented to a
+  // review, not to an unaudited model publishing an accusation about them. Leaking
+  // `flagged` through a progress line would publish exactly what that rule withholds,
+  // through a door nobody was watching. What is published is what is said.
+  progress('reviewing', `Read ${result.agreementRuns ?? 0} time(s) — merging the readings`, {
+    model: result.modelId ?? config.modelId,
+    promptVersion: result.promptVersion ?? PROMPT_VERSION,
+    runs: result.agreementRuns,
+  });
 
   const omitted = (result.run?.sourceCoverage?.filesOmittedOrTruncated ?? 0) + (selection.dropped?.length ?? 0);
   let state = result.verdict === 'clean' ? 'clean'
@@ -278,7 +412,10 @@ async function publishOutcome(o) {
   };
 
   log(`  ${o.state}${o.reason ? ` (${o.reason})` : ''} · ${summary.findingCount} finding(s) · ${o.reviewedArtifact}`);
-  if (DRY) return done({ ...summary, published: false, note: 'dry run — nothing written on chain' });
+  if (DRY) {
+    progress('done', 'Dry run — nothing was written on chain', { state: o.state, fingerprint: o.fingerprint });
+    return done({ ...summary, published: false, note: 'dry run — nothing written on chain' });
+  }
 
   const { createWalrusWriter, createArkivWriter, buildReviewRecord, buildVerdictHead, buildRegistryEntry, recordBytes, sha256Hex } =
     await import('../packages/worker/index.mjs');
@@ -315,6 +452,13 @@ async function publishOutcome(o) {
 
   const bytes = recordBytes(body);
 
+  // The content hash is OURS — computed from the bytes we are about to send, before
+  // anyone else touches them. It is the one field a publisher cannot influence, and
+  // it is what binds this record to its Arkiv entity, so it is said before the write
+  // rather than reported back afterwards.
+  const contentSha256 = sha256Hex(bytes);
+  progress('walrus', `Writing the review blob (${bytes.length} B)`, { contentSha256 });
+
   /**
    * Writing a blob is a distributed write, and it can fail without anything being
    * wrong with the review.
@@ -339,7 +483,15 @@ async function publishOutcome(o) {
     } catch (err) {
       lastError = err;
       log(`  walrus attempt ${attempt}/3 failed: ${err?.name ?? 'error'}`);
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 4000 * attempt));
+      // A retry is the honest reason a submission sits on this stage for half a
+      // minute. Silence here reads as a hang, and a hang is what people refresh.
+      if (attempt < 3) {
+        progress('walrus', `The storage nodes did not confirm — retrying (${attempt + 1} of 3)`, {
+          contentSha256,
+          attempt: attempt + 1,
+        });
+        await new Promise((r) => setTimeout(r, 4000 * attempt));
+      }
     }
   }
   if (!pointer) {
@@ -349,10 +501,20 @@ async function publishOutcome(o) {
       { stage: 'walrus-write', reviewCompleted: true, verdict: o.state, detail: String(lastError?.message ?? lastError).slice(0, 300) },
     );
   }
-  const evidence = { ...pointer, contentSha256: sha256Hex(bytes) };
+  const evidence = { ...pointer, contentSha256 };
   log(`  walrus ${pointer.blobId}`);
+  // `registeredBy` travels with the blob id because custody is part of the fact:
+  // `wallet` means our key registered it, `publisher` means a public publisher's
+  // did and the Sui object is theirs. Stated on both paths so it is read rather
+  // than inferred from which fields happen to be present.
+  progress('walrus', `Blob ${pointer.blobId} certified`, {
+    blobId: pointer.blobId,
+    contentSha256,
+    registeredBy: pointer.registeredBy,
+  });
 
-  const { created } = await arkiv.createMany([
+  progress('arkiv', 'Indexing the review record and the registry entry', { fingerprint: o.fingerprint });
+  const { created, txHashes } = await arkiv.createMany([
     buildReviewRecord({
       fingerprint: o.fingerprint,
       sourceKey: o.reviewedArtifact,
@@ -365,8 +527,12 @@ async function publishOutcome(o) {
     buildRegistryEntry({ fingerprint: o.fingerprint, name: o.name, tier: o.tier, blob: evidence }),
   ]);
   const reviewKey = created[0].key;
+  // entityKey and txHash always describe the SAME write. Pairing the review
+  // record's key with the head's transaction would send a reader to an explorer
+  // page that does not contain the entity they were shown.
+  progress('arkiv', 'Review record indexed', { entityKey: reviewKey, txHash: txHashes[0] });
 
-  await arkiv.createMany([
+  const head = await arkiv.createMany([
     buildVerdictHead({
       fingerprint: o.fingerprint,
       state: o.state === 'clean' ? 'clean' : 'unreviewable',
@@ -384,6 +550,15 @@ async function publishOutcome(o) {
       requireReviewForClean: true,
     }),
   ]);
+  // The head is the entity the gate reads before a tool call, so it is the last
+  // thing said before the verdict URL: from here the entry answers.
+  progress('arkiv', 'Verdict head indexed', { entityKey: head.created[0]?.key, txHash: head.txHashes[0] });
 
+  progress('done', `Published as ${o.state}${o.reason ? ` (${o.reason})` : ''}`, {
+    state: o.state,
+    reason: o.reason,
+    fingerprint: o.fingerprint,
+    verdictUrl: summary.verdictUrl,
+  });
   return done({ ...summary, published: true, blobId: pointer.blobId, reviewKey });
 }
