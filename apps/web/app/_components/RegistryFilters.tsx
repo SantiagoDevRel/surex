@@ -41,7 +41,16 @@ const STATES: RowStatus[] = [
 /**
  * A URL for the query, with the defaults left out.
  *
- * `state` is omitted at `DEFAULT_STATE`, not at `all` — the bare `/` is the
+/**
+ * The registry's own route. Every control on this screen is a link back to it
+ * with different query parameters, so the path is written once — it used to be
+ * `/`, and when the homepage took that route each of these controls silently
+ * became a link off the registry entirely.
+ */
+const REGISTRY_PATH = '/registry';
+
+/**
+ * `state` is omitted at `DEFAULT_STATE`, not at `all` — the bare path is the
  * default view, so `?state=all` has to be written down. Getting this backwards
  * would make "show all" produce a link back to the filtered list.
  */
@@ -53,7 +62,7 @@ function href(query: RegistryQuery, patch: Partial<RegistryQuery>): string {
   if (next.tier !== 'all') params.set('tier', next.tier);
   if (next.sort !== 'state') params.set('sort', next.sort);
   const s = params.toString();
-  return s ? `/?${s}` : '/';
+  return s ? `${REGISTRY_PATH}?${s}` : REGISTRY_PATH;
 }
 
 /**
@@ -138,7 +147,7 @@ export function RegistryFilters({
 
   return (
     <div className="mt-4 flex flex-col gap-2.5">
-      <form action="/" method="get" className="flex flex-wrap items-center gap-2">
+      <form action={REGISTRY_PATH} method="get" className="flex flex-wrap items-center gap-2">
         <label htmlFor="q" className="sr-only">
           {COPY.browse.searchLabel}
         </label>
