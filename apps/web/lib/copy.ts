@@ -256,6 +256,14 @@ export const COPY = {
     notFoundBody:
       'No entry exists for this fingerprint. That means nobody has submitted this exact install configuration for review. It does not mean the code is fine, and it does not mean it is not. The gate treats this as unknown and warns rather than stopping the call.',
     notFoundAction: 'Submit a server for review',
+    /**
+     * The registry did not answer. A different screen from `notFound*`, which
+     * reports a registry that answered and held no entry. This one says nothing
+     * about the fingerprint, because nothing was read.
+     */
+    unreachableTitle: 'We could not reach the registry.',
+    unreachableBody:
+      'This is a statement about the lookup, not about the server. No entry was read, so nothing on this page says whether this fingerprint has been reviewed or what a review found. The gate treats this as unknown and warns rather than stopping the call.',
     summaryLabel: 'IN TWENTY SECONDS',
     linkageLabel: 'LINKAGE · WHAT THIS VERDICT IS ABOUT VS WHAT YOU INSTALLED',
     linkageNote:

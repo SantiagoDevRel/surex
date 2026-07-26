@@ -45,12 +45,51 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
   const result = await getEntry(decoded);
   const entry = result.data;
 
+  /* Unreachable registry, so there is no entry to show and no fixture standing
+     in for one. `notFound*` below would report absence of a verdict, which is a
+     fact this page does not have: nothing was read. The reason rides on the
+     banner's note. */
+  if (!entry && result.origin === 'fixture') {
+    return (
+      <>
+        <IllustrativeBanner
+          origin={result.origin}
+          illustrative={result.illustrative}
+          note={result.note}
+        />
+        <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-7">
+          <FingerprintBar prefix="surex.dev/r/" fingerprint={decoded} />
+          <div className="mt-3.5">
+            <Banner tone="stale" label={COPY.banners.unreachableLabel}>
+              {COPY.banners.unreachableBody}
+            </Banner>
+          </div>
+          <h1 className="mt-6 text-title font-semibold text-ink-3">
+            {COPY.verdict.unreachableTitle}
+          </h1>
+          <p className="mt-2 max-w-[74ch] font-serif text-prose-lg text-ink-2">
+            {COPY.verdict.unreachableBody}
+          </p>
+          <Link href="/registry" className="mt-4 inline-block text-row text-accent">
+            ← {COPY.browse.title}
+          </Link>
+          <Footer />
+        </main>
+      </>
+    );
+  }
+
   /* Reachable registry, no entry. A real fact, and a different screen from a
      registry we could not reach — absence of a verdict is absence of
      knowledge, not a clean bill of health. */
   if (!entry) {
     return (
       <>
+        <IllustrativeBanner
+          origin={result.origin}
+          illustrative={result.illustrative}
+          note={result.note}
+        />
         <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-9">
           <FingerprintBar prefix="surex.dev/r/" fingerprint={decoded} />
           <h1 className="mt-6 text-title font-semibold text-ink-3">{COPY.verdict.notFoundTitle}</h1>
