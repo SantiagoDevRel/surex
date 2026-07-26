@@ -40,7 +40,7 @@ export function Banner({
         className,
       )}
     >
-      <b className={cn('font-semibold', t.label)}>{label}</b> — {children}
+      <b className={cn('font-semibold', t.label)}>{label}</b> · {children}
     </div>
   );
 }

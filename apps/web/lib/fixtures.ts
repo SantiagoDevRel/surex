@@ -54,7 +54,7 @@ export const FIXTURE_ROWS: RegistryRow[] = [
     version: '1.0.4',
     status: 'flagged',
     tier: 'A',
-    standing: 'automated only — no human audit',
+    standing: 'automated only, no human audit',
     standingTone: 'stale',
     reviewedAt: '2026-07-23',
     capabilities: 'net env cred',
@@ -67,7 +67,7 @@ export const FIXTURE_ROWS: RegistryRow[] = [
     version: '2.0.0',
     status: 'flagged',
     tier: 'A',
-    standing: 'uncontested 19d — reach is the point of this server',
+    standing: 'uncontested 19d: reach is the point of this server',
     reviewedAt: '2026-07-06',
     capabilities: 'proc fs env',
     illustrative: true,
@@ -79,7 +79,7 @@ export const FIXTURE_ROWS: RegistryRow[] = [
     version: '2.1.0',
     status: 'disputed',
     tier: 'B',
-    standing: 'rebuttal on file — both stand',
+    standing: 'rebuttal on file, both stand',
     standingTone: 'disputed',
     reviewedAt: '2026-07-11',
     capabilities: 'net proc',
@@ -153,7 +153,7 @@ export const FIXTURE_ROWS: RegistryRow[] = [
     version: 'remote',
     status: 'clean',
     tier: 'C',
-    standing: 'no local code — a statement about an endpoint, not a build',
+    standing: 'no local code: a statement about an endpoint, not a build',
     standingTone: 'stale',
     reviewedAt: '2026-07-19',
     capabilities: 'net',
@@ -329,7 +329,7 @@ const heads: Record<string, VerdictHead> = {
     topFinding: {
       title: 'Session tokens forwarded to a third-party relay',
       description:
-        'Navigation events serialize the active session — cookies included — and post it to relay.browserbase.dev. Nothing in the tool description discloses this.',
+        'Navigation events serialize the active session (cookies included) and post it to relay.browserbase.dev. Nothing in the tool description discloses this.',
       file: 'src/relay.ts',
       line: 88,
       severity: 3,
@@ -387,7 +387,7 @@ const heads: Record<string, VerdictHead> = {
     reason: 'remote-endpoint',
     name: 'notion-mcp@remote',
     capabilities: {
-      network: { present: true, what: 'the declared endpoint — no local code to scan' },
+      network: { present: true, what: 'the declared endpoint: no local code to scan' },
       filesystem: { present: false },
       exec: { present: false },
       env: { present: false },
@@ -411,7 +411,7 @@ const stripeEntry: Entry = {
     {
       ...heads[FP.stripe].topFinding,
       description:
-        'On startup — before the first tool call completes — the server reads every environment variable matching STRIPE_* and AWS_* and posts them to a hardcoded webhook. The package name imitates the official Stripe tooling; the maintainer account is 11 days old.',
+        'On startup, before the first tool call completes, the server reads every environment variable matching STRIPE_* and AWS_* and posts them to a hardcoded webhook. The package name imitates the official Stripe tooling; the maintainer account is 11 days old.',
       excerpt: [
         { line: 211, text: 'const env = process.env;' },
         { line: 212, text: 'const keys = Object.keys(env)' },
@@ -448,7 +448,7 @@ const stripeEntry: Entry = {
 const postgresEntry: Entry = {
   head: heads[FP.postgres],
   summary:
-    'An automated review found nothing beyond this server’s stated purpose, and nobody has contested that in 84 days. That is the whole claim — the capability surface below is often more useful than the verdict.',
+    'An automated review found nothing beyond this server’s stated purpose, and nobody has contested that in 84 days. That is the whole claim: the capability surface below is often more useful than the verdict.',
   options: 'Read what the code can reach. This page is linked from the registry, not from a block.',
   findings: [],
   source: {
@@ -484,10 +484,10 @@ const browserbaseDispute: Dispute = {
   closesAt: '2026-07-28',
   accusation: {
     title: 'Session tokens forwarded to a third-party relay',
-    body: 'Navigation events serialize the active session — cookies included — and post it to relay.browserbase.dev. Nothing in the tool description discloses this.',
+    body: 'Navigation events serialize the active session (cookies included) and post it to relay.browserbase.dev. Nothing in the tool description discloses this.',
     file: 'src/relay.ts:88',
     severity: 3,
-    filedBy: 'qwen3-coder-480b · prompt p7 — automated, no human audit',
+    filedBy: 'qwen3-coder-480b · prompt p7: automated, no human audit',
     filedAt: '2026-07-09',
     evidence: 'walrus:0x77aa…0c19',
     onChain: 'arkiv:verdict/77aa4c19#1',
@@ -504,7 +504,7 @@ const browserbaseDispute: Dispute = {
     // no history, no score (AGENTS.md §7). This fixture claimed 14,210 calls read
     // "from the attestation", which is a capability the attestation does not have.
     // It survived because the copy-law walk covers COPY, and a fixture is not COPY.
-    standing: 'a human registered this agent wallet in AgentBook — that is the whole of what standing means here',
+    standing: 'a human registered this agent wallet in AgentBook: that is the whole of what standing means here',
   },
   illustrative: true,
 };
@@ -513,7 +513,7 @@ const browserbaseEntry: Entry = {
   head: heads[FP.browserbase],
   summary:
     'This verdict is contested. The automated review flagged token forwarding; an agent that depends on this server filed a rebuttal with test evidence. Both claims stand, shown with equal weight. Nobody has ruled.',
-  options: 'Read both claims, then decide — or wait for the dispute window to close.',
+  options: 'Read both claims, then decide, or wait for the dispute window to close.',
   findings: [
     {
       ...heads[FP.browserbase].topFinding,
@@ -542,7 +542,7 @@ const browserbaseEntry: Entry = {
     blob: { blobId: 'walrus:0x77aa…0c19', retrievable: true },
   },
   localLinkage: { text: 'pinned 2.1.0 · no digest recorded', tone: 'stale' },
-  tierNote: 'same version string — the bytes were not compared',
+  tierNote: 'same version string: the bytes were not compared',
   dispute: browserbaseDispute,
   overrideCommand: `surex allow ${FP.browserbase} --while-disputed`,
   illustrative: true,
@@ -551,7 +551,7 @@ const browserbaseEntry: Entry = {
 const slackEntry: Entry = {
   head: heads[FP.slack],
   summary:
-    'A newer release shipped than the one this verdict is about. The review below describes 0.8.2; the configuration points at 0.9.1. The gate warns and lets the call through — it will not present an old verdict as if it covered new code.',
+    'A newer release shipped than the one this verdict is about. The review below describes 0.8.2; the configuration points at 0.9.1. The gate warns and lets the call through, it will not present an old verdict as if it covered new code.',
   options: 'Read the older review for context, then submit the current release so it gets its own.',
   findings: [],
   source: {
@@ -578,12 +578,12 @@ const slackEntry: Entry = {
 const notionEntry: Entry = {
   head: heads[FP.notion],
   summary:
-    'There is no local code to read. This entry points at a remote endpoint, so the review covers the schema it advertised and the history of that endpoint — never what the backend is running right now.',
+    'There is no local code to read. This entry points at a remote endpoint, so the review covers the schema it advertised and the history of that endpoint, never what the backend is running right now.',
   options: 'Treat a clean history here as weaker than a clean review of pinned bytes. It is.',
   findings: [],
   source: { packageRef: 'remote · https endpoint', licence: 'not redistributable' },
-  localLinkage: { text: 'nothing to compare — remote endpoint', tone: 'unknown' },
-  tierNote: 'nothing was compared — this verdict may not be about the code that answers you',
+  localLinkage: { text: 'nothing to compare: remote endpoint', tone: 'unknown' },
+  tierNote: 'nothing was compared: this verdict may not be about the code that answers you',
   illustrative: true,
 };
 
