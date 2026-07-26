@@ -291,10 +291,25 @@ function StepTile({
         selected ? 'bg-accent-t' : 'hover:bg-accent-t',
       )}
     >
+      {/*
+        `key={phase}` is what makes the tile light up.
+
+        React reuses this node across polls, so a CSS animation attached to it
+        would run once on mount and never again — the step would change colour
+        with no moment attached to the change. Keying on the phase makes React
+        replace the node when the phase changes, which restarts the animation on
+        the TRANSITION and not on a re-render that changed nothing.
+
+        Only on the way IN to a landed state: `pending` is where every step sits
+        before the run reaches it, and flashing six tiles on first paint would
+        announce five things that have not happened.
+      */}
       <span
+        key={phase}
         className={cn(
           'grid h-14 w-14 shrink-0 place-items-center rounded-input border',
           face,
+          phase === 'done' || phase === 'stopped' ? 'sx-step-land' : null,
         )}
       >
         <TechMark tech={FLOW_TECH[step]} />

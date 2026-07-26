@@ -282,6 +282,62 @@
   --font-serif: var(--font-source-serif), Georgia, serif;
 }
 
+/* ---------------------------------------------------- the step, landing --*/
+/*
+ * A step lights up at the moment the run reports it, and settles.
+ *
+ * The rail already carried the phase in its border, but a border that is simply
+ * different the next time you look does not tell you WHEN it changed — and a
+ * flow whose whole point is that you can watch it happen has to mark the
+ * moment. This is that mark: a single 1.1s pass over the tile as it lands.
+ *
+ * House rules from the motion system, and they are not decoration:
+ *   · `iteration-count: 1`, NO fill-mode. Every track ends at the tile's own
+ *     resting style, so a settled step is exactly what a static render gives —
+ *     which matters because these tiles are server-rendered before any poll.
+ *   · No delay. Sequencing comes from the RUN reporting each stage, not from a
+ *     stagger we invented; a delay would animate a step that had not happened.
+ *
+ * Driven by React remounting the tile on its phase (`key`), so the animation
+ * runs on the TRANSITION into `done` and never on a re-render that changed
+ * nothing.
+ */
+@keyframes sx-step-land {
+  0% {
+    border-color: var(--sx-accent);
+    background-color: var(--sx-accent-t);
+    box-shadow: 0 0 0 3px var(--sx-accent-t);
+  }
+  55% {
+    border-color: var(--sx-accent);
+    box-shadow: 0 0 0 2px var(--sx-accent-t);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.sx-step-land {
+  animation: sx-step-land 1.1s cubic-bezier(0.3, 0.8, 0.35, 1);
+}
+
+/* The mark inside a landing tile brightens with it, then returns to its own ink. */
+@keyframes sx-step-mark {
+  0%, 45% { color: var(--sx-accent); }
+  100% { color: inherit; }
+}
+
+.sx-step-land svg {
+  animation: sx-step-mark 1.1s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-step-land,
+  .sx-step-land svg {
+    animation: none !important;
+  }
+}
+
 /* ------------------------------------------- type · radius · motion scale --*/
 @theme {
   /* §02 — IBM Plex Mono carries structure, Source Serif 4 carries evidence
