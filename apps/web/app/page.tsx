@@ -1,132 +1,87 @@
 import { getRegistry } from '@/lib/api.ts';
 import { COPY } from '@/lib/copy.ts';
-import { DEFAULT_STATE, matchesState, statusRank } from '@/lib/format.ts';
-import type { RegistryRow } from '@/lib/types.ts';
+import { homeStats, tickerItems } from '@/lib/home-data.ts';
 
-import { Banner } from './_components/Banner.tsx';
-import { Footer } from './_components/Footer.tsx';
-import { IllustrativeBanner } from './_components/IllustrativeBanner.tsx';
-import { RegistryFilters, type RegistryQuery } from './_components/RegistryFilters.tsx';
-import { RegistryTable, StatStrip } from './_components/RegistryTable.tsx';
+import { Closer } from './_components/home/Closer.tsx';
+import { Hero } from './_components/home/Hero.tsx';
+import { InstallBand } from './_components/home/InstallBand.tsx';
+import { Pipeline } from './_components/home/Pipeline.tsx';
+import { Roadmap } from './_components/home/Roadmap.tsx';
+import { MAIN_ID, SiteHeader } from './_components/home/SiteHeader.tsx';
+import { StatBand } from './_components/home/StatBand.tsx';
+import { TerminalWindow } from './_components/home/TerminalWindow.tsx';
+import { Ticker } from './_components/home/Ticker.tsx';
 
 /**
- * The registry list — `browse` in design/prototype.html.
+ * The homepage. `data-sx="v2"` scopes the whole tree to the token layer at the
+ * end of globals.css — dark-only, achromatic accent, nothing rounded. The
+ * global chrome is suppressed on this route (see `_components/Chrome.tsx`);
+ * the header here is the page's own.
  *
- * Dynamic on purpose: the API is a separate lane and may come up after this
- * page is deployed. Prerendering would freeze whichever answer was available at
- * build time, including the fixture fallback, and bake the illustrative banner
- * into a page that could have been live.
+ * Dynamic for the same reason the registry is: the API is a separate lane and
+ * may come up after this page is deployed. Prerendering would freeze whichever
+ * answer was available at build time — including the fixture fallback — and
+ * bake the illustrative banner into a page that could have been live.
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: COPY.browse.title };
-
-function one(value: string | string[] | undefined, fallback: string): string {
-  if (Array.isArray(value)) return value[0] ?? fallback;
-  return value ?? fallback;
-}
-
-function filterRows(rows: RegistryRow[], query: RegistryQuery): RegistryRow[] {
-  const needle = query.q.trim().toLowerCase();
-  const filtered = rows.filter((row) => {
-    // `matchesState` owns which states a view contains — including the default
-    // one, which is a filter and therefore something a test has to be able to
-    // pin. Nothing is dropped here that RegistryFilters does not announce.
-    if (!matchesState(row.status, query.state)) return false;
-    if (!needle) return true;
-    return (
-      row.name.toLowerCase().includes(needle) ||
-      row.version.toLowerCase().includes(needle) ||
-      row.capabilities.toLowerCase().includes(needle) ||
-      (row.fingerprint ?? '').toLowerCase().includes(needle)
-    );
-  });
-
-  // Sorted here, always. Arkiv accepts `orderBy` silently and does nothing with
-  // it (AGENTS.md §7) — anything ordered is ordered client-side or not at all.
-  return filtered.sort((a, b) => {
-    if (query.sort === 'name') return a.name.localeCompare(b.name);
-    if (query.sort === 'recent') return b.reviewedAt.localeCompare(a.reviewedAt);
-    return statusRank(a.status) - statusRank(b.status) || a.name.localeCompare(b.name);
-  });
-}
-
-export default async function BrowsePage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const sp = await searchParams;
-  const query: RegistryQuery = {
-    q: one(sp.q, ''),
-    // The default is the decided view, not `all`. A registry whose honest answer
-    // for most third-party packages is "we could not read this" buries its
-    // verdicts under those answers otherwise. The rows left out are counted and
-    // linked immediately under the filters — see HiddenNotice.
-    state: one(sp.state, DEFAULT_STATE),
-    tier: one(sp.tier, 'all'),
-    sort: one(sp.sort, 'state'),
-  };
-
+export default async function HomePage() {
   const registry = await getRegistry();
   const { rows, stats, partial } = registry.data;
-  const visible = filterRows(rows, query);
+
+  // Both derived from the rows this render actually received. The ticker and
+  // the band render nothing rather than invent a row or pad a count — an empty
+  // registry is a fact about the registry, and the honest way to show it is to
+  // show less, not to fill the space.
+  const items = tickerItems(rows);
+  const tiles = homeStats({ rows, stats, partial });
 
   return (
-    <>
-      <IllustrativeBanner
-        origin={registry.origin}
-        illustrative={registry.illustrative}
-        note={registry.note}
-      />
+    <div data-sx="v2" className="bg-[var(--v2-page)] text-[var(--v2-ink)]">
+      {/*
+        The disclosure, whenever the numbers below are not real reviews.
+        AGENTS.md 4: a screen rendering illustrative data says so on that
+        screen. The stat band and the ticker are both fed from this payload.
 
-      <main className="mx-auto max-w-[1180px] px-7 pb-20 pt-9">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-title font-semibold">{COPY.browse.title}</h1>
-          <p className="text-meta text-ink-2">{COPY.browse.lede}</p>
-        </div>
+        Rendered here rather than via the shared `IllustrativeBanner` so this
+        page can state it quietly without restyling the registry pages, which
+        keep the full band. It is one muted line, and it disappears on its own
+        the moment the API answers with real records.
+      */}
+      {registry.illustrative ? (
+        <p className="border-b border-[var(--v2-line)] px-[var(--v2-gutter-mobile)] py-[var(--v2-space-3)] font-[family-name:var(--font-suse-mono)] text-[11px] leading-[1.6] text-[var(--v2-ink-3)] md:px-[var(--v2-gutter)] md:text-[10.5px]">
+          <span className="tracking-[0.16em]">
+            {registry.origin === 'fixture' ? COPY.illustrative.fixtureLabel : COPY.illustrative.mockLabel}
+          </span>{' '}
+          {registry.origin === 'fixture' ? COPY.illustrative.fixtureBody : COPY.illustrative.mockBody}
+        </p>
+      ) : null}
 
-        <StatStrip stats={stats} />
+      <SiteHeader />
 
-        {registry.origin === 'fixture' ? (
-          <div className="mt-4">
-            <Banner tone="stale" label={COPY.banners.unreachableLabel}>
-              {COPY.banners.unreachableBody}
-            </Banner>
-          </div>
-        ) : partial ? (
-          <div className="mt-4">
-            <Banner tone="neutral" label="FLAGGED FEED ONLY">
-              The frozen /v1 contract exposes <code className="text-ink">GET /v1/flagged</code> and a
-              per-fingerprint lookup, but no route that lists the whole registry — so this table is
-              the flagged feed, not everything the registry holds. A clean entry is reachable by its
-              fingerprint.
-            </Banner>
-          </div>
-        ) : null}
-
-        <RegistryFilters query={query} rows={rows} />
+      {/*
+        Order is deliberate. `Pipeline` ends on "06 THE CHECK — runs before the
+        tool call, on your machine", and `TerminalWindow` is a transcript of
+        exactly that happening: the explanation, then the evidence for it.
+        `Roadmap` is the only section about work not yet done, so it sits last,
+        immediately before the closer's install command.
+      */}
+      <main id={MAIN_ID}>
+        <Hero />
+        <Ticker items={items} />
+        <StatBand tiles={tiles} />
+        <Pipeline />
+        <TerminalWindow />
+        <Roadmap />
         {/*
-          The tier legend and the two-axes explainer used to sit here.
-
-          Both are gone from the SITE, not from the product. Tier answers "is the
-          code we read the code you will run", and today every published entry is
-          Tier C — so the column printed one identical letter down the page and
-          the legend spent a paragraph explaining three values the registry has
-          never shown two of. An explanation of a distinction the data does not
-          make is something a reader has to get past, not something they learn
-          from.
-
-          `tierSentence()` still runs where it earns its place: in the gate's
-          message on a developer's own machine, where "nothing was checked — this
-          verdict may be about code that is not your code" is the difference
-          between a verdict about their bytes and a verdict about somebody
-          else's. That claim is load-bearing there and decorative here.
+          The ask, then the sign-off. `InstallBand` is the call to action — a
+          filled surface with the command and a copy affordance; `Closer` is
+          the wordmark as the last argument. Two endings on purpose, made
+          structurally different so they do not read as one block repeated.
         */}
-        <RegistryTable rows={visible} total={rows.length} query={query.q} />
-
-        <Footer />
+        <InstallBand />
+        <Closer />
       </main>
-    </>
+    </div>
   );
 }
