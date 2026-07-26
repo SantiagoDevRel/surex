@@ -32,7 +32,7 @@ import {
 } from './model.mjs';
 import {
   extractJson, validateModelOutput, validateReviewRecord, unreviewableRecord,
-  DISAGREEMENT_SEVERITY_CAP, clampSeverity,
+  DISAGREEMENT_SEVERITY_CAP, clampSeverity, CONCERNS,
 } from './schema.mjs';
 
 export const REVIEW_KIND = 'review';
@@ -118,6 +118,85 @@ export function statedIntentPaths(statedIntent = {}) {
 }
 
 /**
+ * The panel's `concern`, and the sentence that goes with it. (rv-7)
+ *
+ * Same discipline as the severity merge, pointed the same way: when the deciding
+ * readings disagree about what KIND of problem this is, the WEAKER reading stands.
+ * `CONCERNS` is ordered from "nothing" to "actively hides what it does", so the
+ * lower index wins a tie — one reading calling something deliberate concealment
+ * while another calls it an undeclared ping is not a panel that established
+ * concealment, and concealment is the one value that accuses a person rather than
+ * describing a program.
+ *
+ * The assessment travels with the concern it belongs to. Taking the winning
+ * concern from one reading and the prose from another would produce a sentence
+ * that argues for a classification the panel rejected.
+ */
+export function pickConcern(deciding) {
+  const tally = new Map();
+  for (const p of deciding) {
+    if (!p?.concern) continue;
+    tally.set(p.concern, (tally.get(p.concern) ?? 0) + 1);
+  }
+  if (!tally.size) return null;
+  const rank = (c) => {
+    const i = CONCERNS.indexOf(c);
+    return i === -1 ? CONCERNS.length : i;
+  };
+  return [...tally.entries()].sort((a, b) => b[1] - a[1] || rank(a[0]) - rank(b[0]))[0][0];
+}
+
+export function pickAssessment(deciding, concern) {
+  /**
+   * ONLY from a reading that reached the winning concern.
+   *
+   * The fallback used to be "any reading that produced an assessment", which is
+   * exactly what the note above forbids, and it fires on a real shape: `concern`
+   * and `assessment` are independently optional, so one reading can carry
+   * `deliberate-concealment` plus its prose while the other carries
+   * `undeclared-behaviour` and no prose. The tie-break then correctly rounds the
+   * concern DOWN to the weaker value — and the old fallback published the
+   * concealment sentence underneath it. Reproduced:
+   *
+   *   concern    = undeclared-behaviour
+   *   assessment = "It base64-encodes the exfiltration URL so a reader will not spot it."
+   *
+   * `summarySentence` puts that line at the top of `/r/<fp>`. Better to say nothing
+   * than to say the thing the panel declined to conclude.
+   */
+  return deciding.find((p) => p?.concern === concern && p?.assessment)?.assessment ?? null;
+}
+
+/**
+ * The one concern value a SINGLE reading may not publish on its own.
+ *
+ * `deliberate-concealment` is the only value that asserts a purpose rather than
+ * describing a mechanism — the schema says so, and says why: a wrong one is an
+ * accusation about a person rather than about a program.
+ *
+ * The severity merge already learned this lesson the expensive way. When one
+ * reading of two is usable, its severity is capped at
+ * `DISAGREEMENT_SEVERITY_CAP` — the panel does not trust a lone number. It made no
+ * sense to distrust the number and publish the word uncapped from the same
+ * reading, and `pickConcern`'s weaker-wins tie-break cannot help here because a
+ * tie needs two votes and there is one.
+ *
+ * Degraded to `null` — "not stated" — rather than to a weaker label, because
+ * inventing a different classification for the model would be a second guess on
+ * top of the first. The findings and the severity still carry the evidence.
+ */
+const UNSUPPORTED_BY_ONE_READING = 'deliberate-concealment';
+
+/** Both at once, for the branches below. `unreviewable` establishes nothing. */
+function explain(deciding, verdict) {
+  if (verdict === 'clean') return { concern: 'none', assessment: pickAssessment(deciding, 'none') };
+  if (verdict === 'unreviewable') return { concern: null, assessment: null };
+  let concern = pickConcern(deciding);
+  if (deciding.length < 2 && concern === UNSUPPORTED_BY_ONE_READING) concern = null;
+  return { concern, assessment: pickAssessment(deciding, concern) };
+}
+
+/**
  * Merge the model runs.
  *
  * Rules from tech-spec §6.3 — "Agreement → verdict stands. Disagreement →
@@ -161,7 +240,8 @@ export function mergeRuns(runs) {
   const parsed = valid.map((r) => r.parsed);
 
   if (parsed.length === 0) {
-    return { verdict: 'unreviewable', reason: null, severity: 0, findings: [], statedIntentSummary: '', agreementRuns: 0, agreed: false };
+    // Not `no-agreement`: nothing was read, so there was nothing to agree about.
+    return { verdict: 'unreviewable', reason: 'no-reading', severity: 0, concern: null, assessment: null, findings: [], statedIntentSummary: '', agreementRuns: 0, agreed: false };
   }
 
   // Findings first — they are the same computation in every branch.
@@ -180,7 +260,7 @@ export function mergeRuns(runs) {
     const findings = [...counted.values()].map((f) => ({ ...f, severity: Math.min(f.severity, DISAGREEMENT_SEVERITY_CAP) }));
     if (only.verdict === 'clean') {
       return {
-        verdict: 'unreviewable', reason: null, severity: 0, findings,
+        verdict: 'unreviewable', reason: null, severity: 0, concern: null, assessment: null, findings,
         statedIntentSummary: only.statedIntentSummary, agreementRuns: 1, agreed: false,
         note: 'one run of two produced a usable answer; a single run cannot deliver a clean verdict',
       };
@@ -188,6 +268,7 @@ export function mergeRuns(runs) {
     return {
       verdict: only.verdict, reason: only.reason,
       severity: Math.min(only.severity, DISAGREEMENT_SEVERITY_CAP),
+      ...explain([only], only.verdict),
       findings, statedIntentSummary: only.statedIntentSummary, agreementRuns: 1, agreed: false,
       note: 'one run of two produced a usable answer; severity capped',
     };
@@ -215,6 +296,7 @@ export function mergeRuns(runs) {
       verdict: topVerdict,
       reason: reasons.size === 1 ? [...reasons][0] : null,
       severity: Math.min(...severities),
+      ...explain(majority, topVerdict),
       findings,
       statedIntentSummary: summary,
       agreementRuns: parsed.length,
@@ -239,6 +321,7 @@ export function mergeRuns(runs) {
       verdict: topVerdict,
       reason: null,
       severity: Math.min(...severities),
+      ...explain(majority, topVerdict),
       findings: setAside ? [] : findings,
       statedIntentSummary: summary,
       agreementRuns: topCount,
@@ -258,6 +341,8 @@ export function mergeRuns(runs) {
     verdict: 'unreviewable',
     reason: 'no-agreement',
     severity: 0,
+    concern: null,
+    assessment: null,
     findings,
     statedIntentSummary: summary,
     agreementRuns: 1,
@@ -457,6 +542,12 @@ export async function reviewServer(input, options = {}) {
       reason: merged.reason ?? null,
       severity,
       findings,
+      // rv-7. Carried onto the RECORD, not just merged: the record is what the
+      // blob and the head are built from, and a field that stops at the merge is a
+      // field no reader ever sees. `concern` is the one-word answer to "what kind
+      // of problem is this"; `assessment` is the sentence a developer acts on.
+      concern: merged.concern ?? null,
+      assessment: merged.assessment ?? null,
       statedIntentSummary: merged.statedIntentSummary,
       capabilities: scan.capabilities,
       modelId: config.modelId,

@@ -67,7 +67,11 @@ test('the prompt version is stamped and is not rv-1', () => {
   // published verdict records the version it was produced under, so a prompt edit
   // that kept the old number would silently mix two reviewers' answers under one
   // label. Bump it here and recalibrate — never just here.
-  assert.equal(PROMPT_VERSION, 'rv-6');
+  // rv-7 added `concern` and `assessment` — the KIND of problem and a sentence a
+  // developer can act on. Additive: no rv-6 instruction was removed or reworded,
+  // and a response that omits both still validates. Recalibrated against the
+  // fixture set on the DGX before this line moved; see FRICTION-LOG.
+  assert.equal(PROMPT_VERSION, 'rv-7');
   const built = buildPrompt({ variant: 'a', statedIntent: { name: 'x', tools: [] }, files: [] });
   assert.equal(built.promptVersion, PROMPT_VERSION);
 });

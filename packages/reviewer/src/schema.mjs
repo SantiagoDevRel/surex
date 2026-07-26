@@ -21,12 +21,74 @@ export const VERDICTS = Object.freeze(['clean', 'flagged', 'unreviewable']);
  * different admission**: the code was read, more than once, and the readings did
  * not converge — so there is a review, and it has no verdict. A model may not
  * return it (nothing in the prompt offers it); only the merge produces it.
+ *
+ * **`no-reading` is a third thing again, and it exists because the second one was
+ * being used to describe it.** When both readings fail — the reviewer endpoint is
+ * unreachable, a request times out, nothing parses — the merge produced no reason,
+ * and the publisher filled the blank with `no-agreement`. The registry then told
+ * the world "the readings disagreed and no majority formed" about a run in which
+ * NOTHING WAS READ. That is a fabricated account of what happened, on a public
+ * page, under a rule that says never fabricate. The DGX reviewer sits behind a home
+ * tunnel; this is an ordinary failure, not an exotic one.
  */
-export const REASONS = Object.freeze(['licence', 'source-unavailable', 'remote-endpoint', 'no-agreement', 'withheld', 'partial-source']);
+export const REASONS = Object.freeze([
+  'licence', 'source-unavailable', 'remote-endpoint',
+  'no-agreement', 'no-reading', 'withheld', 'partial-source',
+]);
 
 export const CAPABILITY_KEYS = Object.freeze([
   'network', 'filesystem', 'exec', 'env', 'credentials',
 ]);
+
+/**
+ * The KIND of problem a review found, as a closed set. (rv-7)
+ *
+ * This exists because "what did the review actually say" had no answer a screen
+ * could use. A verdict carried `severity: 3`, a category string the model invented
+ * on the spot, and a paragraph of prose — so a reader had to work out for
+ * themselves whether they were looking at a package that quietly posts their files
+ * somewhere or one that simply never implements half the tools it advertises.
+ * Those are completely different decisions, and the registry was making the reader
+ * do the classification.
+ *
+ * Deliberately NOT a severity scale and NOT a security taxonomy. It answers one
+ * question — what sort of gap is there between what this server says and what it
+ * does — and the order runs from "nothing", through "does less than it claims",
+ * to "actively hides what it does".
+ *
+ * `deliberate-concealment` is the only value that asserts intent, and both the
+ * prompt and this comment exist to make it the last resort. Everything else here
+ * describes a program; that one describes a person's purpose, on the strength of a
+ * reading no human audited. When the code does not settle it, the weaker value is
+ * the honest one.
+ */
+export const CONCERNS = Object.freeze([
+  // Nothing to report. The only value a `clean` verdict may carry.
+  'none',
+  // It does not deliver what it advertises — declared tools that are not
+  // implemented, a schema the handler ignores, a parameter nothing reads. An
+  // honesty and correctness problem, not necessarily a safety one.
+  'does-not-do-what-it-claims',
+  // It does MORE than its description accounts for, and the extra reads as
+  // incidental: a usage ping, a version check, a file written outside its own
+  // directory.
+  'undeclared-behaviour',
+  // A tool description, prompt template, resource or input schema aimed at
+  // steering the CALLING model — arguments the code never uses, invitations to
+  // pass along file contents or keys, anything said about another server's tools.
+  'misleading-description',
+  // The user's files, environment, credentials or conversation reach a destination
+  // the description never names.
+  'data-leaves-the-machine',
+  // Code that was never reviewed gets executed: fetched at runtime, built from a
+  // network response, or run from an install or postinstall step.
+  'runs-code-it-fetched',
+  // The code works to be hard to review, or to hide what it did.
+  'deliberate-concealment',
+]);
+
+/** An assessment is one or two sentences. This bounds what reaches an entity payload. */
+export const MAX_ASSESSMENT_CHARS = 400;
 
 export const MAX_SEVERITY = 4;
 
@@ -175,8 +237,27 @@ export function validateModelOutput(raw) {
     errors.push(`severity must be an integer 0-${MAX_SEVERITY} (got ${JSON.stringify(raw.severity)})`);
   }
 
-  const summary = asString(raw.statedIntentSummary);
-  if (summary === null) errors.push('statedIntentSummary must be a string');
+  /**
+   * A missing `statedIntentSummary` is an ABSENT SENTENCE, not a failed review.
+   *
+   * It used to be an error, and rv-7 turned that into a measured regression. The
+   * new `assessment` field asks for prose too, and the model — reasonably —
+   * collapsed the two and answered only one of them. Result on the DGX,
+   * 2026-07-26: five honest fixtures came back with `agreementRuns: 0`, because
+   * BOTH readings had been thrown away. Their content was
+   * `verdict: clean, severity: 0, concern: none, findings: []` with a paragraph of
+   * accurate description. Two correct readings, discarded over a missing summary,
+   * and the fixture published as `unreviewable`.
+   *
+   * The strict rule is right about the VERDICT — a malformed verdict is never
+   * `clean` — and wrong about everything decorating it. This is prose. It becomes
+   * `''`, which is what `unreviewableRecord` has always defaulted it to, and the
+   * downstream validator accepts.
+   *
+   * The prompt was fixed as well, so this path should be rare; both halves,
+   * because a prompt is a request and a request is not a guarantee.
+   */
+  const summary = asString(raw.statedIntentSummary) ?? '';
 
   const findings = [];
   if (!Array.isArray(raw.findings)) {
@@ -218,10 +299,42 @@ export function validateModelOutput(raw) {
     errors.push('flagged verdict with no findings — a flag with no evidence is not actionable');
   }
 
+  /**
+   * `concern` and `assessment` are validated TOLERANTLY, and that is a decision
+   * rather than laziness.
+   *
+   * A malformed response is a failed review — that rule is the whole point of this
+   * file, and it protects the VERDICT. These two fields are not the verdict: they
+   * describe a finding the rest of the response has already established with a file
+   * and a line. Failing a whole reading because a model wrote `"concern":
+   * "suspicious"` instead of a value from the list would turn a good review into
+   * `unreviewable`, and doing that to one reading of two collapses the panel to a
+   * single run whose severity is then capped. A worse verdict, for a label.
+   *
+   * So an unrecognised concern becomes `null` — "not stated" — never a guess and
+   * never an error. The consumer treats absence as absence.
+   */
+  let concern = null;
+  const rawConcern = asString(raw.concern);
+  if (rawConcern && CONCERNS.includes(rawConcern)) concern = rawConcern;
+
+  let assessment = null;
+  const rawAssessment = asString(raw.assessment);
+  if (rawAssessment && rawAssessment.trim()) {
+    assessment = rawAssessment.trim().slice(0, MAX_ASSESSMENT_CHARS);
+  }
+
+  // A clean verdict states no concern. This is a coercion and not an error for the
+  // same reason as above: `severity > 0` and a non-zero finding already fail a
+  // contradictory clean response above, so the verdict itself is protected. What is
+  // left here is a label disagreeing with a verdict that has already been checked,
+  // and the verdict is the one that means something.
+  if (verdict === 'clean') concern = 'none';
+
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    value: { verdict, reason, severity, findings, statedIntentSummary: summary },
+    value: { verdict, reason, severity, concern, assessment, findings, statedIntentSummary: summary },
   };
 }
 

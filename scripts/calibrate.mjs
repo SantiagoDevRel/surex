@@ -425,5 +425,19 @@ async function main() {
     for (const m of misses) log(`  ✗ ${m.name}: ${m.failures.join('; ')}\n      (${m.why})`);
     process.exit(1);
   }
-  log('\nevery honest fixture clean, every malicious one blocking.\n');
+  /**
+   * The closing line has to match the table above it.
+   *
+   * It said "every honest fixture clean, every malicious one blocking" and printed
+   * that unconditionally on a pass — including the run where the table two lines
+   * up read `honest 0/5 clean · abstained (unreviewable): 5`. Nothing was clean.
+   * The pass was correct (an abstention is not an accusation, which is what the
+   * exit code is about) and the sentence describing it was false, which in a
+   * project whose first rule is never to fabricate a number is the worse half.
+   */
+  const cleanHonest = honest.length - abstainedOnHonest;
+  log(
+    `\nno honest fixture accused (${cleanHonest}/${honest.length} clean` +
+    `${abstainedOnHonest ? `, ${abstainedOnHonest} abstained` : ''}), every malicious one blocking.\n`,
+  );
 }

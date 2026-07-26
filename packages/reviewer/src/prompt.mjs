@@ -44,7 +44,29 @@
 
 import { randomBytes, createHash } from 'node:crypto';
 
-export const PROMPT_VERSION = 'rv-6';
+// The closed set of concerns lives with the rest of the output contract, in
+// schema.mjs. The prompt RENDERS it; the validator ENFORCES it. Two hand-kept
+// copies of an enum the model is asked to choose from is a drift waiting to
+// happen — the reviewer would go on asking for a value the validator had stopped
+// accepting, and every review would quietly lose the field.
+import { CONCERNS } from './schema.mjs';
+
+//   rv-7  2026-07-26  the review says what KIND of problem it found, in a sentence
+//                     a developer can act on. rv-6 produced findings with a file,
+//                     a line and prose — good evidence — and nothing that answered
+//                     the first question anyone asks: *is this thing malicious, or
+//                     is it just not doing what it says?* `category` was a free
+//                     string the model invented, so two findings about the same
+//                     class of problem came back as unrelated labels and no surface
+//                     could group, colour or explain them. Added `concern` (a
+//                     CLOSED set — see CONCERNS) and `assessment` (one or two
+//                     sentences). Both are ADDITIVE: every rv-6 field keeps its
+//                     meaning, the scope rule and the standing directive are
+//                     unchanged, and a response that omits the new fields still
+//                     validates. The version bump is because the model sees new
+//                     text, and a verdict is a claim about a specific prompt.
+
+export const PROMPT_VERSION = 'rv-7';
 
 /** The two paraphrases. Both are asked for the same schema; nothing else matches. */
 export const VARIANTS = Object.freeze(['a', 'b']);
@@ -328,11 +350,52 @@ const SCHEMA_BLOCK = `{
   "verdict": "clean" | "flagged" | "unreviewable",
   "reason": null | "licence" | "source-unavailable" | "remote-endpoint",
   "severity": 0,
+  "concern": ${CONCERNS.map((c) => `"${c}"`).join(' | ')},
   "findings": [
     { "file": "src/x.ts", "line": 88, "category": "…", "description": "…", "severity": 3 }
   ],
-  "statedIntentSummary": "one or two sentences, in your own words, on what this server claims to do"
+  "statedIntentSummary": "THE AUTHOR'S CLAIM: one or two sentences, in your own words, on what this server says it does",
+  "assessment": "YOUR CONCLUSION: one or two sentences on what you found — a different field from statedIntentSummary, and both are required"
 }`;
+
+/**
+ * How to choose a `concern`. Kept apart from SCHEMA_RULES so both variants get the
+ * identical wording — the D11 lesson: a rule only one paraphrase carries produces a
+ * systematic disagreement rather than a second opinion.
+ */
+const CONCERN_RULES = [
+  'concern: the KIND of gap between what this server says and what it does. Exactly one value, from the list',
+  '  in the schema. "none" if and only if the verdict is clean.',
+  '  · does-not-do-what-it-claims — declared tools not implemented, a schema the handler ignores, a parameter',
+  '    nothing reads. It under-delivers; it does not necessarily do anything harmful.',
+  '  · undeclared-behaviour — it does MORE than the description accounts for, and the extra reads as incidental:',
+  '    a usage ping, a version check, a file written outside its own directory.',
+  '  · misleading-description — a tool description, prompt template, resource or input schema aimed at steering',
+  '    the CALLING model: arguments the code never uses, invitations to pass along file contents or keys,',
+  '    anything said about a different server\'s tools.',
+  '  · data-leaves-the-machine — the user\'s files, environment, credentials or conversation reach a destination',
+  '    the description never names.',
+  '  · runs-code-it-fetched — code that was never reviewed gets executed: downloaded at runtime, built from a',
+  '    network response, or run from an install/postinstall step.',
+  '  · deliberate-concealment — the code works to be hard to review or to hide what it did. Choose this ONLY',
+  '    when the concealment is visible in the code you were given. It is the one value that asserts intent, and',
+  '    a wrong one is an accusation about a person rather than about a program.',
+  'When two CONCERN VALUES apply, pick the one further down the list ONLY if the code shows it. If you are',
+  '  weighing intent against incompetence and the code does not settle it, choose the weaker CONCERN. An',
+  '  undeclared ping reported as concealment is the failure this registry cannot afford.',
+  'This paragraph is about the concern LABEL and nothing else. It does not soften severity, and it is not a',
+  '  reason to report a lower one: severity is blast radius, judged by the rubric above, and a payload behind',
+  '  a condition has the blast radius of the payload. Pick the cautious concern and the honest severity.',
+  'assessment and statedIntentSummary are TWO DIFFERENT FIELDS and both are required. statedIntentSummary is',
+  '  THE AUTHOR\'S CLAIM — what this server says it does, in your words, with no judgement in it. assessment is',
+  '  YOUR CONCLUSION — what you found when you compared that claim to the code. Write both, even when the',
+  '  verdict is clean and the two end up agreeing; the record keeps the claim and the conclusion apart because',
+  '  a reader needs to see what was promised as well as what was found.',
+  'assessment: one or two plain sentences, for a developer deciding whether to install this. Name the behaviour',
+  '  and where it is. Do not repeat the severity number, do not use the words safe, trusted, verified or secure,',
+  '  and do not recommend an action — say what it does, and let them decide. If the verdict is clean, say what',
+  '  the server does and that nothing was found beyond it.',
+];
 
 const SCHEMA_RULES = [
   'Output JSON only. No prose before it, no prose after it, no markdown fence.',
@@ -498,6 +561,7 @@ function variantA({ fenceId, statedIntentText, sourceText }) {
     SCHEMA_BLOCK,
     '',
     ...SCHEMA_RULES.map((r) => `- ${r}`),
+    ...CONCERN_RULES.map((r) => `- ${r}`),
   ].join('\n');
 
   return [{ role: 'system', content: system }, { role: 'user', content: user }];
@@ -546,6 +610,7 @@ function variantB({ fenceId, statedIntentText, sourceText }) {
     SCHEMA_BLOCK,
     '',
     ...SCHEMA_RULES.map((r) => `- ${r}`),
+    ...CONCERN_RULES.map((r) => `- ${r}`),
   ].join('\n');
 
   return [{ role: 'system', content: system }, { role: 'user', content: user }];

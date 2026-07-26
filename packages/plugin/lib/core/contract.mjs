@@ -74,6 +74,17 @@ export const ROUTES = Object.freeze({
  * @property {string=} integrity       npm dist.integrity recorded at review time (Tier A)
  * @property {Object=} capabilities    deterministic scan, not model output
  * @property {Object=} topFinding      {file,line,description,severity,category}
+ * @property {string=} concern         the KIND of gap between what the server says and
+ *                                     what it does — one of reviewer CONCERNS (rv-7).
+ *                                     ADDITIVE: absent on every head written before
+ *                                     2026-07-26, and absence means "not stated",
+ *                                     never "nothing found".
+ * @property {string=} assessment      one or two sentences a developer can act on,
+ *                                     from the reading that decided the verdict
+ * @property {number=} findingCount    how many findings the published verdict rests on.
+ *                                     `topFinding` is the first of these, not the only
+ *                                     one — a page that showed "finding 1 of 1" off a
+ *                                     five-finding review was understating it.
  * @property {string=} disputeSummary
  * @property {Object=} evidence        {blobId, suiObjectId, registerTx, certifyTx, encodingType}
  * @property {string=} arkivEntityKey
@@ -85,7 +96,8 @@ export const ROUTES = Object.freeze({
 export const VERDICT_HEAD_FIELDS = Object.freeze([
   'fingerprint', 'state', 'severity', 'tier', 'reason', 'name', 'enforceAfter',
   'reviewedCommit', 'reviewedAt', 'modelId', 'promptVersion', 'integrity',
-  'capabilities', 'topFinding', 'disputeSummary', 'evidence', 'arkivEntityKey',
+  'capabilities', 'topFinding', 'concern', 'assessment', 'findingCount',
+  'disputeSummary', 'evidence', 'arkivEntityKey',
   'updatedAt', 'illustrative',
 ]);
 

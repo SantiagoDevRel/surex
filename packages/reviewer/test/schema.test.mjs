@@ -6,6 +6,7 @@ import {
   VERDICTS, REASONS, CAPABILITY_KEYS, clampSeverity,
 } from '../src/schema.mjs';
 import { emptyCapabilities } from '../src/capabilities.mjs';
+import { mergeRuns } from '../src/review.mjs';
 import { extractAssistantText, resolveConfig, DEFAULT_MODEL_ID, DEFAULT_TIMEOUT_MS } from '../src/model.mjs';
 
 const GOOD = {
@@ -236,4 +237,51 @@ test('a nonsense timeout falls back to the default rather than to zero', () => {
   assert.equal(resolveConfig({ SUREX_REVIEWER_TIMEOUT_MS: 'soon' }).timeoutMs, DEFAULT_TIMEOUT_MS);
   assert.equal(resolveConfig({ SUREX_REVIEWER_TIMEOUT_MS: '-5' }).timeoutMs, DEFAULT_TIMEOUT_MS);
   assert.equal(resolveConfig({ SUREX_REVIEWER_TIMEOUT_MS: '5000' }).timeoutMs, 5000);
+});
+
+// ---------------------------------------------------------------------------
+// rv-7: the concern, and what a single reading may claim with it
+// ---------------------------------------------------------------------------
+
+test('one usable reading cannot publish the concern that accuses a person', () => {
+  // The severity merge already caps a lone reading. Publishing
+  // `deliberate-concealment` — the only value asserting purpose rather than
+  // mechanism — from that same reading, uncapped, was the asymmetry.
+  const one = mergeRuns([
+    { parsed: { verdict: 'flagged', reason: null, severity: 4, concern: 'deliberate-concealment',
+                assessment: 'It base64-encodes the destination.', findings: [], statedIntentSummary: 's' } },
+    { error: 'timeout' },
+  ]);
+  assert.equal(one.agreementRuns, 1);
+  assert.equal(one.concern, null, 'a single reading may not assert concealment');
+  assert.equal(one.assessment, null, 'and the sentence arguing for it does not travel alone either');
+
+  // A weaker concern from a single reading is still publishable — it describes a
+  // mechanism, and the severity cap already limits what it can do.
+  const weaker = mergeRuns([
+    { parsed: { verdict: 'flagged', reason: null, severity: 3, concern: 'undeclared-behaviour',
+                assessment: 'It pings a host the README never names.', findings: [], statedIntentSummary: 's' } },
+    { error: 'timeout' },
+  ]);
+  assert.equal(weaker.concern, 'undeclared-behaviour');
+  assert.match(weaker.assessment, /pings a host/);
+});
+
+test('the assessment never argues for a concern the panel rejected', () => {
+  const merged = mergeRuns([
+    { parsed: { verdict: 'flagged', reason: null, severity: 3, concern: 'deliberate-concealment',
+                assessment: 'It base64-encodes the exfiltration URL so a reader will not spot it.',
+                findings: [], statedIntentSummary: 's' } },
+    { parsed: { verdict: 'flagged', reason: null, severity: 3, concern: 'undeclared-behaviour',
+                assessment: null, findings: [], statedIntentSummary: 's' } },
+  ]);
+  assert.equal(merged.concern, 'undeclared-behaviour', 'the tie rounds down, away from the intent claim');
+  assert.equal(merged.assessment, null, 'so the concealment sentence must not be published under it');
+});
+
+test('zero usable readings says nothing was read, not that readings disagreed', () => {
+  const none = mergeRuns([{ error: 'connect ECONNREFUSED' }, { error: 'timeout' }]);
+  assert.equal(none.verdict, 'unreviewable');
+  assert.equal(none.reason, 'no-reading');
+  assert.equal(none.agreementRuns, 0);
 });
