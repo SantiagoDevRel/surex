@@ -23,7 +23,7 @@
 // Either way the record says which one it was. A verdict that does not say which
 // bytes it read is a verdict about nothing.
 
-import { writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { writeFileSync, mkdirSync, mkdtempSync, existsSync, rmSync, readFileSync, readdirSync, statSync, accessSync, constants as fsConstants } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -133,11 +133,45 @@ const fail = (error, extra = {}) => done({ ok: false, error, ...extra }, 1);
 
 const safe = (s) => String(s).replace(/[^a-z0-9._-]+/gi, '_');
 
+/**
+ * A directory we can definitely write, for one repo at one commit.
+ *
+ * The obvious version — `rmSync(dir, { force: true })` then `mkdirSync` — looks
+ * safe and is not. `force: true` suppresses "does not exist"; it does NOT
+ * suppress EACCES. So a leftover directory this process cannot delete takes the
+ * whole run down, and the failure surfaces to a submitter as
+ * "could not fetch <their repo>", which reads as a problem with their code.
+ *
+ * That is not hypothetical: a maintainer's submission died on
+ * `EACCES /tmp/surex-ingest/SantiagoDevRel__mcp-medellin-news__b043470733f0`
+ * because an operator had run the same pipeline by hand under sudo hours
+ * earlier, leaving a root-owned directory at the path the service needed. The
+ * deterministic name is what made it collide, and the name is worth keeping —
+ * it makes a half-finished checkout obvious to whoever looks.
+ *
+ * So: try the canonical path, prove it is writable, and on ANY failure fall back
+ * to a unique one rather than refusing to work. A stale directory is somebody
+ * else's mess; it is not a reason to reject a submission.
+ */
+function freshDir(name) {
+  const canonical = join(WORK, name);
+  try {
+    rmSync(canonical, { recursive: true, force: true });
+    mkdirSync(canonical, { recursive: true });
+    // `mkdirSync` on an existing directory we cannot write succeeds silently,
+    // so writability is checked rather than assumed.
+    accessSync(canonical, fsConstants.W_OK);
+    return canonical;
+  } catch (err) {
+    const dir = mkdtempSync(join(WORK, `${name}__`));
+    log(`  ! ${canonical} unusable (${err.code ?? err.message}) — using ${dir}`);
+    return dir;
+  }
+}
+
 /** The repository at exactly that commit. GitHub serves it as a tarball. */
 function fetchRepoAtCommit(owner, repo, commit) {
-  const dir = join(WORK, `${safe(owner)}__${safe(repo)}__${commit.slice(0, 12)}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+  const dir = freshDir(`${safe(owner)}__${safe(repo)}__${commit.slice(0, 12)}`);
   // Relative filename with cwd set: GNU tar reads a Windows absolute path as a
   // remote host (FRICTION-LOG D8) and fails on every single archive.
   const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/${commit}`;
@@ -172,9 +206,7 @@ async function npmMeta(name, version) {
 
 /** Download the npm tarball and verify it is the one npm published. */
 async function fetchNpmTarball(name, meta) {
-  const dir = join(WORK, `${safe(name)}__${safe(meta.version)}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+  const dir = freshDir(`${safe(name)}__${safe(meta.version)}`);
   const res = await fetch(meta.tarball);
   if (!res.ok) throw new Error(`tarball HTTP ${res.status}`);
   const bytes = Buffer.from(await res.arrayBuffer());
