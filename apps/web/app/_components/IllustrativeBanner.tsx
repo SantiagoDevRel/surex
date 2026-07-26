@@ -2,30 +2,12 @@ import { COPY } from '@/lib/copy.ts';
 import type { DataOrigin } from '@/lib/types.ts';
 
 /**
- * The illustrative banner. HARD RULE — AGENTS.md §2 and §4.
+ * The illustrative banner — HARD RULE, AGENTS.md §2 and §4. Wherever a screen
+ * renders data that is not a real review, it says so on that screen: sticky,
+ * at the top, for as long as the data is fake.
  *
- * Wherever a screen renders data that is not a real review of a real MCP
- * server, it says so on that screen. Not in a tooltip, not in a footnote, not
- * on a different page: here, at the top, sticky, for as long as the data is
- * fake. The deployed static prototype does the same thing and the same rule
- * applies — it never comes off while the numbers are placeholders.
- *
- * It is deliberately sticky rather than the nav: if you can only see one of
- * them while scrolling a page of fake verdicts, it should be this.
- *
- * THE ONE PLACE SUNBEAM YELLOW IS A FILL, and the one surface that does not
- * theme. Everywhere else the brand hues are accents on a Deep Mocha / Dust Grey
- * surface, because the product is a serious one; here the whole job of the
- * element is to be impossible to miss, and a hazard band that went quiet in one
- * of the two themes would be quiet exactly where it must not be. Deep Mocha on
- * Sunbeam Yellow measures 8.46:1, which is better than the band it replaced
- * managed in either theme.
- *
- * The halftone is on its own layer behind the words, and ⚠️ 30% IS A MEASURED
- * CEILING: text over a pattern has to clear AA against the pattern's WORST
- * pixel, not its average. At the centre of a dot the band is #C9B513 and the
- * ink still reads 5.05:1; at 40% it drops to 4.14:1 and this becomes an
- * accessibility regression dressed as texture.
+ * ⚠️ 30% opacity on the halftone layer is a measured ceiling, not a taste
+ * call — at 40% the worst-pixel contrast drops to 4.14:1, under AA.
  */
 export function IllustrativeBanner({
   origin,

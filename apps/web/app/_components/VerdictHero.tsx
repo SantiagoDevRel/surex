@@ -40,10 +40,7 @@ export function VerdictHero({ entry }: { entry: Entry }) {
           fingerprint {shortFingerprint(head.fingerprint)}
         </p>
 
-        {/* Prefer what the review actually SAID. rv-7 puts the reviewer's own
-            assessment on the head, and that is a fact about this server — the one
-            a reader came for. The state sentence is the fallback, and it is a fact
-            about the registry rather than about the code, so it goes second. */}
+        {/* The reviewer's own assessment leads; the state sentence is the fallback. */}
         <Panel className="mt-3.5 px-4 py-3.5">
           <SectionLabel>{COPY.verdict.summaryLabel}</SectionLabel>
           {concern ? (

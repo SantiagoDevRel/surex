@@ -7,14 +7,9 @@ import type { Capabilities, CapabilityKey, RowStatus } from '@/lib/types.ts';
 
 import { Panel, PanelHeader, SectionLabel } from './Panel.tsx';
 
-/**
- * PRD §6 — shown on every verdict, clean or flagged.
- *
- * Intent-matching only checks whether code and description agree, and a server
- * that says "runs a command as requested" agrees with itself perfectly. So the
- * verdict also carries what the code can actually reach, from a static scan
- * that never asks the server what it does. Often the more useful half.
- */
+// Shown on every verdict. Intent-matching only checks whether code and
+// description agree, so this panel carries what the code can actually reach,
+// from a static scan — often the more useful half.
 
 const ORDER: CapabilityKey[] = ['network', 'filesystem', 'exec', 'env', 'credentials'];
 
@@ -34,8 +29,6 @@ export function CapabilitySurface({
   state: RowStatus;
 }) {
   const s = stateStyle(state);
-  // The prose form comes from core, so this panel and a terminal block cannot
-  // disagree about what the scan found.
   const line = capabilityLine(capabilities) as string | null;
 
   return (

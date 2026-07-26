@@ -2,12 +2,8 @@ import { cn } from '@/lib/cn.ts';
 import { COPY } from '@/lib/copy.ts';
 import type { DisputeStatus } from '@/lib/types.ts';
 
-/**
- * tech-spec §9 — open → under_review → upheld | overturned.
- *
- * The terminal step keeps whichever label the outcome earned, and the rebuttal
- * stays on the page in both cases. Standing to disagree survives losing.
- */
+// open → under_review → upheld | overturned. The terminal step keeps
+// whichever label the outcome earned; the rebuttal stays on the page either way.
 const ORDER: DisputeStatus[] = ['open', 'under_review', 'upheld'];
 
 const LABEL: Record<DisputeStatus, string> = {

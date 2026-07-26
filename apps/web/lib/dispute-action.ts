@@ -7,16 +7,10 @@ import { COPY } from './copy.ts';
 import { WORLD_ACTIONS } from './world.ts';
 
 /**
- * `POST /v1/disputes` as a person — the human half of the standing gate.
- *
- * The World ID proof is checked by the registry, server-side, before the rebuttal is
- * taken; this action forwards the IDKit result unmodified and renders whatever comes
- * back. There is no local success state: a rebuttal is accepted when the registry
- * says so and not before.
- *
- * The agent half never comes through here. An agent signs its own request with the
- * wallet a human registered in AgentBook, which a browser cannot do on its behalf —
- * `scripts/agent-dispute.mjs` is that client.
+ * `POST /v1/disputes` as a person — the human half of the standing gate. Forwards
+ * the World ID proof unmodified; the registry checks it server-side, so there is
+ * no local success state. The agent half goes through `scripts/agent-dispute.mjs`
+ * instead, signed with the wallet a human registered in AgentBook.
  */
 
 export type DisputeOutcome =

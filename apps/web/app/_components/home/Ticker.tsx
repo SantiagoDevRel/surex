@@ -3,17 +3,9 @@ import { COPY } from '@/lib/copy.ts';
 import type { TickerItem } from '@/lib/home-data.ts';
 import type { RowStatus } from '@/lib/types.ts';
 
-/**
- * The homepage ticker — design/website-kit screen 08: "the registry, live, as
- * atmosphere." State owns hue here exactly as it does everywhere else in the
- * v2 system; everything after the state word is muted ink-3, which is why
- * `TickerItem` keeps `state` as its own field instead of a pre-joined string.
- *
- * `running` has no entry: the design system is explicit that motion carries
- * that state, not colour, so an in-flight review reads in the same muted ink
- * as the rest of the line. Literal class strings, not template interpolation
- * — Tailwind only generates what it can see in the source.
- */
+// `running` has no entry — motion carries that state, not colour. Literal
+// class strings, not template interpolation — Tailwind only generates what
+// it can see in the source.
 const STATE_HUE: Partial<Record<RowStatus, string>> = {
   clean: 'text-[var(--v2-clean)]',
   flagged: 'text-[var(--v2-flagged)]',
@@ -23,12 +15,8 @@ const STATE_HUE: Partial<Record<RowStatus, string>> = {
   unreviewable: 'text-[var(--v2-unreviewable-ink)]',
 };
 
-/**
- * One ticker line. Tier is only printed when the row has one — `'—'` is the
- * contract's way of saying "no tier assigned," and printing "tier —" would
- * read as a typo instead of the absence it is (the same call `CustodyRow`
- * makes for a missing version).
- */
+/** One ticker line. Tier is only printed when the row has one — `'—'` means
+ *  "no tier assigned", and printing "tier —" would read as a typo. */
 function TickerEntry({ item }: { item: TickerItem }) {
   return (
     <span className="whitespace-nowrap">
@@ -47,12 +35,8 @@ function TickerEntry({ item }: { item: TickerItem }) {
   );
 }
 
-/**
- * One full pass of the ticker's content. Rendered twice by `Ticker` so the
- * `translateX(-50%)` loop is seamless; the second copy is `aria-hidden` so a
- * screen reader gets the list once, not twice. `hidden` here means
- * accessibility-hidden, not CSS-hidden — both copies are visible motion.
- */
+/** Rendered twice by `Ticker` so the `translateX(-50%)` loop is seamless; the
+ *  second copy is `aria-hidden` so a screen reader gets the list once. */
 function TickerPass({ items, duplicate }: { items: TickerItem[]; duplicate?: boolean }) {
   return (
     <span
@@ -67,16 +51,11 @@ function TickerPass({ items, duplicate }: { items: TickerItem[]; duplicate?: boo
 }
 
 /**
- * The scrolling strip beneath the hero. Real rows only — the design system
- * calls a ticker of invented entries "the loudest lie on the page" — so an
- * empty registry renders nothing here rather than an empty bordered strip
- * pretending content is coming. The animation itself is `.sx-marquee` from
- * `globals.css` (36s linear, disabled under `prefers-reduced-motion`); this
- * component only supplies the content and the duplication.
- *
- * Dropped below `md` per screen 07 ("DROPPED ON MOBILE: the ticker · the
- * stat band") — `hidden md:block` removes it from layout rather than
- * shrinking it, so there is no reserved space and no hydration mismatch.
+ * The scrolling strip beneath the hero. Real rows only — an empty registry
+ * renders nothing here. The animation is `.sx-marquee` from `globals.css`
+ * (36s linear, disabled under `prefers-reduced-motion`); this component only
+ * supplies the content and duplication. `hidden md:block` removes it from
+ * mobile layout rather than shrinking it.
  */
 export function Ticker({ items }: { items: TickerItem[] }) {
   if (items.length === 0) {

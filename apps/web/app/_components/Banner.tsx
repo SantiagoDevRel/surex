@@ -2,13 +2,8 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/cn.ts';
 
-/**
- * design/tokens.html §09 — awkward-state banners. Full-width, above the
- * content, never modal.
- *
- * A modal would make the reader dismiss the thing that explains what they are
- * looking at. These states are not interruptions; they are part of the record.
- */
+// Never modal — a modal would make the reader dismiss the thing that
+// explains what they're looking at. These states are part of the record.
 
 export type BannerTone = 'stale' | 'neutral' | 'clean' | 'flagged' | 'disputed';
 

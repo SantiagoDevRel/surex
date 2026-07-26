@@ -6,18 +6,11 @@ import type { RepoInspection as Inspection } from '@/lib/github.ts';
 import { Banner } from './Banner.tsx';
 
 /**
- * What we could read about the pasted repository, shown before anything is
- * submitted.
- *
- * Three outcomes, kept apart on the screen because they are not the same claim:
- *
- *   confirmed     an MCP signal was READ, and it is quoted
- *   not an MCP    the manifests were read and contain no signal — a refusal
- *   undetermined  GitHub did not answer — NOT a refusal, and it says so
- *
- * The last one exists because collapsing it into the second would tell a
- * maintainer their MCP server is not an MCP server on the strength of a rate
- * limit. Same rule as the licence gate (FRICTION-LOG D10).
+ * Three outcomes, kept apart because they aren't the same claim: confirmed
+ * (a signal was read), not an MCP (manifests read, no signal — a refusal),
+ * or undetermined (GitHub didn't answer — not a refusal). Collapsing the
+ * last into the second would tell a maintainer their server isn't an MCP
+ * server on the strength of a rate limit.
  */
 export function RepoInspection({ state }: { state: Inspection | 'loading' | null }) {
   if (!state) return null;

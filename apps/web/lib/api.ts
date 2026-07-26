@@ -1,22 +1,14 @@
 /**
- * The registry client.
+ * The registry client. Written against the frozen contract in
+ * `packages/core/src/contract.mjs`, not the API implementation — this must
+ * work whether or not the API lane is up yet.
  *
- * Written against the frozen contract in `packages/core/src/contract.mjs`, not
- * against the API implementation — `ROUTES` builds every path and
- * `parseVerdictHead()` validates every head before anything renders it. The
- * API is a separate lane being built in parallel; this file must work whether
- * or not it is up yet.
- *
- * Three outcomes, kept distinct because they mean different things:
- *
+ * Three outcomes, kept distinct:
  *   reachable + answer   → live data, no banner
- *   reachable + 404      → `unknown`. A real fact: nobody has submitted this
- *                          install configuration. Not an error, not fixtures.
- *   unreachable / 5xx    → local fixtures, and the illustrative banner goes up
- *                          and stays up for as long as the data is fake.
+ *   reachable + 404      → `unknown` (a real fact, not an error or fixtures)
+ *   unreachable / 5xx    → local fixtures, illustrative banner up
  *
- * A malformed head degrades to `unknown`, never to `clean` — same rule the
- * gate follows, for the same reason.
+ * A malformed head degrades to `unknown`, never to `clean` — same rule the gate follows.
  */
 
 import { ROUTES, parseVerdictHead, unknownHead, isFingerprint } from '@surex/core';
@@ -43,11 +35,7 @@ import type {
 /** Lives in `api-base.ts` so the browser can import it without `@surex/core`. */
 export { apiBase } from './api-base.ts';
 
-/**
- * More generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on purpose: that
- * budget exists because the gate sits in front of every tool call. A page
- * render can afford to wait a little longer before giving up on live data.
- */
+/** More generous than `GATE_BUDGET.networkTimeoutMs` (1500ms) — a page render can wait longer than a tool call can. */
 const TIMEOUT_MS = 2500;
 
 type Fetched<T> =
@@ -56,8 +44,7 @@ type Fetched<T> =
       ok: false;
       kind: 'notfound' | 'unreachable';
       detail: string;
-      /** The API marks its own error bodies too. Carried so a 404 from a mock
-          registry can still say the answer is illustrative. */
+      /** Carried so a 404 from a mock registry can still say the answer is illustrative. */
       illustrative?: boolean;
     };
 
@@ -142,24 +129,15 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
 
   const pick = <T>(key: string): T | undefined => body[key] as T | undefined;
 
-  /**
-   * `parseVerdictHead` copies only the frozen contract's fields, so `links` —
-   * which the API attaches beside the pointer — is dropped on the way through.
-   * Re-attached here from the raw body rather than widened into the core
-   * contract, because the gate resolves a decision from annotations alone and
-   * has no use for a URL.
-   */
+  // `parseVerdictHead` copies only the frozen contract's fields, so `links`
+  // (which the API attaches beside the pointer) is dropped on the way through.
+  // Re-attached here rather than widened into the core contract, since the
+  // gate has no use for a URL.
   const rawHead = (body.head ?? body) as Record<string, unknown>;
   const headLinks = rawHead.links as Entry['head']['links'] | undefined;
 
-  /**
-   * The API returns `sources` and `reviews` — PLURAL, newest first, because a
-   * fingerprint accumulates them. This read `body.source` and `body.review`,
-   * which the API has never sent, so both were always undefined: the verdict
-   * page fell back to synthesising a review from the head's own fields and the
-   * source panel had nothing at all. Take the newest of each, and keep the
-   * singular fallback for the shape the fixtures use.
-   */
+  // The API returns `sources` and `reviews` — PLURAL, newest first. Take the
+  // newest of each, with the singular fallback for the shape fixtures use.
   const newest = <T>(key: string): T | undefined => {
     const list = body[key] as T[] | undefined;
     return Array.isArray(list) && list.length ? list[0] : undefined;
@@ -201,8 +179,8 @@ export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
     if (entry) return live(entry, entry.illustrative === true || tainted(res.data));
     return live(null, tainted(res.data));
   }
-  // A mock registry's "no entry" is not a real fact about the registry either,
-  // so the API's own `illustrative` flag on the 404 body still raises the banner.
+  // A mock registry's "no entry" isn't a real fact either — the API's own
+  // `illustrative` flag on the 404 body still raises the banner.
   if (res.kind === 'notfound') return live(null, res.illustrative === true);
 
   const entry = fixtureEntry(fp);
@@ -230,12 +208,7 @@ export async function getDispute(fp: string): Promise<Sourced<Dispute | null>> {
 export interface RegistryView {
   rows: RegistryRow[];
   stats: RegistryStats;
-  /**
-   * True when the live rows are the flagged feed only, rather than the whole
-   * registry — which happens when the API predates `/v1/registry` and this page
-   * had to fall back to `/v1/flagged`. The screen must then say that is what it
-   * is showing rather than implying it is everything.
-   */
+  /** True when live rows are the flagged feed only (API predates `/v1/registry`), not the whole registry. */
   partial: boolean;
 }
 
@@ -278,14 +251,9 @@ function statsFromRows(rows: RegistryRow[], illustrative: boolean): RegistryStat
 }
 
 export async function getRegistry(): Promise<Sourced<RegistryView>> {
-  // `/v1/registry` lists every state and is what a browse page needs. It was
-  // added after this screen surfaced the gap: seeded entries are written
-  // `unknown` and never `clean`, so a flagged-only feed renders an EMPTY
-  // registry as soon as seeding is what populates it.
-  //
-  // `/v1/flagged` remains the fallback so this page still works against an API
-  // deployed before the route existed — in which case it is showing the flagged
-  // feed only, and `partial` makes it say so.
+  // `/v1/registry` lists every state; a flagged-only feed would render an empty
+  // registry as soon as seeding (all `unknown`) is what populates it. `/v1/flagged`
+  // is the fallback for an API deployed before the route existed — `partial` says so.
   let res = await getJson<unknown>(ROUTES.registry({ limit: 200 }));
   let partialLive = false;
   if (!res.ok && res.kind !== 'unreachable') {
@@ -318,11 +286,7 @@ export async function getRegistry(): Promise<Sourced<RegistryView>> {
   return live({ rows, stats, partial: partialLive }, illustrative || stats.illustrative === true);
 }
 
-/**
- * The frozen contract names the routes and the head fields; it does not name the
- * envelope. So read every envelope the other lane could reasonably have picked
- * rather than making them change one.
- */
+/** The frozen contract doesn't name the response envelope, so read every shape the other lane could reasonably have picked. */
 function headList(body: unknown): unknown[] {
   if (Array.isArray(body)) return body;
   if (!body || typeof body !== 'object') return [];
@@ -339,11 +303,9 @@ function bodyFlag(body: unknown): boolean | undefined {
 }
 
 /**
- * `/v1/stats` is a telemetry document, not a counts document — the API lane
- * reports hit rate, lookups by state, and a nested `registry` block. Take the
- * counts where they exist and count the rows where they do not. A number that
- * is not reported is left undefined and simply not rendered; nothing here
- * invents one.
+ * `/v1/stats` is a telemetry document, not a counts document. Take the counts
+ * where they exist and count the rows where they don't; a number not reported
+ * is left undefined, never invented.
  */
 export function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: boolean): RegistryStats {
   const derived = statsFromRows(rows, illustrative);
@@ -359,16 +321,9 @@ export function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: 
   const byState = registry.byState ?? {};
   const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
-  /**
-   * `reviewed` is the SUM of the states only a real review can produce — never
-   * `entries` minus something.
-   *
-   * The subtraction shipped once and published "41 reviewed" on a registry where
-   * exactly ONE server had been reviewed: 40 seeded entries are `unknown` and the
-   * API's byState did not report `unknown`, so the difference silently counted
-   * them as reviewed. Coverage is the one number nobody should inflate, so it is
-   * now built up from what is known rather than derived from what is missing.
-   */
+  // `reviewed` is the SUM of the states only a real review can produce — never
+  // `entries` minus something, which would silently count unreported states
+  // (e.g. seeded `unknown` entries) as reviewed.
   const REVIEWED_STATES = ['clean', 'flagged', 'disputed', 'stale'] as const;
   const reportedReviewed = REVIEWED_STATES.reduce<number | undefined>((sum, key) => {
     const n = num(byState[key]);

@@ -1,19 +1,9 @@
 /**
- * `POST /api/world/rp-signature` — the one thing the browser cannot do for itself.
- *
- * IDKit 4.x requires every proof request to carry an `rp_context`: a signature made
- * with the relying party's signing key, proving the request came from this app.
- * Sign it here, on the server, and never anywhere else — a leaked signing key lets
- * anyone forge proof requests in SureX's name.
- *
- * It also returns the `signal` for the flow, because the signal is what binds a
- * proof to ONE verdict or ONE repository, and the browser must not get to choose it.
- * The registry recomputes the same value from the request body and refuses a proof
- * bound to anything else.
- *
- * What this route never does: return the signing key, log it, or manufacture a
- * signature when the relying party is unconfigured. With nothing configured it
- * answers 503 and says which variables are missing, and the screen shows that.
+ * `POST /api/world/rp-signature` — signs the RP context IDKit 4.x requires,
+ * server-side only, since a leaked signing key lets anyone forge proof
+ * requests in SureX's name. Also returns `signal`, which binds a proof to
+ * one verdict or repository — the browser must not choose it; the registry
+ * recomputes the same value and refuses a proof bound to anything else.
  */
 
 import { NextResponse } from 'next/server';
@@ -70,8 +60,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     signed = signRequest({ signingKeyHex: cfg.config.signingKey, action });
   } catch (err) {
-    // A malformed key is a configuration fault, not the user's problem — and it must
-    // not be reported as a failed verification.
+    // A malformed key is a configuration fault, not a failed verification.
     return NextResponse.json(
       {
         error: 'world_id_misconfigured',
@@ -86,10 +75,8 @@ export async function POST(request: Request): Promise<Response> {
     environment: cfg.config.environment,
     action,
     signal,
-    // WHICH CREDENTIAL THE WIDGET MAY ASK FOR. Server-chosen, like the signal and
-    // for the same reason: a browser that could pick its own bar would pick the
-    // cheapest one, and the screen's statement of what was proven would stop
-    // matching what was actually checked. `lib/world.ts` documents the three.
+    // Server-chosen, like the signal — a browser that could pick its own bar
+    // would pick the cheapest one. `lib/world.ts` documents the three.
     credential: cfg.config.credential,
     rp_context: {
       rp_id: cfg.config.rpId,

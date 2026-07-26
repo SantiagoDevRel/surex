@@ -7,30 +7,16 @@ import { COPY } from './copy.ts';
 import { WORLD_ACTIONS } from './world.ts';
 
 /**
- * `POST /v1/submissions` — the real call, against the frozen contract.
- *
- * The World ID proof now travels with it, and the registry checks it BEFORE it looks
- * at the release. Three distinct answers, kept distinct because they mean different
- * things and collapsing them is how a submit form starts lying:
- *
- *   401  no usable proof — the gate refused, and nothing was read
- *   501  the proof checked out, and the ingest path behind the gate is not built
- *   202  queued (nothing produces this yet, and the form does not pretend otherwise)
- *
- * A submit flow that claimed to have queued a review it did not queue is exactly the
- * kind of thing this project exists to make impossible, so every non-202 answer is
- * rendered as the API sent it.
+ * `POST /v1/submissions`. The World ID proof travels with it; the registry checks
+ * identity before it looks at the release. 401 (no proof), 501 (proof ok, ingest
+ * not built), and 202 (queued) are distinct and each rendered as the API sent it —
+ * never collapsed into a claimed success.
  */
 
 export type SubmitOutcome =
   | { kind: 'idle' }
   | { kind: 'missing' }
-  /**
-   * `submissionId` is what the live loader watches. Optional, and it stays
-   * optional: an API that queues a run without naming it still accepted the
-   * submission, and the form must say so rather than treating a missing id as a
-   * failure. With no id there is nothing to poll and no loader is mounted.
-   */
+  /** `submissionId` is what the live loader watches; optional, since an accepted submission can queue without one. */
   | { kind: 'accepted'; detail?: string; submissionId?: string }
   | { kind: 'notBuilt'; detail?: string; identityChecked: boolean }
   | { kind: 'refused'; code?: string; message?: string; detail?: string; status: number }
@@ -43,41 +29,19 @@ export async function submitRelease(
   const repo = String(form.get('repo') ?? '').trim();
   const release = String(form.get('release') ?? '').trim();
 
-  /**
-   * The commit the release tag resolved to, when the browser could resolve it.
-   *
-   * It travels as its own field rather than being folded into `release` because
-   * the two are different kinds of claim: a tag is a label the maintainer can
-   * repoint or delete, a commit is the bytes. Which of the two a submission
-   * carries is what bounds the tier a verdict about it can ever reach — so it is
-   * validated as a SHA here and dropped if it is anything else, rather than
-   * forwarded as an unchecked string that would end up recorded as provenance.
-   */
+  // The commit the release tag resolved to. Kept as its own field rather than
+  // folded into `release` — a tag can be repointed, a commit can't — and
+  // validated as a SHA so junk can't be forwarded as provenance.
   const commitRaw = String(form.get('commit') ?? '').trim();
   const commit = /^[0-9a-f]{40}$/i.test(commitRaw) ? commitRaw.toLowerCase() : null;
 
-  /**
-   * A COMMIT alone is a complete submission. A tag alone is too. Neither is not.
-   *
-   * This used to require a non-empty `release`, which rejected exactly the repos
-   * that need submitting most: a project that has never cut a release resolves to
-   * its default branch head, and that entry carries a real 40-hex commit and an
-   * EMPTY tag by design (`listReleases`, source `default-branch`). So pasting a
-   * perfectly good repository answered "a repository and a release tag are both
-   * needed" — asking a maintainer to invent a version string the repository does
-   * not have, to describe bytes we had already resolved.
-   *
-   * Requiring the tag also had it backwards. The commit is the stronger of the
-   * two claims: it names bytes that cannot change, where a tag can be repointed
-   * or deleted. Refusing a submission that carries the strong identifier because
-   * it lacks the weak one is the wrong way round.
-   */
+  // A commit alone is a complete submission; a tag alone is too. A project with
+  // no release resolves to its default-branch head, which has a commit and an
+  // empty tag by design (`listReleases`, source `default-branch`).
   if (!repo || (!release && !commit)) return { kind: 'missing' };
 
-  // The IDKit result, forwarded BYTE-FOR-BYTE. Reshaping the payload is the
-  // documented cause of spurious invalid_proof, and nothing is invented when it is
-  // absent: with no proof the request goes out without one and is refused, which is
-  // the honest outcome.
+  // The IDKit result, forwarded byte-for-byte — reshaping it is a documented
+  // cause of spurious invalid_proof.
   const raw = String(form.get('proof') ?? '').trim();
   let proof: unknown = null;
   if (raw) {

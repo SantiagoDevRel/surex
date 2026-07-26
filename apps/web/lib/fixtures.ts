@@ -1,21 +1,11 @@
 /**
- * Local fallback data.
- *
- * Two jobs. First, the site has to run before the API does — "mock both sides
- * so nothing waits on anything" (AGENTS.md §8.3). Second, it has to be
- * impossible to mistake this for a real review: every record here carries
- * `illustrative: true`, every screen that renders one shows the banner, and
- * the banner does not come off while the data is fake (AGENTS.md §2, §4).
- *
- * Nothing in this file is a real review of a real MCP server. The names are
- * the ones from `design/prototype.html` and the findings are written to
- * exercise each state, not to describe anybody's code. The one exception in
- * the product — the deliberately malicious fixture server we author
- * ourselves — is the only thing ever publicly flagged for real (AGENTS.md §4).
+ * Local fallback data, so the site runs before the API does (AGENTS.md §8.3).
+ * Every record carries `illustrative: true`, and no screen drops the banner
+ * while the data is fake (AGENTS.md §2, §4). Nothing here is a real review of
+ * a real MCP server; findings are written to exercise each state.
  *
  * Fingerprints are contract-shaped (`sxf1_` + 64 hex) so the same
- * `parseVerdictHead()` path runs over fixtures and over the wire; the test
- * asserts it, so a typo here fails the suite rather than the page.
+ * `parseVerdictHead()` path runs over fixtures and over the wire.
  */
 
 import type {
@@ -500,10 +490,7 @@ const browserbaseDispute: Dispute = {
     filedAt: '2026-07-11',
     evidence: 'walrus:0x3e02…88f1',
     onChain: 'arkiv:dispute/77aa4c19#1',
-    // AgentBook returns an anonymous human id and NOTHING else — no call volume,
-    // no history, no score (AGENTS.md §7). This fixture claimed 14,210 calls read
-    // "from the attestation", which is a capability the attestation does not have.
-    // It survived because the copy-law walk covers COPY, and a fixture is not COPY.
+    // AgentBook returns an anonymous human id and nothing else — no call volume, no score (AGENTS.md §7).
     standing: 'a human registered this agent wallet in AgentBook: that is the whole of what standing means here',
   },
   illustrative: true,

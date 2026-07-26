@@ -1,24 +1,11 @@
 /**
- * State → Tailwind classes.
+ * State → Tailwind classes. A lookup table of literal class strings, not
+ * template interpolation: Tailwind only generates what it can see in the
+ * source, so `text-${state}` would compile to nothing.
  *
- * A lookup table of literal class strings, not template interpolation: Tailwind
- * only generates what it can see in the source, so `text-${state}` would
- * compile to nothing. Every string here is spelled out for that reason.
- *
- * The rule this table exists to enforce (design/tokens.html §01):
- *   state owns hue · tier and confirmation own form.
- *   accent NEVER appears in a verdict — it is for links and actions, and under
- *   the SureX palette it is achromatic for exactly that reason: colour in this
- *   product means verdict, so the one token that must never be read as one does
- *   not get a hue at all.
- *   unknown and unreviewable use ink-3. Grey is the honest colour of ignorance.
- *
- * The four hues are the brand's, mapped onto the states that already existed:
- *   clean → Dark Emerald · flagged → Burnt Tangerine · stale/warn → Sunbeam
- *   Yellow · disputed → Deep Mocha pushed to a plum, since it is the one state
- *   with no brand colour of its own and inventing a fifth hue would break the
- *   palette. Every one of them is measured against the surfaces it lands on in
- *   app/globals.css — the values are not adjustable by eye.
+ * State owns hue; tier and confirmation own form. accent never appears in a
+ * verdict. unknown/unreviewable use ink-3 — grey is the honest colour of
+ * ignorance.
  */
 
 import type { RowStatus } from './types.ts';
@@ -34,15 +21,15 @@ export interface StateStyle {
   tint: string;
   /** solid fill, for connected chain segments and severity-high chips */
   fill: string;
-  /** §07 chips — 1.5px border, tint fill */
+  /** chips — 1.5px border, tint fill */
   chip: string;
-  /** §04 stamp — the 2px impression */
+  /** stamp — the 2px impression */
   stampBorder: string;
-  /** §04 stamp — tier A is double-struck: an inset ring inside the border */
+  /** stamp — tier A is double-struck: an inset ring inside the border */
   stampDouble: string;
-  /** §05 chain — asserted but unchecked: outlined, not filled */
+  /** chain — asserted but unchecked: outlined, not filled */
   segmentOutline: string;
-  /** §05 chain — nothing to check: flowing dashes */
+  /** chain — nothing to check: flowing dashes */
   segmentDash: string;
 }
 
@@ -141,7 +128,7 @@ export function stateStyle(state: string | undefined): StateStyle {
   return STATE_STYLE[(state ?? 'unknown') as RowStatus] ?? STATE_STYLE.unknown;
 }
 
-/** §07 severity — one hue family, weight steps. */
+/** severity — one hue family, weight steps. */
 export const SEVERITY_CHIP: Record<string, string> = {
   critical: 'bg-flagged text-bg border-transparent',
   high: 'bg-flagged text-bg border-transparent',

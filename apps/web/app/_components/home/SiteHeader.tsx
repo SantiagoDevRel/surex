@@ -8,64 +8,29 @@ import type { MouseEvent } from 'react';
 import { COPY } from '@/lib/copy.ts';
 
 /**
- * `[data-sx="v2"] a` in globals.css sets a default anchor look — ink text,
- * a hairline border-bottom in `--v2-border`, brightening to `--v2-accent` on
- * hover — as a plain, unlayered rule, which in Tailwind v4 outranks any
- * ordinary utility class regardless of specificity. Where that default *is*
- * the look we want (nothing here needs it as-is, but the secondary button in
- * `Hero` rides it unchanged), no override is needed. Where the chrome needs
- * something the default doesn't give it — a muted resting colour, no border
- * at all — the only reliable way to win is the trailing-`!` important
- * modifier, which beats any non-`!important` rule no matter which layer (or
- * no layer) it lives in.
- *
- * Two shapes of the override: the desktop row sits flush with no rule under
- * it at all (`NAV_LINK`), while the stacked mobile list keeps the hairline
- * the default rule already draws — it doubles as the row separator, so
- * `MOBILE_ROW_LINK` overrides only the colour and leaves the border alone.
+ * `[data-sx="v2"] a` in globals.css sets a default anchor look as a plain,
+ * unlayered rule, which in Tailwind v4 outranks any ordinary utility class
+ * regardless of specificity — so overriding it needs the trailing-`!`
+ * important modifier. `NAV_LINK` drops the border entirely; `MOBILE_ROW_LINK`
+ * keeps it, since it doubles as the mobile list's row separator.
  */
 const NAV_LINK = 'border-b-0! text-[var(--v2-ink-3)]! hover:text-[var(--v2-ink)]!';
 const NAV_LINK_ACTIVE = 'border-b-0! text-[var(--v2-ink)]!';
 const MOBILE_ROW_LINK = 'text-[var(--v2-ink-3)]! hover:text-[var(--v2-ink)]!';
 
-/**
- * The skip link's target. `Chrome` drops this immediately after the header on
- * every route, rather than each page putting it on its own `<main>`: there are
- * six `<main>` elements across the app and the verdict and dispute routes each
- * carry three, one per render branch. One target the chrome owns is the only
- * version of this that cannot silently go missing on a branch nobody re-read.
- */
+/** The skip link's target, dropped once by `Chrome` after the header — not by
+ *  each page's own `<main>`, since several routes render more than one. */
 export const MAIN_ID = 'main';
 
-/**
- * Five destinations and one action, in the order the user reads them: what the
- * product is, what it has reviewed, how to add to it, how it works, where the
- * code lives — then the one thing that changes anything on their machine.
- *
- * `#how-it-works` and `#disputes` used to sit here. They are anchors into the
- * homepage, and this header now renders on every route, so from `/registry`
- * they pointed at ids that are not on the page. A nav item that does nothing
- * from four of the five routes it appears on is worse than one fewer nav item.
- * Both sections are still on the homepage and still reachable by scrolling it.
- */
 const HOW_IT_WORKS_ID = 'how-it-works';
 const DISPUTES_ID = 'disputes';
 
-/**
- * The docs deployment root. Declared above `NAV_ITEMS` rather than beside
- * `INSTALL_URL` below it because `NAV_ITEMS` is built at module load: a `const`
- * read before its own declaration is a temporal-dead-zone throw, not a hoisted
- * undefined. `INSTALL_URL` is only ever read inside the component, which is why
- * it can sit where it reads best.
- */
+// DOCS_URL must stay declared above NAV_ITEMS: NAV_ITEMS is built at module
+// load, and a const read before its own declaration is a TDZ throw.
 const DOCS_URL = 'https://surex-docs.vercel.app';
 
-/**
- * `exact` for `/`, prefix for the rest — `/registry` has to stay lit while you
- * are reading `/r/<fingerprint>`, which is a registry entry and not a sixth
- * destination, and the same holds for `/d/<fingerprint>` under submit's
- * sibling. `/` matched as a prefix would light HOME on every page there is.
- */
+/** `exact` for `/`; prefix for the rest, so e.g. `/r/<fingerprint>` keeps
+ *  `/registry` lit without `/` itself matching every route. */
 const NAV_ITEMS = [
   { href: '/', label: COPY.nav.home, external: false, isActive: (p: string) => p === '/' },
   {
@@ -84,20 +49,10 @@ const NAV_ITEMS = [
   { href: COPY.brand.repoUrl, label: COPY.nav.github, external: true, isActive: () => false },
 ] as const;
 
-/**
- * The install action. It leaves for the docs deployment — same project,
- * different origin, hence `noreferrer` alongside `noopener`.
- *
- * This replaces the static `/plugin install surex@surex` chip that used to sit
- * here. The chip was the command to paste, which is the right thing to show
- * once you have decided; in the chrome of every page it was a string you could
- * not click sitting exactly where a control belongs. The command itself is not
- * lost — `InstallBand` and `Closer` both still print it, with a copy button.
- */
+// Leaves for the docs deployment — same project, different origin, hence
+// `noreferrer` alongside `noopener`.
 const INSTALL_URL = 'https://surex-docs.vercel.app/guides/install';
 
-/** design/tokens.html — small register: the x stays sage below 120px. Only
- * the closer's display-scale wordmark ever earns the emerald. */
 function HeaderWordmark() {
   const name = COPY.brand.name.toLowerCase();
   const head = name.slice(0, -1);
@@ -111,39 +66,24 @@ function HeaderWordmark() {
 }
 
 /**
- * The site's ONE header, on every route. It began as the homepage's own — the
- * registry ran a separate `Chrome` with a different wordmark, a different type
- * scale and a theme toggle — and the two headers were the most visible half of
- * the site reading as two products. `Chrome` now renders this and nothing else.
- *
- * Desktop is one row: wordmark, four destinations, the install action. Below
- * the breakpoint those do not fit, so a trigger opens a native `<dialog>` —
- * `showModal()` gives focus trap, scroll lock and Escape-to-close for free,
- * which is the whole reason this is a client component while `Hero` and
- * `Closer` are not. `usePathname` is the second reason: the current
- * destination is marked, and marking it is a read of the live route.
+ * The site's one header, on every route. `'use client'` because the mobile
+ * menu uses `showModal()` (focus trap, scroll lock, Escape-to-close) and
+ * `usePathname` marks the active destination from the live route.
  */
 export function SiteHeader() {
   const pathname = usePathname() ?? '/';
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  /**
-   * Mirrored in state only so the trigger can report `aria-expanded`. The
-   * dialog's own `open` attribute is the source of truth for whether it is
-   * showing; without this, a screen reader is told the button opens a dialog
-   * but never whether that dialog is currently open.
-   */
+  // Mirrored in state so the trigger can report `aria-expanded`; the dialog's
+  // `open` attribute alone doesn't tell a screen reader whether it's showing.
   const [menuOpen, setMenuOpen] = useState(false);
 
   function openMenu() {
     dialogRef.current?.showModal();
     setMenuOpen(true);
   }
-  /**
-   * Focus goes back to the trigger explicitly. `close()` alone dropped it to
-   * `<body>`, which loses a keyboard reader's place entirely — they would have
-   * to tab from the top of the page again (WCAG 2.4.3).
-   */
+  // Focus goes back to the trigger explicitly — `close()` alone drops it to
+  // `<body>`, losing a keyboard reader's place (WCAG 2.4.3).
   function closeMenu() {
     dialogRef.current?.close();
     setMenuOpen(false);
@@ -155,11 +95,7 @@ export function SiteHeader() {
 
   return (
     <header>
-      {/*
-        First focus stop on the page, on every route (WCAG 2.4.1). Visually
-        hidden until focused, then it appears in place. Its target is dropped
-        by `Chrome` immediately after this header — see MAIN_ID above.
-      */}
+      {/* First focus stop on every route (WCAG 2.4.1); visually hidden until focused. */}
       <a
         href={`#${MAIN_ID}`}
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-[var(--v2-space-3)] focus:bg-[var(--v2-ink)] focus:px-[var(--v2-space-4)] focus:py-[var(--v2-space-3)] focus:text-[var(--v2-page)] focus:no-underline"
@@ -198,12 +134,6 @@ export function SiteHeader() {
               </Link>
             );
           })}
-          {/*
-            Filled, not outlined: `Hero`'s primary action is `bg-[var(--v2-ink)]`
-            with page-coloured text, and this is the same action. An outlined box
-            here would have been a fifth thing that looks like the four
-            destinations beside it.
-          */}
           <a
             href={INSTALL_URL}
             target="_blank"
@@ -215,12 +145,8 @@ export function SiteHeader() {
           </a>
         </nav>
 
-        {/*
-          Touch target is padding, not a fixed height (design system screen
-          07 — "44pt minimum, padded not sized"): 15px top/bottom around an
-          11.5px mono line clears 44px without pinning a min-height that
-          would clip if the line ever wrapped or the font metrics shifted.
-        */}
+        {/* Touch target is padding, not a fixed height, so it clears 44px
+            without clipping if the line ever wraps. */}
         <button
           ref={triggerRef}
           type="button"
@@ -236,8 +162,7 @@ export function SiteHeader() {
       <dialog
         ref={dialogRef}
         onClick={onBackdropClick}
-        /* Escape closes a native dialog without firing onClick, so `cancel`
-           is where the state reset and focus restore have to hang too. */
+        // Escape closes a native dialog without firing onClick.
         onCancel={(e) => {
           e.preventDefault();
           closeMenu();

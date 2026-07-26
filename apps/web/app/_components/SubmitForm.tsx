@@ -35,8 +35,7 @@ function Outcome({ outcome }: { outcome: SubmitOutcome }) {
         }
       : outcome.kind === 'notBuilt'
         ? {
-            // Not a failure and not a success. The proof was checked; the pipeline
-            // behind the gate does not exist, and the screen says which is which.
+            // Not a failure and not a success — proof checked, pipeline behind the gate doesn't exist.
             tone: 'stale',
             label: COPY.submit.resultNotBuiltLabel,
             body: [COPY.submit.resultNotBuiltBody, outcome.detail].filter(Boolean).join(' — '),
@@ -70,18 +69,10 @@ function Outcome({ outcome }: { outcome: SubmitOutcome }) {
 }
 
 /**
- * THE FLOW IS THE PAGE.
- *
- * World is step one of the same sequence the pipeline finishes, so this component
- * owns both halves: the World step happens here in the browser, and the watch on
- * the run happens one call away. Before, the World widget sat inside a form and
- * the pipeline drew its own rail underneath once a submission had been accepted —
- * two unrelated-looking things for one sequence.
- *
- * That is why `useSubmissionWatch` is called here and not inside the monitor: the
- * flow has to be on screen from the first paint, with five steps not reached and
- * one waiting on the reader, and a hook that only runs once a submission exists
- * cannot feed it.
+ * World is step one of the same sequence the pipeline finishes, so this
+ * component owns both halves. `useSubmissionWatch` is called here, not inside
+ * the monitor, because the flow has to be on screen from first paint — a hook
+ * that only runs once a submission exists can't feed it.
  */
 export function SubmitForm() {
   const [outcome, action, pending] = useActionState(submitRelease, INITIAL);
@@ -96,33 +87,20 @@ export function SubmitForm() {
     phase: 'idle',
     credential: null,
   });
-  /**
-   * A step the reader chose to look at. `null` — the default and the state it
-   * returns to — means the panel follows the flow, so nobody has to keep clicking
-   * to stay with it. Choosing the same tile again clears the pick.
-   */
+  /** `null` (default and reset state) means the panel follows the flow;
+   *  choosing the same tile again clears the pick. */
   const [picked, setPicked] = useState<FlowStep | null>(null);
 
-  /**
-   * The id the registry gave this submission, or `null` while there is none. An
-   * `accepted` outcome without an id is still an acceptance — the banner below
-   * says so — but there is nothing to watch.
-   */
+  // `accepted` without an id is still an acceptance, but there's nothing to watch.
   const submissionId = outcome.kind === 'accepted' ? outcome.submissionId ?? null : null;
   const watch = useSubmissionWatch(submissionId);
 
   const onWorldPhase = useCallback((phase: WorldPhase, credential: WorldCredential | null) => {
     setWorld({ phase, credential });
-    // Whatever the reader was looking at, the thing that just moved is step one —
-    // and the claim about what the credential proves lives on that panel.
     setPicked(null);
   }, []);
-  /**
-   * Only the newest inspection may write state. Typing a repository fires one
-   * request per pause, and without this a slow early request can land after a
-   * fast later one and repaint the form with an answer about a repository the
-   * user has already replaced.
-   */
+  // Only the newest inspection may write state — a slow early request must not
+  // land after a fast later one and repaint with a stale repo's answer.
   const inspectionId = useRef(0);
 
   async function inspect(value: string) {
@@ -143,14 +121,9 @@ export function SubmitForm() {
     setCommit(first?.sha ?? '');
   }
 
-  /**
-   * Choosing a different version re-resolves its commit.
-   *
-   * The list is fetched with the SHAs unresolved on purpose — resolving ten of
-   * them would cost ten requests against GitHub's sixty-per-hour unauthenticated
-   * budget, and only the chosen one is ever submitted. The cost is paid here, on
-   * the one that matters.
-   */
+  // The list is fetched with SHAs unresolved on purpose — GitHub's unauthenticated
+  // rate limit can't afford resolving all of them, so the cost is paid here, on
+  // the one release actually chosen.
   async function pickRelease(tag: string) {
     setRelease(tag);
     const known = releases.find((r) => r.tag === tag);
@@ -163,9 +136,8 @@ export function SubmitForm() {
     if (inspectionId.current === id) setCommit(sha ?? '');
   }
 
-  // The refusal is only ever on a READ answer. `undetermined` — GitHub did not
-  // reply — leaves the button enabled, because refusing on a rate limit would
-  // tell a maintainer their MCP server is not an MCP server.
+  // `undetermined` (GitHub didn't reply) leaves the button enabled — refusing
+  // on a rate limit would wrongly tell a maintainer their server isn't an MCP server.
   const refusedAsNotMcp = inspection !== null && inspection !== 'loading'
     && Boolean(inspection.mcp) && !inspection.mcp!.isMcp && !inspection.mcp!.undetermined;
 
@@ -190,21 +162,18 @@ export function SubmitForm() {
               name="repo"
               value={repo}
               onChange={(e) => {
-                // The signal is derived from the repository, so changing it after
-                // proving would leave a proof bound to a different repo. Drop it.
+                // The signal is derived from the repository, so a proof bound to
+                // the old one must be dropped.
                 setRepo(e.target.value);
                 if (proof) setProof(null);
                 setInspection(null);
-                // A version resolved from the previous repository is not a version
-                // of this one. Clearing them is what stops a submission naming a
-                // commit that belongs to a different project.
                 setReleases([]);
                 setRelease('');
                 setCommit('');
               }}
               onBlur={(e) => void inspect(e.target.value)}
               onPaste={(e) => {
-                // Paste is the common case and the value is not in the input yet.
+                // The pasted value isn't in the input yet.
                 const pasted = e.clipboardData.getData('text');
                 if (pasted) void inspect(pasted);
               }}
@@ -215,14 +184,8 @@ export function SubmitForm() {
 
           <RepoInspection state={inspection} />
 
-          {/*
-            The release is CHOSEN from what the repository has, never typed.
-            Free text can only produce a wrong answer — a typo, a tag that does not
-            exist, a version the maintainer means but the repository does not carry
-            — and a submission names bytes. The repository is the only authority on
-            which bytes exist, so the options come from it and the commit comes with
-            them.
-          */}
+          {/* Chosen from what the repository has, never typed — the repository
+              is the only authority on which bytes exist. */}
           <label className="grid gap-1.5">
             <span className="text-label uppercase text-faint">{COPY.submit.releaseLabel}</span>
             <select
@@ -244,20 +207,11 @@ export function SubmitForm() {
             </select>
           </label>
 
-          {/*
-            Both travel to the server: the tag names the version a human
-            recognises, the commit is the bytes. Which of the two a submission
-            carries is what bounds the tier a verdict about it can ever reach — a
-            tag can be repointed or deleted, a commit cannot.
-          */}
+          {/* Tag names the version a human recognises; commit is the bytes —
+              a tag can be repointed or deleted, a commit cannot. */}
           <input type="hidden" name="release" value={release} />
           <input type="hidden" name="commit" value={commit} />
 
-          {/*
-            No field label above this. The step is named in the flow, the button
-            says what it does, and `WorldClaim` inside states what the credential
-            the server chose actually proves.
-          */}
           <WorldIdProof
             context={{ action: 'maintainer-submit', repo }}
             onProof={setProof}
@@ -283,12 +237,7 @@ export function SubmitForm() {
         <Outcome outcome={outcome} />
       </Panel>
 
-      {/*
-        The loader appears only for a submission the registry named. `accepted`
-        without an id is still an acceptance — the banner above says so — but
-        there is nothing to watch, and a loader with no id to poll would be
-        animating an idea rather than a run.
-      */}
+      {/* Only for a submission the registry named — nothing to watch otherwise. */}
       {submissionId ? <SubmissionMonitor id={submissionId} {...watch} /> : null}
     </div>
   );

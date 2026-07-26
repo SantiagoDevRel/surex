@@ -28,17 +28,9 @@ export function isoDate(value: string | number | undefined | null): string | nul
 
 /**
  * ISO or epoch → `{ date: '2026-07-23', time: '14:31Z' }`, split so a row can
- * render the two at different weights instead of one 16-character run.
- *
- * **UTC, and it says so with the `Z`.** A registry entry is a claim about when a
- * specific commit was reviewed, and readers of this page are not in one timezone.
- * Rendering local time would make two people quoting the same verdict disagree
- * about when it happened, and neither would be able to tell which of them was
- * shifted. The trailing `Z` is four pixels that remove that entire conversation.
- *
- * Minutes, not seconds: seconds imply a precision the pipeline does not have —
- * `reviewedAt` is stamped when the record is built, and the Arkiv write lands
- * seconds later.
+ * render the two at different weights. Always UTC (the `Z`) so readers in
+ * different timezones agree on when a verdict happened. Minutes, not seconds —
+ * seconds would imply precision `reviewedAt` doesn't have.
  */
 export function isoMinute(
   value: string | number | undefined | null,
@@ -51,13 +43,9 @@ export function isoMinute(
 }
 
 /**
- * `104000` → `1m 44s`. `null` for anything that is not a duration.
- *
- * Whole seconds, and minutes once there are any: this renders a REPORTED
- * `durationMs` beside a run that takes minutes, and sub-second precision on a
- * number that arrives every ~1.8 s would be precision the page does not have.
- * A run that has not reported one gets no value here, not a zero — `0s` reads as
- * "it just started", which is a different claim from "nobody said".
+ * `104000` → `1m 44s`. `null` for anything that is not a duration — a run that
+ * hasn't reported one gets no value, not a zero: `0s` reads as "just started",
+ * a different claim from "nobody said".
  */
 export function humanDuration(ms: number | undefined | null): string | null {
   if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return null;
@@ -125,40 +113,18 @@ export function statusRank(status: RowStatus): number {
 /* ------------------------------------------------ what the default view is --*/
 
 /**
- * The value of `?state=` that means "the default view". Not a `RowStatus`, on
- * purpose: it is a view, and a view that shares a name with a state would make
- * `?state=clean` and the default indistinguishable in a URL somebody pasted.
- */
-/**
- * `all` — the default list shows everything.
- *
- * It was `decided`, which filtered `unreviewable` out and printed a notice
- * saying how many it was holding back, because hiding rows without saying so is
- * exactly the move this product exists to refuse. That was the right trade at
- * 34 entries, 25 of them unreviewable.
- *
- * The registry is now 11 entries with 2 unreviewable. Filtering two rows out of
- * eleven buys nothing and costs a paragraph of disclosure explaining itself —
- * so the honest simplification is not to hide the notice, it is to stop hiding
- * the rows. `decided` still exists as a value anyone can select; it is simply
- * no longer what you get by default.
+ * The value of `?state=` meaning "the default view" (`all`). Not a `RowStatus`
+ * on purpose — otherwise `?state=clean` and the default would be indistinguishable
+ * in a pasted URL. `decided` still exists as a selectable value; it just isn't default.
  */
 export const DEFAULT_STATE = 'all';
 
 /**
- * Is this a state where a review reached a verdict about the code?
- *
- * Derived from `statusRank` rather than written out as a second list, so the two
- * cannot drift. The rank is worst-news-first, and `clean` is the boundary:
- * everything at or above it is a verdict somebody reached, everything below it
- * is a reason no verdict exists — `unreviewable` says why the source could not
- * be read, `unknown` says nobody has looked, `running` says a pass is in flight.
- *
- * `stale` is IN, and that is not a detail. It ranks *worse* than `clean`, so
- * dropping it from the default list would hide an entry this very sort order
- * calls worse news than one it shows. A filter that does that is concealment
- * whatever its label says. It is also the set `normaliseStats()` already counts
- * as `reviewed` (lib/api.ts, REVIEWED_STATES) — one definition, two readers.
+ * Is this a state where a review reached a verdict about the code? Derived from
+ * `statusRank` (worst-news-first) rather than a second list, so the two can't
+ * drift — `clean` is the boundary. `stale` counts as decided: it ranks worse
+ * than `clean`, and it's the same set `normaliseStats()` counts as `reviewed`
+ * (lib/api.ts, REVIEWED_STATES).
  */
 export function isDecided(status: RowStatus): boolean {
   return statusRank(status) <= statusRank('clean');
@@ -169,12 +135,8 @@ export const DECIDED_STATE = 'decided';
 
 /**
  * Does a row belong in the view `state` names? The one place that decides.
- *
- * `decided` is matched by NAME, not by comparing against `DEFAULT_STATE`. It
- * used to be the default, and routing it through that constant meant changing
- * the default silently broke it as an explicit choice — `?state=decided` fell
- * through to an exact status comparison and matched nothing at all. A value and
- * the fact that it happens to be the default are two different things.
+ * `decided` is matched by NAME, not by comparing against `DEFAULT_STATE` — the
+ * two are independent, so changing the default can't silently break `?state=decided`.
  */
 export function matchesState(status: RowStatus, state: string): boolean {
   if (state === 'all') return true;
@@ -188,13 +150,9 @@ export interface StateCount {
 }
 
 /**
- * What the default view is holding back, by state, worst news first.
- *
- * This exists so the screen can PRINT the number it is not showing. A filtered
- * list that does not say how much it filtered is a list that lies by omission,
- * and this registry's whole claim is that an entry it cannot review is still an
- * answer it publishes. States with nothing in them are omitted rather than
- * rendered as a zero — "0 running" is noise, not disclosure.
+ * What the default view is holding back, by state, worst news first — so the
+ * screen can print the number it isn't showing. States with nothing in them are
+ * omitted rather than rendered as "0 running": that's noise, not disclosure.
  */
 export function hiddenFromDefault(rows: readonly { status: RowStatus }[]): StateCount[] {
   const counts = new Map<RowStatus, number>();

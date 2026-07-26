@@ -1,24 +1,14 @@
 /**
- * Reading a submitted repository, from the browser, read-only.
+ * Reading a submitted repository, from the browser, read-only. Two jobs:
  *
- * Two jobs, and they are separate on purpose:
+ *  1. Pin the bytes — a tag can be repointed, so only the immutable commit SHA
+ *     it resolves to can support a tier above B.
+ *  2. Refuse what is not an MCP server — a repository with nothing to compare
+ *     against would put a verdict in the registry about a question nobody asked.
  *
- *  1. **Pin the bytes.** A submission names a release. A tag is a moving label —
- *     it can be deleted and repointed — so the tag alone can only ever earn
- *     Tier B ("same version string, the bytes were never compared"). The commit
- *     SHA the tag resolves to is immutable, and that is what makes a higher tier
- *     reachable at all. So both are captured, and the SHA is the one that matters.
- *
- *  2. **Refuse what is not an MCP server.** SureX reviews MCP servers against
- *     what they declare. A repository that is not one has nothing for the review
- *     to compare, and accepting it would put a verdict in the registry about a
- *     question nobody asked.
- *
- * **A failed request is never a "no".** This is the same rule the licence gate
- * had to learn the hard way (FRICTION-LOG D10): GitHub rate-limits unauthenticated
- * browsers at 60 requests an hour, and if a 403 were read as "no MCP signals
- * found", the form would tell a maintainer their MCP server is not an MCP server.
- * Every negative here is either an answer or explicitly `undetermined`.
+ * A failed request is never a "no": GitHub rate-limits unauthenticated browsers
+ * at 60/hour, and a 403 read as "no MCP signals found" would tell a maintainer
+ * their MCP server is not one. Every negative here is an answer or `undetermined`.
  */
 
 export interface RepoRef {
@@ -179,12 +169,8 @@ export interface RepoInspection {
   release: ReleaseRef | null;
   /**
    * What this repository actually offers, newest first — releases, then tags,
-   * then the default branch as a last resort.
-   *
-   * The form used to take the release as free text. That is a manual step that
-   * can only produce a wrong answer: a typo, a tag that does not exist, or a
-   * version the maintainer means but the repository does not have. A submission
-   * names bytes, and the only authority on which bytes exist is the repository.
+   * then the default branch as a last resort. The repository is the only
+   * authority on which bytes exist, not free-text maintainer input.
    */
   releases: ReleaseRef[];
   mcp: McpEvidence | null;
@@ -214,12 +200,9 @@ function fetch_(url: string, fetchImpl: typeof fetch) {
 }
 
 /**
- * The latest release, and the commit it points at.
- *
- * Falls back through release → newest tag → default branch, and always says which
- * of the three it used, because they are not equally strong: only the first two
- * name a version at all, and a default-branch HEAD is a moving target that cannot
- * anchor a verdict.
+ * The latest release, and the commit it points at. Falls back through
+ * release → newest tag → default branch, and always says which it used — a
+ * default-branch HEAD is a moving target and cannot anchor a verdict.
  */
 export async function latestRelease(
   ref: RepoRef,
@@ -253,15 +236,10 @@ export async function latestRelease(
 }
 
 /**
- * Everything this repository offers as a reviewable version, newest first.
- *
- * Releases first (a maintainer chose to cut them), then tags, and the default
- * branch only if there is nothing else — labelled as such, because a branch head
- * moves and cannot anchor a verdict.
- *
- * SHAs are resolved lazily: listing ten releases would otherwise cost ten extra
- * requests against a 60-per-hour unauthenticated budget, and only the chosen one
- * is ever submitted. `resolveCommit` fills it in on selection.
+ * Everything this repository offers as a reviewable version, newest first:
+ * releases, then tags, then the default branch as a last resort. SHAs are
+ * resolved lazily — listing ten releases would otherwise cost ten extra
+ * requests against a 60/hour budget — and `resolveCommit` fills one in on selection.
  */
 export async function listReleases(
   ref: RepoRef,

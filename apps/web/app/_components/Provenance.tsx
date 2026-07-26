@@ -5,17 +5,8 @@ import type { Entry } from '@/lib/types.ts';
 
 import { Panel, PanelHeader, SectionLabel } from './Panel.tsx';
 
-/**
- * The disclosure obligation, as a panel. PRD §6, AGENTS.md §4.
- *
- * Every verdict shown in full states what was reviewed (commit + blob ID),
- * when, by which model and prompt version — and that it was automated with no
- * human audit. That last line is not a disclaimer at the bottom of the page; it
- * is part of the record, so it sits inside the panel that carries the record.
- *
- * A field with no value reads "not recorded". It never falls back to something
- * plausible.
- */
+// The disclosure obligation, as a panel (PRD §6, AGENTS.md §4). A field with
+// no value reads "not recorded" — it never falls back to something plausible.
 
 function Row({ label, value, href }: { label: string; value?: string | null; href?: string }) {
   return (
@@ -45,11 +36,8 @@ export function Provenance({ entry }: { entry: Entry }) {
   const promptValue = promptVersion
     ? `${promptVersion}${review?.agreementRuns ? ` · ${review.agreementRuns} passes` : ''}`
     : null;
-  /**
-   * `null` until a parent name is configured, and then the row is omitted
-   * entirely rather than rendered as "not recorded" — `apps/api/src/links.mjs`
-   * already sets the rule: a dead link that looks alive is worse than no link.
-   */
+  // `null` until a parent name is configured; the row is omitted entirely
+  // rather than rendered as "not recorded".
   const ensName = ensNameFor(head.fingerprint);
   return (
     <Panel>
@@ -63,25 +51,10 @@ export function Provenance({ entry }: { entry: Entry }) {
           label={COPY.verdict.provenanceReviewed}
           value={review?.analyzedAt ?? isoDate(head.reviewedAt ?? head.updatedAt)}
         />
-        {/*
-          Every identifier below that CAN be looked at now links to where it can
-          be looked at. This panel is the page's whole argument — here is the
-          blob we judged, here is the entity that records it — and it was
-          printing all of it as inert text, so a reader had no way to check any
-          of it.
-
-          The URLs are built by `apps/api/src/links.mjs`, the one place allowed
-          to turn an id into a path, and they arrive already built. `href`
-          undefined renders as plain text, which is exactly right for a record
-          that carries no pointer: the module omits what it cannot link, so the
-          absence of a link here means the absence of a target, never a
-          formatting decision.
-
-          The source blob and the verdict blob take their links from their OWN
-          records. They are different blobs on Walrus, and pointing both at one
-          set of links would send a reader to the wrong bytes while looking
-          entirely correct.
-        */}
+        {/* URLs arrive already built from `apps/api/src/links.mjs`; `href`
+            undefined renders as plain text — an absent link, not a formatting
+            choice. Source and verdict blobs take links from their OWN records,
+            since they're different blobs on Walrus. */}
         <Row
           label={COPY.verdict.provenanceSourceBlob}
           value={source?.blob?.blobId ?? head.evidence?.blobId}
@@ -96,12 +69,8 @@ export function Provenance({ entry }: { entry: Entry }) {
           href={head.links?.arkivEntity}
         />
         <Row label="VERDICT BLOB" value={review?.blob?.blobId} href={review?.links?.blob} />
-        {/*
-          Sui rows appear ONLY when our own wallet registered the blob. In
-          publisher mode the object and both digests belong to the publisher, so
-          the record carries no `suiObjectId` and these rows are absent rather
-          than pointing at somebody else's transaction as though it were ours.
-        */}
+        {/* Sui rows appear only when our own wallet registered the blob — in
+            publisher mode the record carries no `suiObjectId`. */}
         {source?.links?.suiObject || review?.links?.suiObject ? (
           <Row
             label="SUI OBJECT"

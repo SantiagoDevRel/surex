@@ -1,15 +1,10 @@
 /**
- * The TypeScript mirror of the frozen /v1 contract.
- *
- * `packages/core/src/contract.mjs` is the authority — it is plain ESM with
- * JSDoc so it can be vendored into the Claude Code plugin, which runs on a
- * user's machine with nothing installed. These interfaces exist only so the
- * site type-checks; they add no fields the contract does not have.
+ * The TypeScript mirror of the frozen /v1 contract. `packages/core/src/contract.mjs`
+ * is the authority; these interfaces exist only so the site type-checks and add
+ * no fields the contract doesn't have.
  *
  * Runtime validation is `parseVerdictHead()` from `@surex/core`, not these
- * types. A shape that arrives off the wire is checked there before anything
- * renders it — a malformed response must degrade to `unknown`, never to
- * `clean`.
+ * types — a malformed response must degrade to `unknown`, never to `clean`.
  */
 
 /** Contract states. `running` is NOT one of them — see `RowStatus`. */
@@ -83,17 +78,10 @@ export interface BlobRef {
 }
 
 /**
- * Where a recorded identifier can be LOOKED AT, built by `apps/api/src/links.mjs`.
- *
- * The API is the only place that turns an id into a URL — no surface hand-rolls
- * an explorer path — so these arrive already built and the page's only job is to
- * render them. Every field is optional because that module omits anything the
- * record does not carry: a dead link that looks alive is worse than no link.
- *
- * Not part of `@surex/core`'s frozen `VerdictHead` contract, and deliberately
- * not added to it: the gate resolves a decision from annotations alone and has
- * no use for a URL. This type describes what the WEB receives, which is a
- * superset.
+ * Where a recorded identifier can be LOOKED AT, built by `apps/api/src/links.mjs` —
+ * the only place that turns an id into a URL. Every field is optional: a dead
+ * link that looks alive is worse than no link. Not part of `@surex/core`'s
+ * frozen `VerdictHead` contract; the gate has no use for a URL.
  */
 export interface RecordLinks {
   /** The bytes themselves, from a Walrus aggregator. */

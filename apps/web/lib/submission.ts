@@ -1,29 +1,17 @@
 /**
  * Reading `GET /v1/submissions/:id`, and deciding what a screen may say about it.
+ * Everything the loader renders is derived here from the payload, testable
+ * without a browser, and every function has a way to say *nothing was reported*.
  *
- * A review is minutes, not seconds — a model reads the source twice, and four
- * times when the two readings disagree. The submit page used to show "queued"
- * and then nothing for those minutes, which is the state a screen is most likely
- * to fill with something it does not know. So everything the loader renders is
- * derived here, from the payload, by functions that can be tested without a
- * browser — and every one of them has a way to say *nothing was reported*.
+ * Three rules:
+ *  1. An absent field renders as absent — no placeholder, no invented value.
+ *  2. A derived number says it is derived — `progressFraction()`'s `from` field.
+ *  3. The disagreement panel mounts only on something the backend actually said
+ *     — see `disagreementReported()`.
  *
- * Three rules this file exists to keep:
- *
- *  1. **An absent field renders as absent.** No `??  'pending'`, no placeholder
- *     blob id, no invented model name. `null` travels all the way to the DOM and
- *     the component prints the absence.
- *  2. **A derived number says it is derived.** `progressFraction()` returns
- *     `from: 'reported'` when the API sent `done/total` and `from: 'stage'` when
- *     the density is just how far through the named stages the reported stage
- *     sits. The screen labels the two differently.
- *  3. **The disagreement panel is evidence, not decoration.** It mounts only on
- *     something the backend actually said — see `disagreementReported()`.
- *
- * No `@surex/core` import: this module is loaded by a client component, and core
- * reaches `node:crypto`. The link builders below are therefore a deliberate
- * second copy of `apps/api/src/links.mjs`, and `test/submission.test.mjs` reads
- * that file as text to prove the two have not drifted.
+ * No `@surex/core` import (it reaches `node:crypto`, this is client-bundled), so
+ * the link builders below are a deliberate second copy of `apps/api/src/links.mjs`;
+ * `test/submission.test.mjs` reads that file as text to prove they haven't drifted.
  */
 
 import { apiBase } from './api-base.ts';
@@ -33,13 +21,9 @@ import { COPY } from './copy.ts';
 
 /**
  * The ordered-dither thresholds, 4 rows × 12 columns, copied verbatim from the
- * motion system. Each `<i>` in `.sx-halftone` takes one as `--t` and its column
- * index as `--c`; the CSS lights a dot when `--sx-p` crosses its threshold, so
- * density IS the progress number and there is no bar to fill.
- *
- * Fixed on purpose. Generating or shuffling these would make the dot pattern
- * change between renders, and a pattern that moves reads as noise rather than as
- * a quantity.
+ * motion system. Each `<i>` in `.sx-halftone` takes one as `--t`; the CSS lights
+ * a dot when `--sx-p` crosses its threshold. Fixed on purpose — a shuffled
+ * pattern would read as noise rather than a quantity.
  */
 export const SX_T = [
   0.010, 0.552, 0.177, 0.656, 0.031, 0.510, 0.135, 0.635, 0.052, 0.531, 0.156, 0.677,
@@ -109,12 +93,10 @@ function asStage(v: unknown): SubmissionStage | null {
 }
 
 /**
- * Read the payload without assuming the API sent all of it.
- *
- * `progress` is the newer half of the agreed shape and an older deployment does
- * not send it; `stage`/`detail` are the older half and a newer one may only send
- * the nested form. Both are read, neither is required, and an unrecognised
- * `status` degrades to `queued` — the state that claims the least.
+ * Read the payload without assuming the API sent all of it. `progress` is the
+ * newer half of the shape, `stage`/`detail` the older; both are read, neither
+ * required. An unrecognised `status` degrades to `queued` — the state that
+ * claims the least.
  */
 export function parseSubmissionStatus(raw: unknown): SubmissionStatus | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -205,11 +187,7 @@ export interface ProgressFraction {
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
 
-/**
- * How full the halftone is. `null` when the API reported neither a count nor a
- * stage — in which case the dots stay at zero and the screen says the run has
- * not reported anything yet, rather than showing a number nobody sent.
- */
+/** How full the halftone is. `null` when the API reported neither a count nor a stage — never a number nobody sent. */
 export function progressFraction(status: SubmissionStatus | null): ProgressFraction | null {
   if (!status) return null;
 
@@ -231,11 +209,9 @@ export function progressFraction(status: SubmissionStatus | null): ProgressFract
 }
 
 /**
- * Which halftone state class the dots wear.
- *
- * `failed` is deliberately NOT `is-idle`: the idle class breathes, and a
- * breathing field of dots on a run that has stopped reads as still working. The
- * bare class is the static, settled render — the density it reached, held.
+ * Which halftone state class the dots wear. `failed` is deliberately NOT
+ * `is-idle`: the idle class breathes, and a breathing field of dots on a
+ * stopped run reads as still working.
  */
 export type HalftoneState = 'idle' | 'working' | 'done' | 'static';
 
@@ -266,19 +242,11 @@ export function readingSource(status: SubmissionStatus | null): boolean {
 }
 
 /**
- * Did the backend say the two readings disagree?
- *
- * Two signals, both of them things the pipeline reports rather than things this
- * screen infers:
- *
- *  1. `progress.detail.disagreement === true` — said outright.
- *  2. A third reading is running. The reviewer takes two paraphrased readings and
- *     goes to four ONLY when those two split (AGENTS.md §7, `reviewerIdentity`:
- *     "2 paraphrased readings, 4 when they disagree"). So `run >= 3` is not a
- *     guess about disagreement, it is the tie-break pair being under way.
- *
- * Anything else is false. This panel is the loudest thing on the screen and it
- * carries the one hue reserved for a flag; it does not get to appear on a hunch.
+ * Did the backend say the two readings disagree? Two signals, both reported by
+ * the pipeline rather than inferred: `progress.detail.disagreement === true`
+ * said outright, or a third reading running (`run >= 3` — the reviewer only
+ * goes to four readings when the first two split, AGENTS.md §7). Anything else
+ * is false; this panel does not get to appear on a hunch.
  */
 export function disagreementReported(status: SubmissionStatus | null): boolean {
   const detail = status?.progress?.detail;
@@ -288,11 +256,7 @@ export function disagreementReported(status: SubmissionStatus | null): boolean {
   return stageOf(status) === 'reviewing' && typeof run === 'number' && run >= 3;
 }
 
-/**
- * The two readings, when the pipeline sends them. Almost always it does not —
- * the agreed `reviewing` detail is `{model, promptVersion, run}` — so the cards
- * render their absence rather than a number. Never derived from anything.
- */
+/** The two readings, when the pipeline sends them (rarely — the agreed shape is `{model, promptVersion, run}`). Never derived. */
 export function readingsReported(status: SubmissionStatus | null): [string | null, string | null] {
   const raw = status?.progress?.detail?.readings;
   if (!Array.isArray(raw)) return [null, null];
@@ -302,26 +266,16 @@ export function readingsReported(status: SubmissionStatus | null): [string | nul
 /* ------------------------------------------------------------- the writes --*/
 
 /**
- * What has landed so far.
- *
- * `progress.detail` describes the CURRENT stage only, so the Walrus blob id is
- * gone from the payload by the time Arkiv is being written. The loader has to
- * remember, and this is the reducer that remembers — pure, so the accumulation
- * rule is testable rather than tangled in a `useEffect`.
- *
- * It only ever ADDS. A later poll that omits a field it once carried does not
- * erase it: the write happened, and the screen having seen it is not undone by a
- * payload that has moved on.
+ * What has landed so far. `progress.detail` describes the CURRENT stage only,
+ * so this is the pure reducer that remembers what earlier stages reported. It
+ * only ever ADDS — a later poll that omits a field it once carried does not
+ * erase it.
  */
 export interface PipelineTrace {
   /**
-   * Every stage the watch has actually SEEN reported, in first-seen order.
-   *
-   * Not the same thing as "every stage that ran", and the difference is the whole
-   * reason it is recorded: the poll is 1800 ms and a short stage passes between
-   * two requests. So this is only ever used to decide whether to DRAW a tile that
-   * the pipeline does not always emit (`starting`), never to claim that a stage
-   * did or did not happen.
+   * Every stage the watch has actually SEEN reported, in first-seen order. Not
+   * "every stage that ran" — the poll can miss a short stage. Used only to
+   * decide whether to draw a tile the pipeline doesn't always emit (`starting`).
    */
   seen?: SubmissionStage[];
   resolving?: {
@@ -339,11 +293,7 @@ export interface PipelineTrace {
     blobId?: string;
     contentSha256?: string;
     registeredBy?: string;
-    /**
-     * Absent on the publisher path, and that absence is a fact rather than a gap
-     * — a public publisher's wallet registers the blob, so there is no object of
-     * ours to link. Read as "not stated", never as "ours".
-     */
+    /** Absent on the publisher path — a public publisher's wallet registers the blob, so there's no object of ours to link. */
     suiObjectId?: string;
     registerTx?: string;
     certifyTx?: string;
@@ -385,10 +335,8 @@ export function traceFrom(prev: PipelineTrace, status: SubmissionStatus | null):
       version: str(detail.version),
       tier: str(detail.tier),
     });
-    // The pipeline says the fingerprint here, minutes before the run finishes,
-    // precisely so a watcher can open the entry page under the name they were
-    // already given. Same shape check as the result path — a value that is not a
-    // fingerprint is not recorded as one.
+    // Reported early, minutes before the run finishes, so a watcher can open the
+    // entry page under the name they were already given.
     const early = str(detail.fingerprint);
     if (early && FINGERPRINT_RE.test(early)) next.fingerprint = early;
   }
@@ -433,9 +381,8 @@ export function traceFrom(prev: PipelineTrace, status: SubmissionStatus | null):
     next.done = merge(prev.done, { state: str(detail.state), reason: str(detail.reason) });
   }
 
-  // The final result carries the same pointers, and on a fast run it is the only
-  // place they ever appear — the poll can easily miss a stage that lasted less
-  // than one interval.
+  // On a fast run, the final result is the only place these pointers ever
+  // appear — the poll can miss a stage that lasted less than one interval.
   const result = status.result ?? {};
   const resultBlob = str(result.blobId);
   if (resultBlob) next.walrus = merge(next.walrus, { blobId: resultBlob });
@@ -462,12 +409,10 @@ export interface WriteReceipt {
 }
 
 /**
- * One receipt per write that actually landed, in pipeline order.
- *
- * A receipt is built ONLY from an identifier the pipeline reported. There is no
- * "pending" receipt and no greyed-out placeholder: the `.sx-write` mount is the
- * animation, and mounting one for a write that has not happened would animate a
- * lie.
+ * One receipt per write that actually landed, in pipeline order. Built ONLY
+ * from an identifier the pipeline reported — no "pending" receipt, no
+ * placeholder: the `.sx-write` mount is the animation, and mounting one for a
+ * write that hasn't happened would animate a lie.
  */
 export function writeReceipts(trace: PipelineTrace): WriteReceipt[] {
   const out: WriteReceipt[] = [];
@@ -506,12 +451,10 @@ export function writeReceipts(trace: PipelineTrace): WriteReceipt[] {
 /* -------------------------------------------------------------- the links --*/
 
 /**
- * Bases, and the rule they follow: anything the record does not carry is
- * OMITTED rather than guessed — a dead link that looks alive is worse than no
- * link. That rule and these defaults are `apps/api/src/links.mjs`; the copy
- * exists because this module is bundled for the browser and that one imports
- * `@surex/core`. `test/submission.test.mjs` reads the API file as text and fails
- * if the two ever disagree.
+ * Bases, and the rule they follow: anything the record doesn't carry is
+ * OMITTED rather than guessed. Copied from `apps/api/src/links.mjs` (that one
+ * imports `@surex/core`, which this browser-bundled module can't); the two
+ * are compared in `test/submission.test.mjs`.
  */
 export const DEFAULT_WALRUS_AGGREGATOR = 'https://aggregator.walrus-testnet.walrus.space';
 export const DEFAULT_ARKIV_EXPLORER = 'https://explorer.braga.hoodi.arkiv.network';
@@ -560,13 +503,11 @@ export function entryHref(fingerprint: string | undefined | null): string | null
 /* ------------------------------------------------- where the source came from */
 
 /**
- * GitHub and npm are NOT in `apps/api/src/links.mjs`, and that is not an
- * oversight to fix later: that file turns the identifiers a RECORD carries —
- * blob, Sui object, both digests, Arkiv entity — into explorer URLs, and the API
- * never builds a link to somebody's repository. These two are the run's inputs
- * rather than its outputs, so they live here, and the shapes they accept are the
- * shapes `scripts/ingest-submission.mjs` itself enforces: `owner/name` and a
- * 40-character hex sha, never a tag.
+ * GitHub and npm are NOT in `apps/api/src/links.mjs` — that file turns
+ * identifiers a RECORD carries into explorer URLs, and the API never links to
+ * somebody's repository. These are the run's inputs, not outputs, so they live
+ * here. Shapes match what `scripts/ingest-submission.mjs` enforces: `owner/name`
+ * and a 40-char hex sha, never a tag.
  */
 export const DEFAULT_GITHUB = 'https://github.com';
 export const DEFAULT_NPM = 'https://www.npmjs.com';
@@ -581,11 +522,7 @@ export function githubRepoUrl(repo: string | undefined | null): string | null {
   return `${DEFAULT_GITHUB}/${repo.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-/**
- * A commit, never a tag. A tag can be repointed, so a link built from one would
- * quietly stop pointing at the bytes this entry is about — which is the exact
- * gap Tier exists to describe.
- */
+/** A commit, never a tag — a tag can be repointed, quietly breaking the link. */
 export function githubCommitUrl(
   repo: string | undefined | null,
   commit: string | undefined | null,
@@ -605,11 +542,7 @@ export function npmVersionUrl(
   return v ? `${DEFAULT_NPM}/package/${path}/v/${encodeURIComponent(v)}` : `${DEFAULT_NPM}/package/${path}`;
 }
 
-/**
- * `npm:<name>@<version>` or `github:<owner>/<repo>@<sha>` — the two forms the
- * pipeline records as `reviewedArtifact`, and the two things it can actually have
- * read. Anything else produces no link rather than a guess.
- */
+/** `npm:<name>@<version>` or `github:<owner>/<repo>@<sha>` — the two forms the pipeline records as `reviewedArtifact`. Anything else produces no link. */
 export function artifactUrl(artifact: string | undefined | null): string | null {
   const raw = String(artifact ?? '').trim();
   if (!raw) return null;
@@ -633,18 +566,13 @@ export function artifactUrl(artifact: string | undefined | null): string | null 
 /* -------------------------------------------------------------- the ens name */
 
 /**
- * The label encoding, a second time.
+ * The label encoding, a second time. `lib/ens.ts` is SERVER ONLY (it holds the
+ * gateway's signing configuration and reaches `node:crypto`), so these two
+ * constants are copied rather than imported; `test/stage-rail.test.mjs` reads
+ * `lib/ens.ts` as text to prove they're still the same two.
  *
- * `lib/ens.ts` is the authority and it is SERVER ONLY — it holds the gateway's
- * signing configuration and reaches `@surex/core`, which reaches `node:crypto`.
- * Importing it here would pull both into the browser bundle. So the two constants
- * are copied, exactly as the link bases are, and `test/stage-rail.test.mjs` reads
- * `lib/ens.ts` as text to prove they are still the same two.
- *
- * `sxf1-`, not `sxf1_`: ENSIP-15 rejects a mid-label underscore, so our own
- * published identifier is not a legal ENS label as written (FRICTION-LOG E1).
- * 40 hex characters and not 64, because clients disagree above a 63-byte label
- * (E2). The truncation is a naming convenience and never the identity.
+ * `sxf1-`, not `sxf1_`: ENSIP-15 rejects a mid-label underscore. 40 hex
+ * characters, not 64: clients disagree above a 63-byte label.
  */
 export const ENS_LABEL_PREFIX = 'sxf1-';
 export const ENS_LABEL_HEX_LENGTH = 40;
@@ -661,12 +589,7 @@ export function ensParent(): string | null {
   return raw ? raw.replace(/^\.+|\.+$/g, '') : null;
 }
 
-/**
- * `null` when no parent is configured, and the row is then omitted rather than
- * rendered grey — the same rule the provenance panel follows. A deployment that
- * never set the parent has no name to show, and inventing one would be inventing
- * a read interface that does not answer.
- */
+/** `null` when no parent is configured — the row is then omitted rather than rendered grey. */
 export function ensNameFor(fingerprint: string | undefined | null): string | null {
   const parent = ensParent();
   const label = ensLabelFor(fingerprint);
@@ -684,12 +607,9 @@ export function ensAppUrl(name: string | undefined | null): string | null {
 /* --------------------------------------------------------------- the rail --*/
 
 /**
- * Which technology each stage touches.
- *
- * This is the question the halftone cannot answer. It says how far the run has
- * got; it does not say whose machine is reading the source right now, or what
- * just landed where. `null` is a real answer — the licence gate touches none of
- * the four, and a tile that invented a chip for it would be decorating.
+ * Which technology each stage touches — the halftone says how far the run got,
+ * not whose machine is doing it. `null` is a real answer: the licence gate
+ * touches none of the four.
  */
 export type StageTech = 'world' | 'source' | 'dgx' | 'walrus' | 'arkiv' | 'ens';
 
@@ -701,21 +621,14 @@ export const STAGE_TECH: Record<SubmissionStage, StageTech | null> = {
   reviewing: 'dgx',
   walrus: 'walrus',
   arkiv: 'arkiv',
-  // Not a write to ENS — nothing is ever written there. Once the head is indexed
-  // the wildcard resolver can answer for it, which is when the entry becomes
-  // readable as a name. That is what this tile claims and all it claims.
+  // Not a write to ENS — the wildcard resolver can answer for it once the head is indexed; that's all this tile claims.
   done: 'ens',
 };
 
 /**
- * The tiles to draw.
- *
- * `starting` is in the shared stage list because `GET /v1/submissions/:id` can
- * report it, but `scripts/ingest-submission.mjs` never emits it — it reads the
- * tool list out of the README rather than installing and starting the server, and
- * says so in a comment where the list is defined. Drawing a step that does not run
- * is a fabricated fact on a progress screen, so the tile appears only for a run
- * that actually reported the stage.
+ * The tiles to draw. `starting` is in the shared stage list because the API can
+ * report it, but `scripts/ingest-submission.mjs` never emits it — so the tile
+ * appears only for a run that actually reported the stage.
  */
 export function railStages(trace: PipelineTrace): SubmissionStage[] {
   const seen = trace.seen ?? [];
@@ -723,13 +636,9 @@ export function railStages(trace: PipelineTrace): SubmissionStage[] {
 }
 
 /**
- * `done` says the RUN moved past this stage. It does not say the stage ran.
- *
- * The two are genuinely different and the pipeline is explicit about it: a licence
- * refusal jumps from `licence` straight to `walrus`, so a stage number the run
- * skipped looks identical from out here to one it completed in under a poll
- * interval. The copy for this phase is worded accordingly, and the facts panel
- * prints nothing for a stage that reported nothing.
+ * `done` says the RUN moved past this stage; it does not say the stage ran. A
+ * licence refusal jumps from `licence` straight to `walrus`, so a skipped stage
+ * looks identical from here to one completed within a poll interval.
  */
 export type StagePhase = 'pending' | 'active' | 'done' | 'stopped';
 
@@ -740,8 +649,7 @@ export function stagePhase(stage: SubmissionStage, status: SubmissionStatus | nu
   const now = SUBMISSION_STAGES.indexOf(current);
   if (at < now) return 'done';
   if (at > now) {
-    // A finished run is past everything, including a stage whose report the poll
-    // never caught. `pending` on a run that has ended would be the false one.
+    // A finished run is past everything, even a stage the poll never caught.
     return status.status === 'done' ? 'done' : 'pending';
   }
   if (status.status === 'failed') return 'stopped';
@@ -750,16 +658,10 @@ export function stagePhase(stage: SubmissionStage, status: SubmissionStatus | nu
 }
 
 /**
- * Which stage the detail panel describes.
- *
- * Keyed on the stage the run last REPORTED, never on the one that is `active` —
- * they are the same thing while a run is in flight and part company the moment it
- * ends, because a finished run has no active stage. Keying it off `active` made a
- * completed run describe stage one, which was caught in a render rather than in
- * review, which is why the choice is a function with a test now.
- *
- * A pick wins over both, and a pick for a stage that is not on the rail is
- * ignored rather than blanking the panel.
+ * Which stage the detail panel describes. Keyed on the stage the run last
+ * REPORTED, never on the one that is `active` — a finished run has no active
+ * stage. A pick wins over both; a pick for a stage not on the rail is ignored
+ * rather than blanking the panel.
  */
 export function shownStage(
   stages: readonly SubmissionStage[],
@@ -772,12 +674,7 @@ export function shownStage(
   return stages[0] ?? null;
 }
 
-/**
- * Custody the record itself calls thinner: a public HTTP publisher's wallet
- * registered the blob, so the Sui object and any digest are theirs. Rendered as a
- * dashed tile — the house border grammar, where dashed means a state we did not
- * measure ourselves (see `Chip.tsx`).
- */
+/** Custody the record calls thinner: a public HTTP publisher's wallet registered the blob. Rendered dashed — a state we didn't measure ourselves (see `Chip.tsx`). */
 export function stageProvisional(stage: SubmissionStage, trace: PipelineTrace): boolean {
   return stage === 'walrus' && trace.walrus?.registeredBy === 'publisher';
 }
@@ -890,10 +787,8 @@ export function stageFacts(
       // row does not render at all.
       out.push(fact(F.state, d.state ? (d.reason ? `${d.state} (${d.reason})` : d.state) : undefined));
       const name = ensNameFor(trace.fingerprint);
-      // Deliberately NOT a link. An offchain resolver cannot enumerate its keys,
-      // so the ENS app queries a fixed profile set and renders an empty Records
-      // tab for a name that is answering perfectly well (FRICTION-LOG E9).
-      // Sending anyone there to check makes them conclude it is broken.
+      // Deliberately NOT a link: an offchain resolver can't enumerate its keys,
+      // so the ENS app's Records tab would render empty for a name answering fine.
       out.push(fact(F.ensName, name));
       out.push(fact(F.ensRead, name ? COPY.verdict.ensExample : undefined));
       out.push(fact(F.ensParent, ensParent(), ensAppUrl(ensParent())));
@@ -910,41 +805,28 @@ export function stageFacts(
 
 /**
  * SIX STEPS, ONE SEQUENCE — including the one that happens before the registry
- * has anything to report.
+ * has anything to report. The pipeline's four source stages (`resolving`,
+ * `licence`, `fetching`, `starting`) answer one question — where did the source
+ * come from, and may it be stored — so the flow folds them into one step; the
+ * panel names whichever one the run is on. Purely presentational: every fact
+ * still comes from `stageFacts`, every phase from `stagePhase`.
  *
- * The pipeline reports eight stages. Four of them (`resolving`, `licence`,
- * `fetching`, `starting`) answer one question — *where did the source come from,
- * and may it be stored* — and reading them as four separate things is what made
- * the screen feel like a debug log. So the flow folds those four into one step,
- * and the panel under the tiles names whichever of them the run is actually on.
- *
- * The folding is presentational and nothing more. Every fact still comes from the
- * stage that reported it (`flowFacts` merges `stageFacts`, it does not invent),
- * every phase still comes from `stagePhase`, and a stage the pipeline never emits
- * is still never drawn.
- *
- * `world` is the only step with no stage behind it: it happens in this browser,
- * before a submission exists. Its phase therefore comes from the World widget
- * rather than from the API, and it can never be derived from a run — which is why
- * it is a separate argument everywhere below rather than something inferred.
+ * `world` is the only step with no stage behind it — it happens in this browser
+ * before a submission exists, so its phase comes from the World widget, passed
+ * as a separate argument everywhere below rather than derived from a run.
  */
 
 /**
- * The three credentials this app can request.
- *
- * Named here rather than in `lib/world.ts` on purpose: that module reads the
- * relying-party signing key, so a client component that imported it would be one
- * bundler decision away from shipping the key to the browser. This module is
- * already in the browser bundle and holds no secrets.
+ * The three credentials this app can request. Named here rather than in
+ * `lib/world.ts` (which reads the relying-party signing key) so a client
+ * component can't be one bundler decision away from shipping it.
  */
 export type WorldCredential = 'face' | 'orb' | 'device';
 
 /**
- * Where the World step is. `checking` covers both halves of the wait — preparing
- * the signed request, and the widget being open — because from the reader's side
- * they are one thing. `held` means a proof reached this browser and NOTHING more:
- * the registry has not seen it, which is what `COPY.world.heldShort` says on
- * screen next to it.
+ * Where the World step is. `checking` covers both halves of the wait (preparing
+ * the signed request, and the widget being open). `held` means a proof reached
+ * this browser and NOTHING more — the registry hasn't seen it.
  */
 export type WorldPhase = 'idle' | 'checking' | 'held' | 'failed';
 
@@ -994,10 +876,8 @@ const WORLD_PHASE: Record<WorldPhase, StagePhase> = {
 
 /**
  * The phase of a step that covers stages, from the phases of those stages.
- *
- * Order matters and is deliberate: a stopped stage wins over an active one (the
- * run ended there), and `done` requires ALL of the covered stages to be done —
- * anything less is still in progress, not finished.
+ * Order matters: a stopped stage wins over an active one, and `done` requires
+ * ALL covered stages to be done.
  */
 function pipelinePhase(step: FlowStep, status: SubmissionStatus | null): StagePhase {
   const phases = FLOW_STAGES[step].map((stage) => stagePhase(stage, status));
@@ -1015,22 +895,16 @@ export function flowPhase(
   return step === 'world' ? WORLD_PHASE[world] : pipelinePhase(step, status);
 }
 
-/**
- * The stages of a step that are actually drawn — `starting` only for a run that
- * reported it, exactly as `railStages` decides for the rail as a whole.
- */
+/** The stages of a step that are actually drawn — `starting` only for a run that reported it, same as `railStages`. */
 export function flowSubStages(step: FlowStep, trace: PipelineTrace): SubmissionStage[] {
   const drawn = railStages(trace);
   return FLOW_STAGES[step].filter((stage) => drawn.includes(stage));
 }
 
 /**
- * Which of a step's stages the panel describes.
- *
- * The stage the run is ON when it is inside this step; otherwise the last one of
- * this step's stages the watch actually saw; otherwise the first. Never a stage
- * nobody reported *and* nobody is on — that would be describing an event as
- * though it had happened.
+ * Which of a step's stages the panel describes: the stage the run is ON, else
+ * the last stage the watch actually saw, else the first. Never a stage nobody
+ * reported and nobody is on.
  */
 export function flowFocusStage(
   step: FlowStep,
@@ -1050,9 +924,7 @@ export function flowFocusStage(
 
 /**
  * Every fact the step's stages reported, in pipeline order, first label wins.
- *
- * Merging is the only thing this does. It cannot produce a row `stageFacts` would
- * not, so the "an absent field renders as absent" rule survives the fold intact.
+ * Merging is the only thing this does — it cannot produce a row `stageFacts` wouldn't.
  */
 export function flowFacts(
   step: FlowStep,
@@ -1072,12 +944,9 @@ export function flowFacts(
 }
 
 /**
- * A gate inside this step answered and let the run through — and the run is out
- * the other side.
- *
- * The second half is what stops the licence gate painting the whole source step
- * as a passed gate while it is still fetching: a step that is mid-flight is
- * `active`, whatever one of its stages has already answered.
+ * A gate inside this step answered and let the run through, and the run is out
+ * the other side — a step still mid-flight is `active`, whatever one of its
+ * stages has already answered.
  */
 export function flowGatePassed(
   step: FlowStep,
@@ -1094,11 +963,9 @@ export function flowProvisional(step: FlowStep, trace: PipelineTrace): boolean {
 }
 
 /**
- * Which step the panel describes.
- *
- * A pick wins. Otherwise it follows the run, and with nothing reported it sits on
- * `world` — which is not a default so much as the truth: before a submission
- * exists, the World step is the only one anything is happening on.
+ * Which step the panel describes. A pick wins; otherwise it follows the run,
+ * and with nothing reported it sits on `world` — the only step anything is
+ * happening on before a submission exists.
  */
 export function shownStep(picked: FlowStep | null, status: SubmissionStatus | null): FlowStep {
   if (picked) return picked;
@@ -1108,11 +975,7 @@ export function shownStep(picked: FlowStep | null, status: SubmissionStatus | nu
 
 /* --------------------------------------------------------------- the poll --*/
 
-/**
- * 1800 ms. The pipeline's stages are seconds to minutes apart — `createEntity()`
- * alone awaits a receipt for ~4.6 s (AGENTS.md §7, A4) — so a faster poll buys
- * nothing and a slower one lets a short stage pass unseen between two requests.
- */
+/** 1800ms. Stages are seconds to minutes apart, so a faster poll buys nothing and a slower one loses short stages. */
 export const POLL_INTERVAL_MS = 1800;
 
 /** After this many consecutive network failures the watch gives up and says so. */
@@ -1135,11 +998,7 @@ export type StatusFetch =
   | { kind: 'notBuilt'; detail?: string }
   | { kind: 'unreachable'; detail: string };
 
-/**
- * One poll. Never throws — every outcome is a value, because the difference
- * between "the registry says it does not know this id" and "we could not ask"
- * is exactly what the screen has to keep distinct.
- */
+/** One poll. Never throws — every outcome is a value, since "the registry doesn't know this id" and "we couldn't ask" must stay distinct. */
 export async function fetchSubmissionStatus(id: string, signal?: AbortSignal): Promise<StatusFetch> {
   try {
     const res = await fetch(submissionStatusUrl(id), {

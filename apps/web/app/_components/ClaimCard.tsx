@@ -5,14 +5,9 @@ import type { Claim } from '@/lib/types.ts';
 import { SeverityChip } from './Chip.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
 
-/**
- * The accusation and the rebuttal, rendered by the same component.
- *
- * That is the point: same size, same typeface, same metadata footer, side by
- * side. AGENTS.md §4 — corrections are as prominent and as durable as the
- * original claim. A rebuttal in smaller type would be the product quietly
- * taking its own side.
- */
+/** The accusation and the rebuttal, rendered by the same component — same
+ *  size, same typeface, side by side. A rebuttal in smaller type would be
+ *  the product quietly taking its own side. */
 export function ClaimCard({
   claim,
   kind,

@@ -5,28 +5,15 @@ import { SX_COLUMNS, SX_T, type HalftoneState, type WriteReceipt } from '@/lib/s
 import { halftoneClass } from '@/lib/submission.ts';
 
 /**
- * The four pieces of the motion system, as markup. Presentational only — they
- * take values and render them, and every one of them can render "there is no
- * value" without inventing one.
- *
- * The CSS is the whole animation (`app/globals.css`, SUREX MOTION v1). There is
- * no JS driving any of it, which is what makes the static render correct: every
- * keyframe track ends at the natural resting style, so a screenshot, a print or
- * a reduced-motion browser gets a settled, true frame rather than a half-drawn
- * one.
- *
- * Inline `style` appears here and nowhere else in the app, and only ever to set
- * a CSS custom property — `--sx-p`, `--t`, `--c` are the animation's inputs and
- * a Tailwind class cannot carry a per-element number.
+ * The four pieces of the motion system, as markup — presentational only. The
+ * CSS is the whole animation (`app/globals.css`); no JS drives any of it, so
+ * every keyframe track ends at its natural resting style and a static/print
+ * render is always a settled, true frame. Inline `style` appears here and
+ * nowhere else, only to set the animation's CSS custom-property inputs.
  */
 
-/**
- * Progress as dot density. There is no bar: `--sx-p` is `done / total` and the
- * dots light as it crosses each one's dither threshold.
- *
- * `aria-hidden` because it is the same fact the live text beside it already
- * states — a screen reader announcing 48 dots would be announcing nothing.
- */
+/** Progress as dot density, not a bar. `aria-hidden` — the live text beside
+ *  it already states the same fact in words. */
 export function Halftone({ state, fraction }: { state: HalftoneState; fraction: number }) {
   return (
     <div
@@ -41,14 +28,8 @@ export function Halftone({ state, fraction }: { state: HalftoneState; fraction: 
   );
 }
 
-/**
- * Mounted while the DGX has the source open, unmounted when it stops.
- *
- * The head sweeps, ink accumulates behind it, the page pulls away and the pass
- * dots step every loop — 40 seconds before anything repeats exactly, which is
- * the point: a review runs for minutes and a two-second spinner looks stuck long
- * before it is.
- */
+/** Mounted while the DGX has the source open. 40s before anything repeats
+ *  exactly — a review runs for minutes, and a 2s spinner looks stuck too soon. */
 export function ReadingPulse({ source }: { source: string }) {
   return (
     <div className="sx-reading" aria-hidden="true">
@@ -77,16 +58,8 @@ export function ReadingPulse({ source }: { source: string }) {
   );
 }
 
-/**
- * The two readings, not agreeing.
- *
- * Bilateral by design: emphasis oscillates between the two cards in exact
- * antiphase and never lands, because the system has not picked a side. It mounts
- * only on `disagreementReported()` — something the backend said — and its two
- * values are whatever the backend sent. When it sent none, the cards say so;
- * putting two plausible verdicts in there would be manufacturing the split the
- * panel is about.
- */
+/** The two readings, not agreeing. Mounts only on `disagreementReported()`,
+ *  and its values are whatever the backend sent — never invented. */
 export function Disagreement({ a, b }: { a: string | null; b: string | null }) {
   return (
     <div className="sx-disagree" aria-hidden="true">
@@ -119,15 +92,8 @@ export function Disagreement({ a, b }: { a: string | null; b: string | null }) {
   );
 }
 
-/**
- * A write that landed. The mount IS the animation — 1.7s, once, never looping —
- * so it is keyed on the identifier it carries and a re-render does not replay it.
- *
- * It is only ever built from an id the pipeline reported (`writeReceipts()`), so
- * there is no pending variant of this component and no placeholder id. The
- * second line is omitted when no hash or digest was reported rather than being
- * filled with an ellipsis that reads like a value.
- */
+/** A write that landed. The mount IS the animation — 1.7s, once, keyed on the
+ *  id it carries so a re-render doesn't replay it. */
 export function WriteLanded({ receipt }: { receipt: WriteReceipt }) {
   const id = (
     <>
@@ -136,16 +102,9 @@ export function WriteLanded({ receipt }: { receipt: WriteReceipt }) {
     </>
   );
 
-  /**
-   * `.sx-write__blob` goes on the LINK, not inside it.
-   *
-   * A blob id is 44 characters and an entity key is longer; the class is what
-   * clips them, and `overflow: hidden` does nothing on an inline box. Wrapping a
-   * `<code class="sx-write__blob">` in an `<a>` therefore un-clipped it and the id
-   * ran out under the stamp — caught in a render, not in review. The element that
-   * carries the class has to be the grid item, which is also the element the
-   * typewriter reveal animates.
-   */
+  // `.sx-write__blob` must go on the LINK, not inside it — `overflow: hidden`
+  // does nothing on an inline box, so wrapping a clipped `<code>` in an `<a>`
+  // un-clips it and the id runs out under the stamp.
   return (
     <div className="sx-write">
       <svg className="sx-write__tick" viewBox="0 0 20 20" aria-hidden="true">
