@@ -136,8 +136,14 @@ test('recordsFor throws rather than returning a banned word', () => {
   // `reason` is the only free-ish field on a head that reaches a record. If the
   // contract ever grew a reason like this, the gateway must refuse to sign it
   // rather than emit it — the runtime guard, not just the test above.
+  //
+  // The probe used to be 'this server is safe'. *safe* left the banned list on
+  // 2026-07-26 (product decision, so the homepage could use it), which means
+  // that string now signs cleanly and this test was asserting a guard that had
+  // stopped existing for it. The guard itself is unchanged, so the probe moved
+  // to a word still on the list rather than the assertion being dropped.
   assert.throws(
-    () => recordsFor({ fingerprint: FP, state: 'clean', severity: 0, tier: 'A', reason: 'this server is safe' }, {}),
+    () => recordsFor({ fingerprint: FP, state: 'clean', severity: 0, tier: 'A', reason: 'this server is trusted' }, {}),
     /Copy law violated in ENS record/,
   );
 });
