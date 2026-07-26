@@ -135,7 +135,7 @@ export const DECIDED_STATE = 'decided';
 
 /**
  * Does a row belong in the view `state` names? The one place that decides.
- * `decided` is matched by NAME, not by comparing against `DEFAULT_STATE` — the
+ * `decided` is matched by name, not by comparing against `DEFAULT_STATE` — the
  * two are independent, so changing the default can't silently break `?state=decided`.
  */
 export function matchesState(status: RowStatus, state: string): boolean {

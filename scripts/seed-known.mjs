@@ -66,7 +66,7 @@ const KNOWN = [
 
 async function npmMeta(name) {
   const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, {
-    // NOT the abbreviated format: `application/vnd.npm.install-v1+json` strips
+    // Not the abbreviated format: `application/vnd.npm.install-v1+json` strips
     // `license`, `description` and `repository`, so every licence reads null.
     headers: { accept: 'application/json' },
   });
@@ -197,7 +197,7 @@ log(`  certifyTx  ${quilt.certifyTx}`);
 /**
  * `writeQuiltOfRecords` returns a Map keyed by identifier. Two traps: JSON.stringify
  * turns a Map into `{}`, so a checkpoint written from one loses every pointer and the
- * ids cannot be re-derived; and `[...map.values()]` throws away the KEYS, which are
+ * ids cannot be re-derived; and `[...map.values()]` throws away the keys, which are
  * the identifiers — the only thing tying a patch to the record it holds.
  */
 function asPatchArray(p) {
@@ -214,7 +214,7 @@ const pointerFor = (fp) => {
   return p ? { ...quilt, ...p, addressing: 'quilt-patch', quiltBlobId: quilt.blobId } : { ...quilt };
 };
 
-// Assert the mapping BEFORE building anything: a pointer with no contentSha256, or
+// Assert the mapping before building anything: a pointer with no contentSha256, or
 // one belonging to another record, is how a registry cites evidence it cannot verify.
 for (const c of todo) {
   const p = (patches ?? []).find((x) => x.identifier === c.fingerprint);
@@ -230,7 +230,7 @@ for (const c of todo) {
   entities.push(
     buildVerdictHead({
       fingerprint: c.fingerprint,
-      // NEVER clean. Nothing here has been reviewed; a licence-ineligible entry is
+      // Never `clean`. Nothing here has been reviewed; a licence-ineligible entry is
       // `unreviewable` with the reason, and everything else is `unknown`.
       state: c.licence.eligible ? 'unknown' : 'unreviewable',
       reason: c.licence.eligible ? undefined : 'licence',

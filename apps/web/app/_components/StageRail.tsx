@@ -28,11 +28,11 @@ import {
 import { SectionLabel, Well } from './Panel.tsx';
 
 /**
- * THE FLOW. Six steps, in order, ticking as each one actually reports. The four
+ * The flow. Six steps, in order, ticking as each one actually reports. The four
  * source stages (`resolving`, `licence`, `fetching`, `starting`) fold into one
  * step here since they answer one question — see `lib/submission.ts`, "the flow".
  *
- * Colour means VERDICT (`globals.css`); kind is carried by the BORDER, the
+ * Colour means verdict (`globals.css`); kind is carried by the border, the
  * grammar `Chip.tsx` established: solid for measured, dashed for unmeasured,
  * dotted for absence. Each tick is also a word, never a glyph alone.
  */
@@ -329,7 +329,7 @@ function StepDetail({
   const facts = flowFacts(step, trace, status);
 
   // The World step has copy of its own; every other step borrows the copy of
-  // the STAGE the run is on inside it.
+  // the stage the run is on inside it.
   const focus = flowFocusStage(step, status, trace);
   const copy =
     step === 'world'

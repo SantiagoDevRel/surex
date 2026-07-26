@@ -42,8 +42,8 @@ function authorised(req) {
 }
 
 /**
- * Ollama needs no auth of its own, so ours is stripped rather than forwarded. The key
- * must be DELETED, not set to `undefined`: node's http client throws
+ * Ollama needs no auth of its own, so the bearer is stripped rather than forwarded.
+ * The key must be deleted, not set to `undefined`: node's http client throws
  * ERR_HTTP_INVALID_HEADER_VALUE on an explicit undefined value.
  */
 function forwardHeaders(headers) {

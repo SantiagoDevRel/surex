@@ -1,12 +1,12 @@
 // The World identity lane: AgentBook standing (agents) and World ID proofs (humans).
 //
-// Everything here runs OFFLINE and for real — a local JSON-RPC server stands in for
+// Everything here runs offline and for real — a local JSON-RPC server stands in for
 // World Chain and an injected fetch stands in for the Developer Portal, so the whole
 // agent flow (challenge → createHeader → parse → validate → recover → lookupHuman)
 // is exercised with a real signature from a real key. Nothing is stubbed inside the
 // code under test.
 //
-// The chain-side facts these tests encode were measured against LIVE World Chain 480
+// The chain-side facts these tests encode were measured against live World Chain 480
 // on 2026-07-25; `test/world-live.smoke.mjs` re-checks them against the real chain.
 //
 // The single most important test in this file is
@@ -129,7 +129,7 @@ test('the signal formulas are pinned — the web app derives the same two string
   assert.equal(evidenceHashOf({ evidence: 'e' }), '3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea');
   // The composition is the invariant that actually matters, and it is the one that
   // broke first in testing: the leaves agreeing does not mean the pipelines do.
-  // This value was read out of the LIVE web route (POST /api/world/rp-signature
+  // This value was read out of the live web route (POST /api/world/rp-signature
   // with {verdictKey:'k', evidence:'e'}) on 2026-07-25 and must not drift from it.
   assert.equal(
     disputeSignal({ verdictKey: 'k', evidenceHash: evidenceHashOf({ evidence: 'e' }) }),
@@ -195,7 +195,7 @@ test('THE GATE: an unregistered agent is refused, and the refusal is a real chai
 
 test('a rate-limited RPC is upstream_unavailable, NEVER agent_not_human_backed', async () => {
   // The worst thing this route can do is tell an honest, registered agent that no
-  // human stands behind it because OUR RPC was throttled. `lookupHuman` returns
+  // human stands behind it because our RPC was throttled. `lookupHuman` returns
   // null for a 429 (verified against the SDK source and live), so the code must not
   // take null at face value.
   const rpc = await rpcStub({ kind: 'ratelimited' });
@@ -635,7 +635,7 @@ test('POST /v1/submissions checks personhood BEFORE the pipeline it does not hav
   assert.equal(res.status, 400);
   assert.equal((await res.json()).error.field, 'invalid_commit');
 
-  // With a commit and NO writer configured, the honest answer is still that the
+  // With a commit and no writer configured, the honest answer is still that the
   // rest is not built — and the person keeps their submission.
   res = await app.request('/v1/submissions', {
     method: 'POST',
@@ -683,7 +683,7 @@ test('a checked submission is FORWARDED to the writer, and 202 only if the write
   assert.equal(seen.body.commit, 'b'.repeat(40), 'the writer is told which bytes');
   assert.equal(seen.body.proof, undefined, 'the proof stays here — the writer has no use for it');
 
-  // the writer is unreachable: 503, and NEVER a 202 claiming it was queued
+  // the writer is unreachable: 503, and never a 202 claiming it was queued
   app = createApp({
     logger: quiet, verifiers: v, env: ingestEnv,
     fetchImpl: async () => { throw new Error('econnrefused'); },
@@ -758,7 +758,7 @@ test('the World verifiers are opt-in, and a broken configuration fails to the st
 test('the deployed AgentBook networks are the ones we actually checked on chain', () => {
   assert.equal(AGENT_BOOK_NETWORKS['worldchain-480'].chainId, 480);
   assert.equal(AGENT_BOOK_NETWORKS['worldchain-480'].canonical, true);
-  // W4: a Base Sepolia deployment exists at the same address. It is NOT canonical.
+  // W4: a Base Sepolia deployment exists at the same address. It is not canonical.
   assert.equal(AGENT_BOOK_NETWORKS['base-sepolia-84532'].chainId, 84532);
   assert.equal(AGENT_BOOK_NETWORKS['base-sepolia-84532'].canonical, false);
   assert.equal(AGENT_BOOK_NETWORKS['base-sepolia-84532'].address, AGENT_BOOK_NETWORKS['worldchain-480'].address);

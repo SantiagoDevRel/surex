@@ -11,8 +11,8 @@
 //
 // And one hard rule sits above all of it:
 //
-//     A MALFORMED OR MISSING MODEL RESPONSE IS `unreviewable`.
-//     IT IS NEVER `clean`.
+//     A malformed or missing model response is `unreviewable`.
+//     It is never `clean`.
 //
 // `clean` is the only verdict that makes SureX silent. Reaching it by accident —
 // a parse failure, a timeout, one run out of two — would turn every glitch into a
@@ -55,7 +55,7 @@ const TIEBREAK_VARIANTS = VARIANTS;
  * so no surface can render a verdict while forgetting one of them.
  *
  * Copy law (AGENTS.md §4): the word is *reviewed*, never *trusted*, *verified* or
- * *secure* about a server. Asserted by test/copy.test.mjs, not by good intentions.
+ * *secure* about a server. Asserted by test/copy.test.mjs.
  */
 export function reviewNotice(record) {
   const when = (record?.run?.finishedAt ?? '').slice(0, 10) || 'unknown date';
@@ -101,7 +101,7 @@ export function statedIntentPaths(statedIntent = {}) {
 /**
  * The panel's `concern`, and the sentence that goes with it.
  *
- * When the deciding readings disagree about what KIND of problem this is, the WEAKER
+ * When the deciding readings disagree about what kind of problem this is, the weaker
  * reading stands: `CONCERNS` is ordered from "nothing" to "actively hides what it
  * does", so the lower index wins a tie. One reading calling something deliberate
  * concealment while another calls it an undeclared ping is not a panel that
@@ -126,7 +126,7 @@ export function pickConcern(deciding) {
 
 export function pickAssessment(deciding, concern) {
   /**
-   * ONLY from a reading that reached the winning concern — never "any reading that
+   * Only from a reading that reached the winning concern — never "any reading that
    * produced an assessment". `concern` and `assessment` are independently optional,
    * so one reading can carry `deliberate-concealment` plus its prose while the other
    * carries `undeclared-behaviour` and none; a loose fallback then publishes the
@@ -138,7 +138,7 @@ export function pickAssessment(deciding, concern) {
 }
 
 /**
- * The one concern value a SINGLE reading may not publish on its own.
+ * The one concern value a single reading may not publish on its own.
  * `deliberate-concealment` is the only value that asserts a purpose rather than
  * describing a mechanism, and a wrong one accuses a person rather than a program. A
  * lone reading's severity is already capped at `DISAGREEMENT_SEVERITY_CAP`, and
@@ -163,7 +163,7 @@ function explain(deciding, verdict) {
  * Merge the model runs.
  *
  *   all valid runs agree       → verdict stands, agreementRuns = the count. Where
- *                                severities differ, the LOWEST wins: a higher
+ *                                severities differ, the lowest wins: a higher
  *                                number was asserted by fewer runs.
  *   a strict majority agrees   → that verdict, agreementRuns = the majority size,
  *                                severity = the lowest inside the majority.
@@ -174,7 +174,7 @@ function explain(deciding, verdict) {
  *                                silent verdict.
  *   none valid                 → `unreviewable`, agreementRuns 0.
  *
- * "No majority" is deliberately NOT the more cautious verdict. Keeping the cautious
+ * "No majority" is deliberately not the more cautious verdict. Keeping the cautious
  * side of a split turned sampling noise into a published accusation — `honest-sqlite`
  * came back **flagged, clean, clean** across three identical inputs. At severity 2
  * core `decide()` answers `warn` exactly as it does for `unreviewable`, so the
@@ -362,7 +362,7 @@ export async function reviewServer(input, options = {}) {
 
   for (const variant of VARIANTS) await runOnce(variant, fenceId);
 
-  // The tie-break: a split buys another reading of EACH variant and the merge takes
+  // The tie-break: a split buys another reading of each variant and the merge takes
   // the majority of four — see TIEBREAK_VARIANTS for why both and not one.
   //
   // Each extra reading gets a fresh fence nonce, and that is what makes it a new
@@ -408,7 +408,7 @@ export async function reviewServer(input, options = {}) {
       notes.push('a planted instruction aimed at the reviewer was found by the deterministic scan; that finding does not depend on the model runs');
     } else {
       // The model review did not complete, so the verdict stays `unreviewable`.
-      // The deterministic finding is still reported — we know that much.
+      // The deterministic finding is still reported.
       notes.push('the model review did not complete, but the deterministic scan found a planted instruction aimed at the reviewer');
     }
   }
@@ -431,7 +431,7 @@ export async function reviewServer(input, options = {}) {
       error: r.error ?? null,
     })),
     capabilityScan: scan.meta,
-    // What the MODEL was actually shown. The capability scan reads every file it is
+    // What the model was actually shown. The capability scan reads every file it is
     // given, the prompt is budgeted, so on anything larger than a fixture the two
     // differ — and a verdict that does not say which files it could not see is
     // claiming more than it knows.
@@ -479,7 +479,7 @@ export async function reviewServer(input, options = {}) {
       reason: merged.reason ?? null,
       severity,
       findings,
-      // Carried onto the RECORD, not just the merge: the blob and the head are built
+      // Carried onto the record, not just the merge: the blob and the head are built
       // from the record, so a field that stops at the merge is one no reader sees.
       concern: merged.concern ?? null,
       assessment: merged.assessment ?? null,

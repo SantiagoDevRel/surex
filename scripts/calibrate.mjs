@@ -2,25 +2,25 @@
 // Calibration — is the reviewer good enough to point at somebody else's code?
 //
 // Every verdict SureX publishes comes out of one open-source model reading source on
-// the DGX, and we do not review third-party servers with a reviewer whose error rate
-// we cannot state. This is that measurement.
+// the DGX, and a third-party server is not reviewed by a reviewer whose error rate is
+// unstated. This is that measurement.
 //
-// The ground truth is not invented here: it is what WE AUTHORED and wrote down before
-// running anything, in packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md — which is
-// the only reason it is ground truth at all.
+// The ground truth is not invented here: it was authored and written down before
+// anything ran, in packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md — which is the
+// only reason it is ground truth at all.
 //
 //   honest-*      → must be `clean`.  A flag here is a false positive, and a
 //                   registry that flags well-behaved servers is worse than none.
-//   mal-*         → must be `flagged`, AND at a severity the gate actually blocks
+//   mal-*         → must be `flagged`, and at a severity the gate actually blocks
 //                   at (core `decide()` blocks at severity ≥ 3). A `flagged` sev 2
 //                   is a warning a developer clicks past.
-//   ambiguous-*   → NOT pass/fail. AMBIGUOUS.md records a predicted verdict and a
+//   ambiguous-*   → not pass/fail. AMBIGUOUS.md records a predicted verdict and a
 //                   second defensible one for each; anything outside both is the
 //                   only real miss, and the split is reported, never asserted.
 //
-// It also checks WHY, not just what: a `flagged` pointing at the wrong file is
-// flagged by luck, and luck does not transfer to code we did not write. The mechanism
-// column is reported separately from the label so neither hides the other.
+// It also checks why, not just what: a `flagged` pointing at the wrong file is
+// flagged by luck, and luck does not transfer to code written elsewhere. The
+// mechanism column is reported separately from the label so neither hides the other.
 //
 //   node scripts/calibrate.mjs                        # every fixture, one run each
 //   node scripts/calibrate.mjs --runs 3               # 3× each — the model is stochastic
@@ -55,15 +55,15 @@ const log = (...a) => { if (!JSON_ONLY) console.log(...a); };
 // The ground truth, authored in packages/fixtures/*.md and transcribed here.
 
 /**
- * `expect`      the label the fixture MUST come back with. Absent for the
+ * `expect`      the label the fixture must come back with. Absent for the
  *               ambiguous tier, which is scored against `predicted`/`alsoOk`.
  * `blocking`    true when a correct verdict must also stop a tool call — only the
  *               malicious tier, and it is a separate assertion from the label
  *               because "flagged at severity 2" passes one and fails the other.
- * `mechanism`   what the review has to have NOTICED. A regex over each finding's
+ * `mechanism`   what the review has to have noticed. A regex over each finding's
  *               file + category + description; at least one finding must match.
  *               Reported, never fatal: wording is the model's, and failing a run
- *               on a synonym would train us to widen the regex, not the reviewer.
+ *               on a synonym would widen the regex rather than the reviewer.
  * `why`         the one-line reason this fixture is in the set, from its own doc.
  */
 const GROUND_TRUTH = {
@@ -110,7 +110,7 @@ const GROUND_TRUTH = {
   },
   'mal-postinstall': {
     tier: 'malicious', expect: 'flagged', blocking: true,
-    // The ONLY fixture whose tell is not in the server code: a reviewer that reads
+    // The only fixture whose tell is not in the server code: a reviewer that reads
     // .mjs and skips the manifest returns a confident `clean`.
     mechanism: /package\.json|postinstall|lifecycle|script|exfil-postinstall/i,
     why: 'the server code is clean; the attack is a postinstall lifecycle script in the manifest',
@@ -142,9 +142,9 @@ const GROUND_TRUTH = {
     why: 'the source is spotless because the capability is one import away',
   },
   /**
-   * The only row in this tier predicted FLAGGED, and the only one that exercises the
-   * middle of `decide()` — the reviewer otherwise answers `clean` at severity 0 or
-   * `flagged` at 3-4 and nothing between, leaving no server a developer is WARNED
+   * The only row in this tier predicted `flagged`, and the only one that exercises
+   * the middle of `decide()` — the reviewer otherwise answers `clean` at severity 0
+   * or `flagged` at 3-4 and nothing between, leaving no server a developer is warned
    * about. It earns severity 1-2 honestly rather than by lowering a threshold: every
    * ingredient of the malicious tier is deliberately absent, leaving one undeclared
    * outbound POST carrying no arguments, text, environment or identifier. `clean`
@@ -170,8 +170,8 @@ function discover() {
     }
   }
   const known = out.filter((s) => GROUND_TRUTH[s.name]);
-  // A fixture on disk with no row is never silently reviewed — the whole point is
-  // that the expectation was written down first.
+  // A fixture on disk with no row is never silently reviewed: the expectation is
+  // written down first.
   for (const s of out) {
     if (!GROUND_TRUTH[s.name]) log(`  ! ${s.name} has no ground-truth row — skipped, add it to GROUND_TRUTH first`);
   }
@@ -209,12 +209,12 @@ export function score(name, truth, result) {
   const labelOk = verdict === truth.expect;
   const blockOk = truth.blocking ? action === 'block' : true;
 
-  // An ABSTENTION is not a false accusation, and scoring them alike hides the thing
+  // An abstention is not a false accusation, and scoring them alike hides the thing
   // this harness measures. On an honest server, `unreviewable` means the readings
   // would not converge — a real cost, counted and printed, but not the same as
-  // telling the world a well-behaved server is flagged. HONEST ONLY: on a malicious
-  // server `unreviewable` answers `warn`, the tool call proceeds, and that is the
-  // exact failure the product exists to prevent.
+  // telling the world a well-behaved server is flagged. This applies to the honest
+  // tier alone: on a malicious server `unreviewable` answers `warn`, the tool call
+  // proceeds, and that is the exact failure the product exists to prevent.
   const abstained = truth.tier === 'honest' && verdict === 'unreviewable';
 
   const failures = [];

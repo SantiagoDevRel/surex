@@ -14,7 +14,7 @@ const client = createPublicClient({
   transport: http('https://ethereum-rpc.publicnode.com'),
 })
 
-// @surex/mal-tool-shadow — our own fixture, and the only flagged entry.
+// @surex/mal-tool-shadow — a SureX fixture, and the only flagged entry.
 const name = 'sxf1-ceacc357115421177295dd5b183871b3192c17b1.surex.eth'
 
 console.log(name)

@@ -100,7 +100,7 @@ function parseDockerImage(spec) {
 /**
  * Shells that exist only to launch the real command. On Windows an MCP server is
  * almost always `cmd /c npx <pkg>` where macOS has `npx <pkg>`; without
- * unwrapping the two hash differently AND the Windows form loses the package name
+ * unwrapping the two hash differently and the Windows form loses the package name
  * entirely, so the gate recognises almost nothing while looking like it works.
  */
 const SHELL_WRAPPERS = {
@@ -176,7 +176,7 @@ export function normaliseRunner(command) {
 
 /**
  * Extract the package and return the residual args.
- * Residual arg ORDER IS PRESERVED — most CLIs are order-sensitive, so sorting
+ * Residual arg order is preserved — most CLIs are order-sensitive, so sorting
  * them would collapse two materially different servers onto one fingerprint.
  */
 function extractPackage(runner, args) {
@@ -205,8 +205,8 @@ function extractPackage(runner, args) {
       const a = args[i];
       if (CEREMONY.has(a)) { i++; continue; }
       if (a === 'run' || a === 'x' || a === 'dlx') { i++; continue; }
-      // `deno run --allow-net ./server.ts` — permissions come BEFORE the entry and
-      // ARE identity-relevant, so keep them and keep scanning rather than breaking
+      // `deno run --allow-net ./server.ts` — permissions come before the entry and
+      // are identity-relevant, so keep them and keep scanning rather than breaking
       // and never finding the script.
       if (isFlag(a)) {
         if (runner === 'deno') { rest.push(a); i++; continue; }
@@ -233,10 +233,10 @@ function extractPackage(runner, args) {
       if (isFlag(a)) break;
       // `node ./server.js` names a local file, never a published artifact. The
       // absolute path cannot go in the fingerprint (machine-specific), and the
-      // basename alone is NOT an identity — every locally-run MCP server is
+      // basename alone is not an identity — every locally-run MCP server is
       // `node server.js`, so they would all collide onto one entry and the gate
       // would apply one server's verdict to another's code. The identity is the
-      // CONTENT of the entry file (see `hashLocalEntry`), which is also
+      // content of the entry file (see `hashLocalEntry`), which is also
       // reproducible across machines. Without a resolver this stays unresolved
       // and the gate treats it as unidentifiable.
       pkg = { name: String(a).split(/[\\/]/).pop(), version: LOCAL_UNRESOLVED, _spec: String(a) };
@@ -316,7 +316,7 @@ export function canonicaliseStdio(def, opts = {}) {
 
 /**
  * Canonical form for a remote server. Spec §2.3.
- * This identifies an ENDPOINT, not a version of anything, so it is always Tier C.
+ * This identifies an endpoint, not a version of anything, so it is always Tier C.
  */
 export function canonicaliseRemote(def) {
   const url = new URL(def.url);
@@ -341,7 +341,7 @@ export function stableStringify(value) {
 
 /**
  * Canonicalise one MCP server definition, as it appears in a client config
- * AFTER ${VAR} expansion.
+ * after ${VAR} expansion.
  */
 export function canonicalise(def, opts = {}) {
   if (!def || typeof def !== 'object') throw new TypeError('server definition must be an object');
@@ -381,7 +381,7 @@ export function tierOf(canonical, { recordedIntegrity = null, localIntegrity = n
   if (canonical.transport !== 'stdio') return 'C';
   if (canonical.package?.version === UNPINNED || !canonical.package?.version) return 'C';
   if (!recordedIntegrity || !localIntegrity) return 'B';
-  // A mismatch is NOT tier A and NOT a block — it downgrades to `stale` and warns
+  // A mismatch is not tier A and not a block — it downgrades to `stale` and warns
   // (FR-19); blocking on what is usually a registry quirk trains users to disable
   // the gate.
   return recordedIntegrity === localIntegrity ? 'A' : 'MISMATCH';

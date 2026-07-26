@@ -1,5 +1,5 @@
 /**
- * Reference tables rendered FROM the frozen contract, not typed out beside it: the
+ * Reference tables rendered from the frozen contract, not typed out beside it: the
  * routes, error codes, cache policy, gate budget and decision table are computed at
  * build time from the same `@surex/core` module the gate and the API import, so a
  * contract change either reaches this site or fails the build.

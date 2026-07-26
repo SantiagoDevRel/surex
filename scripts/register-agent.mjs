@@ -11,12 +11,12 @@
 //
 // Three things to know before running it:
 //
-// 1. REGISTRATION IS GASLESS — a hosted relay pays, so the agent wallet needs no
+// 1. Registration is gasless — a hosted relay pays, so the agent wallet needs no
 //    balance on any chain. Do not fund it first.
-// 2. IT NEEDS AN ORB-VERIFIED WORLD ID. The contract checks `groupId = 1` and only
+// 2. It needs an Orb-verified World ID. The contract checks `groupId = 1` and only
 //    Orb credentials exist on chain, so device-level and Selfie Check cannot
 //    register an agent. No amount of code removes that.
-// 3. DO NOT PASS `--network`. The shipped CLI 0.2.0 has no such option and hardcodes
+// 3. Do not pass `--network`. The shipped CLI 0.2.0 has no such option and hardcodes
 //    World Chain; its own npm README and REGISTRATION.md document
 //    `--network base | base-sepolia` and are stale. (FRICTION-LOG W2)
 //
@@ -147,7 +147,7 @@ function run(label, cliArgs) {
   return new Promise((resolve) => {
     line();
     console.log(`▸ ${label}\n  $ npx ${CLI} ${cliArgs.join(' ')}\n`);
-    // NOTE: no `--network`. The shipped 0.2.0 binary has no such option (W2).
+    // No `--network`: the shipped 0.2.0 binary has no such option (W2).
     // shell:true because on Windows `npx` is a .cmd shim and spawn cannot exec it.
     const child = spawn('npx', ['--yes', CLI, ...cliArgs], { stdio: 'inherit', shell: true });
     child.on('close', (code) => resolve(code ?? 1));

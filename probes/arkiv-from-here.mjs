@@ -1,13 +1,13 @@
 /**
- * Probe: can THIS machine write to Arkiv, and how long does the write take?
+ * Probe: can this machine write to Arkiv, and how long does the write take?
  *
  *   node probes/arkiv-from-here.mjs
  *
  * Deliberately narrow — the counterpart to `probes/walrus-publish.mjs`, which exists
  * because Walrus turned out to be uplink-sensitive (S11). Arkiv writes are ordinary
- * JSON-RPC to ONE endpoint, but "no reason to expect the same failure" is not a test.
+ * JSON-RPC to one endpoint, but "no reason to expect the same failure" is not a test.
  *
- * Writes ONE throwaway entity under a probe-only project so nothing it does can reach
+ * Writes one throwaway entity under a probe-only project so nothing it does can reach
  * the registry: the API scopes every read to `surex-lisbon`, this writes `surex-probe`.
  *
  * Needs ARKIV_WRITER_PK in the environment (on the DGX: /etc/surex/ingest.env).
@@ -48,7 +48,7 @@ const built = {
     { key: 'entityType', value: 'probe' },
     { key: 'fingerprint', value: fingerprint },
   ],
-  // Seconds, and an EVEN number of them: 0.7.0 throws InvalidExpirationError on an
+  // Seconds, and an even number of them: 0.7.0 throws InvalidExpirationError on an
   // odd value where 0.6.8 silently rounded (A3).
   expiresIn: 3600,
 };

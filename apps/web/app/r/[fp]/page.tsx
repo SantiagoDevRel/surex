@@ -72,7 +72,7 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
   const { name } = splitName(head.name ?? head.fingerprint);
   const findings = entry.findings ?? [];
   const banner = stateBanner(head);
-  // `findings` is at most ONE (the API serves only the head's `topFinding`);
+  // `findings` is at most one (the API serves only the head's `topFinding`);
   // `findingCount` is the real total, falling back to what's on screen.
   const totalFindings = Math.max(head.findingCount ?? 0, findings.length);
   const blocking = BLOCKS.includes(head.state);

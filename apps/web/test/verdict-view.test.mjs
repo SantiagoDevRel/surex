@@ -1,13 +1,13 @@
-// What the verdict page SAYS, for every state a head can carry: the banner, the
+// What the verdict page says, for every state a head can carry: the banner, the
 // twenty-second summary, and the problem-kind line.
 //
 // The failure these guard against is one situation's wording applied to a
-// situation it does not describe — `withheld` (a review that RAN and is not
+// situation it does not describe — `withheld` (a review that ran and is not
 // published) reading as "the source could not be read", `no-agreement` (read
 // twice, no majority) getting the same sentence next to "the readings disagreed",
 // `unknown` (nobody has looked) asserting what the model saw.
 //
-// So the assertions are about MEANING rather than strings: no rendered body may
+// So the assertions are about meaning rather than strings: no rendered body may
 // claim a reading that did not happen, and no body may contain two clauses that
 // contradict each other. Those survive a copy edit; exact-text ones would not.
 

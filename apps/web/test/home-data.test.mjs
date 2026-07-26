@@ -1,6 +1,6 @@
 /**
  * The homepage ticker and stat band, over data shaped by `lib/home-data.ts`.
- * Mostly about what does NOT get rendered — an undefined stat produces no tile,
+ * Mostly about what does not get rendered — an undefined stat produces no tile,
  * a partial view produces no entries-indexed tile — because a hardcoded count is
  * a fabrication.
  *

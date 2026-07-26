@@ -1,12 +1,12 @@
 /**
- * Every claim this site makes about WHAT IS BUILT, in one place. The reference
+ * Every claim this site makes about what is built, in one place. The reference
  * tables cannot drift because they are computed from `@surex/core`; status claims
  * have no such source, so they get one file to edit and a test that fails on the
  * phrasings already retracted.
  *
  * Editing: state what is true and how it was checked — never "coming soon", never a
  * date for something unshipped. When something moves from unbuilt to built, edit it
- * HERE and nowhere else, then run `pnpm --filter @surex/docs test`.
+ * here and nowhere else, then run `pnpm --filter @surex/docs test`.
  *
  * Plain text on purpose: `/llms.txt` prints these verbatim.
  */

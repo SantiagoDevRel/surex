@@ -1,7 +1,7 @@
-// Mock mode. SUREX_MOCK=1 → every route answers from fixtures with NO Arkiv
+// Mock mode. SUREX_MOCK=1 → every route answers from fixtures with no Arkiv
 // connection at all.
 //
-// THE ONE RULE: every response carries `illustrative: true`, and that flag is
+// The one rule: every response carries `illustrative: true`, and that flag is
 // never stripped anywhere — fixture data rendered as real is the failure this
 // product objects to (AGENTS.md §4).
 //

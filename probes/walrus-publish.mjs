@@ -1,5 +1,5 @@
 /**
- * Probe: write a blob through the PRODUCT's publisher mode, from wherever you run it.
+ * Probe: write a blob through the product's publisher mode, from wherever you run it.
  *
  *   SUREX_WALRUS_PUBLISHER=1 node probes/walrus-publish.mjs
  *
@@ -9,10 +9,10 @@
  * writer gets to write at all.
  *
  * Imports `createWalrusWriter` from the worker package rather than reimplementing
- * the write — the question is whether the code we ship works from this machine.
+ * the write — the question is whether the shipped code works from this machine.
  *
  * What it proves, in order:
- *   1. the publisher accepts the bytes from THIS uplink, and which publisher did
+ *   1. the publisher accepts the bytes from this uplink, and which publisher did
  *   2. the pointer states the publisher's custody rather than implying ours
  *   3. the bytes come back from the aggregator and recompute to the same digest —
  *      the property the gate relies on, unaffected by whose wallet paid
@@ -35,7 +35,7 @@ if (!publishers.length) {
   process.exit(2);
 }
 
-// Unique per run: a fixed payload would dedupe on the FIRST write and the probe
+// Unique per run: a fixed payload would dedupe on the first write and the probe
 // would never exercise the fresh-write branch. Step 4 re-sends these same bytes.
 const nonce = process.argv[2] ?? `${Date.now().toString(36)}-${process.pid.toString(36)}`;
 const PAYLOAD = new TextEncoder().encode(
@@ -47,7 +47,7 @@ log('  publishers :', publishers.join(', '));
 log('  payload    :', PAYLOAD.length, 'B');
 
 const walrus = await createWalrusWriter({ log: (m) => log(m) });
-// Deliberately NOT logging walrus.address: reading it loads the Sui key, and the
+// Deliberately not logging walrus.address: reading it loads the Sui key, and the
 // property demonstrated here is that publisher mode needs no key at all.
 log('  our Sui key:', 'not loaded — the publisher\'s wallet pays for this write');
 

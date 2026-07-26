@@ -7,7 +7,7 @@
 //      Vercel's CDN pin one body fleet-wide for the whole window.
 //
 // `verdict.test.mjs` pins the client `max-age`; these assertions are about the
-// SHARED cache, the one nobody can bust from a browser.
+// shared cache, the one nobody can bust from a browser.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

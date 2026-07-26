@@ -14,7 +14,7 @@ import { ERROR_CODES } from '@surex/core';
 const quiet = { warn() {}, info() {}, error() {} };
 const FLAGGED = FIXTURES.find((f) => f.label === 'flagged-tier-b').fingerprint;
 
-// NOTE the order: opts spreads FIRST, then the merged env. Reversed, a caller
+// The order is load-bearing: opts spreads first, then the merged env. Reversed, a caller
 // passing `{ env: {…} }` loses SUREX_MOCK and these tests hit live Braga.
 const app = (opts = {}) =>
   createApp({ logger: quiet, ...opts, env: { SUREX_MOCK: '1', ...(opts.env ?? {}) } });
@@ -165,7 +165,7 @@ test('the dispute id is deterministic for the same submission', async () => {
 
 test('there must be something to contest', async () => {
   const a = app();
-  // No live verdict for that fingerprint → nothing to dispute. Checked BEFORE the
+  // No live verdict for that fingerprint → nothing to dispute. Checked before the
   // identity check, so a valid agent cannot create registry rows for free.
   let res = await post(a, { fingerprint: MISS_FINGERPRINT, agentAddress: '0xabc', evidence: 'x' });
   assert.equal(res.status, 404);

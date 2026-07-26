@@ -1,12 +1,12 @@
 // Printing an override command that actually works.
 //
-// A plugin's `bin/` does NOT join the PATH. Installed from a marketplace the
+// A plugin's `bin/` does not join the PATH. Installed from a marketplace the
 // binary sits at
 //   ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/bin/surex
 // and bare `surex` is `command not found` in the shell the agent runs commands in
-// (Claude Code 2.1.220 / Windows; FRICTION-LOG C7). So resolve our own location
-// and print an invocation that exists, preferring the short form when it really
-// is on PATH.
+// (Claude Code 2.1.220 / Windows; FRICTION-LOG C7). So resolve this plugin's own
+// location and print an invocation that exists, preferring the short form when
+// `surex` is on PATH.
 
 import { existsSync } from 'node:fs';
 import { delimiter, dirname, join, resolve } from 'node:path';
@@ -28,7 +28,7 @@ export function onPath(env = process.env) {
       // A shim elsewhere on PATH counts too.
       if (existsSync(join(entry, 'surex')) || existsSync(join(entry, 'surex.cmd'))) return true;
     } catch {
-      /* an unreadable PATH entry is not our problem */
+      /* an unreadable PATH entry is skipped, not a failure */
     }
   }
   return false;

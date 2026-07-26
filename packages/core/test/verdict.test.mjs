@@ -127,7 +127,7 @@ test('"unknown" distinguishes listed-but-unreviewed from never-submitted', () =>
 });
 
 test('only the never-submitted branch offers the submit link', () => {
-  // Telling someone to submit a server that is ALREADY listed sends them to fill
+  // Telling someone to submit a server that is already listed sends them to fill
   // in a form that changes nothing — the entry exists and is waiting for a review.
   const submitUrl = 'https://surex-app.vercel.app/submit';
 
@@ -163,7 +163,7 @@ test('a malformed head degrades to unknown, never to clean', () => {
 test('a batch response distinguishes "no entry" from "did not answer"', () => {
   // Security-relevant: synthesising an `unknown` for every fingerprint the
   // registry did not mention, and caching it, writes a negative cache entry for a
-  // FLAGGED server — served out of cache as unknown for the whole negative TTL,
+  // flagged server — served out of cache as unknown for the whole negative TTL,
   // with no lookup, no block and no notice.
   const asked = [FP, `sxf1_${'a'.repeat(64)}`, `sxf1_${'b'.repeat(64)}`];
 
@@ -177,7 +177,7 @@ test('a batch response distinguishes "no entry" from "did not answer"', () => {
   ]);
   assert.equal(partial.answered.length, 2);
   assert.deepEqual(partial.unanswered, [asked[2]]);
-  // An explicit `unknown` from the registry IS a real answer and may be cached.
+  // An explicit `unknown` from the registry is a real answer and may be cached.
   assert.equal(partial.answered[1].state, 'unknown');
 
   // A malformed row is not an answer either.

@@ -1,5 +1,5 @@
 /**
- * World ID, server side only. SERVER ONLY, not by accident: `RP_SIGNING_KEY`
+ * World ID, server side only, and not by accident: `RP_SIGNING_KEY`
  * authenticates this app to the World ID protocol, and it must never become
  * `NEXT_PUBLIC_*` or be imported by a client component.
  *
@@ -66,7 +66,7 @@ export function disputeSignal(verdictKey: string | null | undefined, evidenceHas
  *            maintainers.
  *
  * Default is `face` — the weakest claim of the three — so an unset variable never
- * claims more than it checked. An unrecognised value is a configuration ERROR, not
+ * claims more than it checked. An unrecognised value is a configuration error, not
  * a silent fallback: `WORLD_CREDENTIAL=orbb` must never quietly hand back a face
  * check to an operator who asked for an Orb.
  */

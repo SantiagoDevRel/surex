@@ -85,9 +85,9 @@ export async function submissionStatus(id, { env = process.env, fetchImpl = fetc
       result: body.result ?? null,
       error: body.error ?? null,
       /**
-       * Where the pipeline IS while it runs, forwarded untouched:
-       * `{stage, label, done, total, detail, at}`. NOT the same field as `stage`
-       * below, and they must not be merged — `stage` is the stage that FAILED,
+       * Where the pipeline currently is while it runs, forwarded untouched:
+       * `{stage, label, done, total, detail, at}`. A different field from `stage`
+       * below, and they must not be merged — `stage` names the stage that failed,
        * which only exists once the pipeline has stopped.
        */
       progress: body.progress ?? null,
@@ -146,7 +146,7 @@ export async function forwardSubmission(submission, { env = process.env, fetchIm
     if (res.status === 202 && body?.id) {
       return { kind: 'queued', id: String(body.id), deduped: Boolean(body.deduped), queuePosition: body.queuePosition ?? null };
     }
-    // A 401 here is OUR misconfiguration (wrong token) — the submitter must not
+    // A 401 here is our misconfiguration (wrong token) — the submitter must not
     // be shown a message implying they were refused.
     return {
       kind: 'unreachable',

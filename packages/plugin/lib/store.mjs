@@ -1,4 +1,4 @@
-// Everything the gate keeps between runs. It ALL lives in ${CLAUDE_PLUGIN_DATA},
+// Everything the gate keeps between runs. It all lives in ${CLAUDE_PLUGIN_DATA},
 // never ${CLAUDE_PLUGIN_ROOT} — the root is replaced on every plugin update, so
 // overrides written there would be wiped by one.
 

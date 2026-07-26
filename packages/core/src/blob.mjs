@@ -21,7 +21,7 @@ export function sha256Hex(bytes) {
 
 /**
  * Is this evidence pointer a patch inside a Quilt rather than a blob of its own?
- * A quilted record is addressed as (quilt blob, patch id) and gets NO certified
+ * A quilted record is addressed as (quilt blob, patch id) and gets no certified
  * Sui object of its own.
  */
 export function isQuiltPatch(evidence) {
@@ -34,7 +34,7 @@ export function isQuiltPatch(evidence) {
  * of the provenance.
  *
  * A quilt patch takes a different route (`/v1/blobs/by-quilt-patch-id/<patchId>`):
- * a patch id on the plain blob route is a 400, and fetching the QUILT for a patch
+ * a patch id on the plain blob route is a 400, and fetching the quilt for a patch
  * returns ~9x the bytes, whose digest then fails the content check on a record
  * that is perfectly fine.
  */
@@ -84,8 +84,8 @@ export async function fetchBlob(blobId, opts = {}) {
  *    neither the aggregator that served the bytes nor the API that pointed at
  *    them.
  *
- * With no encoder the blob-ID check reports `asserted` — NOT `passed` — and
- * every surface must say so. A check we did not run is never claimed as one.
+ * With no encoder the blob-ID check reports `asserted`, not `passed`, and every
+ * surface must say so. A check that did not run is never claimed as one.
  *
  * @param {Object} args
  * @param {Buffer} args.bytes
@@ -117,8 +117,8 @@ export async function verifyEvidenceBytes({ bytes, evidence, computeBlobId } = {
   }
 
   // A quilted record cannot recompute to its own blob ID: the certified Sui
-  // object commits to the whole quilt. The one structural check that IS
-  // available: the patch id must be addressed within the quilt blob id named.
+  // object commits to the whole quilt. The one structural check still available:
+  // the patch id must be addressed within the quilt blob id named.
   if (isQuiltPatch(evidence)) {
     const quiltId = evidence.quiltBlobId ?? evidence.blobId;
     const inQuilt = Boolean(quiltId && String(evidence.patchId ?? '').startsWith(String(quiltId)));

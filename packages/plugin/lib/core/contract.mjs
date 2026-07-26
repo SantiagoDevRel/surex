@@ -2,7 +2,7 @@
 // Vendored from packages/core/src by scripts/sync-core.mjs, because the plugin
 // runs on a user's machine with nothing installed. Edit the original and re-run
 // `pnpm sync:core`.
-// The /v1 contract. FROZEN — 2026-07-25.
+// The /v1 contract, frozen 2026-07-25.
 //
 // Additive changes only. Anything that would break a shipped gate goes to /v2.
 // Node stdlib only — vendored into the plugin.
@@ -56,7 +56,8 @@ export const ROUTES = Object.freeze({
  *                                      `no-agreement` means it was read and the readings
  *                                      did not converge — a review with no verdict)
  * @property {string=} name            display name, e.g. "@acme/mcp-tools@2.1.0"
- * @property {number=} enforceAfter    epoch ms; selects block WORDING, not whether we block
+ * @property {number=} enforceAfter    epoch ms; selects the block wording, not
+ *                                     whether a server blocks
  * @property {string=} reviewedCommit
  * @property {string=} reviewedAt      ISO date
  * @property {string=} modelId
@@ -64,9 +65,9 @@ export const ROUTES = Object.freeze({
  * @property {string=} integrity       npm dist.integrity recorded at review time (Tier A)
  * @property {Object=} capabilities    deterministic scan, not model output
  * @property {Object=} topFinding      {file,line,description,severity,category}
- * @property {string=} concern         the KIND of gap between what the server says and
+ * @property {string=} concern         the kind of gap between what the server says and
  *                                     what it does — one of reviewer CONCERNS (rv-7).
- *                                     ADDITIVE: absence means "not stated", never
+ *                                     Additive: absence means "not stated", never
  *                                     "nothing found".
  * @property {string=} assessment      one or two sentences a developer can act on,
  *                                     from the reading that decided the verdict
@@ -76,7 +77,7 @@ export const ROUTES = Object.freeze({
  * @property {Object=} evidence        {blobId, suiObjectId, registerTx, certifyTx, encodingType}
  * @property {string=} arkivEntityKey
  * @property {string=} updatedAt
- * @property {boolean=} illustrative   TRUE when this row is demo data, never omitted when it is
+ * @property {boolean=} illustrative   true when this row is demo data, never omitted when it is
  */
 
 /** Everything the gate needs, and nothing that needs a second fetch to act on. */
@@ -102,8 +103,8 @@ export const ERROR_CODES = Object.freeze({
   UPSTREAM_UNAVAILABLE: 'upstream_unavailable',
   INVALID_BODY: 'invalid_body',
   /**
-   * An unexpected fault on our side — never `upstream_unavailable`, which blames
-   * the wrong party and misleads a client deciding whether to retry.
+   * An unexpected fault in this service — never `upstream_unavailable`, which
+   * blames the wrong party and misleads a client deciding whether to retry.
    */
   INTERNAL: 'internal',
   /** A route that exists in the contract but is not built in this deployment. */
@@ -116,7 +117,7 @@ export const ERROR_CODES = Object.freeze({
  *
  * @typedef {Object} BatchResponse
  * @property {number}  requested   how many valid fingerprints were asked about
- * @property {Array}   heads       one per valid requested fingerprint, IN REQUEST ORDER
+ * @property {Array}   heads       one per valid requested fingerprint, in request order
  * @property {string[]} invalid    entries rejected as not-a-fingerprint
  * @property {number}  ttlMs       how long the caller may cache these
  */
@@ -158,12 +159,12 @@ export function unknownHead(fingerprint) {
 }
 
 /**
- * A batch response MUST answer for every fingerprint it was asked about, so a
+ * A batch response must answer for every fingerprint it was asked about, so a
  * caller can tell "the registry says it has no entry for this" from "the
  * registry did not answer for this".
  *
  * Security-relevant: synthesising an `unknown` for an unanswered fingerprint and
- * caching it serves a FLAGGED server out of cache as `unknown` for the whole
+ * caching it serves a flagged server out of cache as `unknown` for the whole
  * negative TTL — no lookup, no block. A miss may only be cached when the
  * registry actually said so.
  */

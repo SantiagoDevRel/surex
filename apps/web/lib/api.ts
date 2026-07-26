@@ -136,7 +136,7 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
   const rawHead = (body.head ?? body) as Record<string, unknown>;
   const headLinks = rawHead.links as Entry['head']['links'] | undefined;
 
-  // The API returns `sources` and `reviews` — PLURAL, newest first. Take the
+  // The API returns `sources` and `reviews` — plural, newest first. Take the
   // newest of each, with the singular fallback for the shape fixtures use.
   const newest = <T>(key: string): T | undefined => {
     const list = body[key] as T[] | undefined;
@@ -321,7 +321,7 @@ export function normaliseStats(raw: unknown, rows: RegistryRow[], illustrative: 
   const byState = registry.byState ?? {};
   const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
-  // `reviewed` is the SUM of the states only a real review can produce — never
+  // `reviewed` is the sum of the states only a real review can produce — never
   // `entries` minus something, which would silently count unreported states
   // (e.g. seeded `unknown` entries) as reviewed.
   const REVIEWED_STATES = ['clean', 'flagged', 'disputed', 'stale'] as const;

@@ -4,7 +4,7 @@
 // docs:
 //
 //   1. does permissionDecision:"deny" actually stop a real mcp__ tool call?
-//   2. does a ~12-line permissionDecisionReason survive to the user AND the model?
+//   2. does a ~12-line permissionDecisionReason survive to the user and the model?
 //   3. what does the hook input actually contain (there is no server-name field)?
 //   4. when a blocking hook exceeds its timeout, does the call fail open or closed?
 //
@@ -44,7 +44,7 @@ appendFileSync(
     tool_name: input.tool_name ?? null,
     permission_mode: input.permission_mode ?? null,
     cwd: input.cwd ?? null,
-    // Everything else, verbatim — we want to see the fields nobody documented.
+    // Everything else, verbatim, so the fields nobody documented are visible.
     keys: Object.keys(input).sort(),
     raw_len: raw.length,
   }) + '\n',
@@ -129,9 +129,9 @@ switch (mode) {
   }
 
   case 'warn-only':
-    // permissionDecision:"allow" SKIPS the normal permission prompt, so an "unknown"
+    // permissionDecision:"allow" skips the normal permission prompt, so an "unknown"
     // path that emits it auto-approves the servers SureX knows nothing about. This
-    // emits the notice with NO decision, to check the warning still shows while the
+    // emits the notice with no decision, to check the warning still shows while the
     // normal flow stays in charge.
     emit({
       systemMessage: '⚠ SureX: probe server is not in the registry. Proceeding unverified.',

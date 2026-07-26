@@ -1,5 +1,5 @@
 /**
- * Probe: write ONE blob to Walrus testnet, certify it, capture BOTH Sui tx digests,
+ * Probe: write one blob to Walrus testnet, certify it, capture both Sui tx digests,
  * then read the bytes back and prove they round-trip.
  *
  * Throwaway verification script. Not product code.
@@ -13,8 +13,8 @@
  *    the SDK's network config + the on-chain type of the object it points at.
  *  - Blob mode is owned + permanent (deletable: false).
  *  - Epoch count is the on-chain maximum, read from the system object's future-accounting ring
- *    buffer length -- NOT a constant copied out of a doc.
- *  - The private key is read from a file OUTSIDE this repo. Nothing secret is written here.
+ *    buffer length -- not a constant copied out of a doc.
+ *  - The private key is read from a file outside this repo. Nothing secret is written here.
  */
 
 import { readFileSync } from 'node:fs';
@@ -78,7 +78,7 @@ log('  SUI:', suiBalance.toString(), 'MIST | WAL:', walBalance.toString(), 'FROS
 if (suiBalance === 0n) throw new Error('wallet has no SUI - fund it at https://faucet.sui.io first');
 
 // 1. WAL. The SDK ships the testnet SUI->WAL exchange object IDs; the exchange package ID is
-//    derived from the on-chain TYPE of that object, so nothing here is pinned by hand.
+//    derived from the on-chain type of that object, so nothing here is pinned by hand.
 if (walBalance === 0n) {
   log('\n# 1. no WAL -> swapping 0.5 SUI for WAL');
   const exchangeId = TESTNET_WALRUS_PACKAGE_CONFIG.exchangeIds[0];
@@ -114,7 +114,7 @@ const { storageCost, writeCost, totalCost } = await client.walrus.storageCost(PA
 log(`  quote for ${PAYLOAD.length} B x ${maxEpochs} epochs: storage=${storageCost} write=${writeCost} total=${totalCost} FROST`);
 
 // 3. The write, one step at a time, so both transactions are ours to capture.
-//    flow.executeRegister/executeCertify exist but executeCertify DISCARDS the digest, so the
+//    flow.executeRegister/executeCertify exist but executeCertify discards the digest, so the
 //    register()/certify() transaction builders are used and executed by hand instead.
 log('\n# 3. write');
 const flow = client.walrus.writeBlobFlow({ blob: PAYLOAD });

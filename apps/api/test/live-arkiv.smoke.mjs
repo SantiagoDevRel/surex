@@ -1,4 +1,4 @@
-// LIVE smoke test against Braga. Deliberately NOT named *.test.mjs, so
+// Live smoke test against Braga. Deliberately not named *.test.mjs, so
 // `node --test test/*.test.mjs` never touches the network — the unit suite must
 // stay hermetic and fast.
 //
@@ -9,7 +9,7 @@
 //   1. the RPC answers and the chain is the one we think it is;
 //   2. the hot-path query runs and a miss comes back as the `unknown` head;
 //   3. count() works, so /v1/stats reports real numbers;
-//   4. `.createdBy` still partitions — the foreign wallet's entities are NOT in
+//   4. `.createdBy` still partitions — the foreign wallet's entities are not in
 //      our writer's result set, and vice versa. This is the load-bearing one: if
 //      it ever stops holding, anyone can plant a `clean` verdict for a flagged
 //      fingerprint and the gate reads theirs.

@@ -4,10 +4,10 @@
 // `pnpm sync:core`.
 // Recomputing a Walrus blob ID from bytes.
 //
-// A blob ID is NOT sha256 of the payload — it is a commitment over the
+// A blob ID is not sha256 of the payload — it is a commitment over the
 // erasure-coded sliver structure, so it cannot be derived with a stdlib hash.
 // Deriving it needs the Walrus encoder, which is WASM; the plugin installs
-// straight from a git repo with no npm install, so the encoder is VENDORED.
+// straight from a git repo with no npm install, so the encoder is vendored.
 
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * Shard count of the Walrus network the blob was written to. Blob IDs are
- * deterministic over content AND network configuration, so this is part of the
- * address, not a tuning knob — a record written to a different configuration
+ * deterministic over both content and network configuration, so this is part of
+ * the address, not a tuning knob — a record written to a different configuration
  * must carry its own. 1000 is Walrus testnet.
  */
 export const WALRUS_TESTNET_SHARDS = 1000;
@@ -104,7 +104,7 @@ export function computeBlobMetadata(bytes, opts = {}) {
   try {
     const meta = instance.compute_metadata(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
     // Tuple: (blob_id, root_hash, unencoded_length, encoding_type). root_hash
-    // arrives WRAPPED as `{Digest: [...]}` — the Rust enum leaking through
+    // arrives wrapped as `{Digest: [...]}` — the Rust enum leaking through
     // wasm-bindgen. Unwrap rather than assume, so a shape change surfaces as a
     // null and not a plausible-looking wrong hash.
     const rootBytes = Array.isArray(meta[1]) || ArrayBuffer.isView(meta[1])

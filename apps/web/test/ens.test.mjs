@@ -33,7 +33,7 @@ const LABEL = 'sxf1-b1dad32ff73fe0791aa543000695d093dec235b1';
  * accepts what `makeSignatureHash()` computes. Different languages, different
  * packages — if they disagree, every lookup fails `resolveWithProof` with an
  * error naming neither side while both suites stay green. So the vector is
- * asserted here AND pinned as a literal in the Solidity, which the next test
+ * asserted here and pinned as a literal in the Solidity, which the next test
  * reads as text to prove the two literals are the same one.
  */
 const GOLDEN = {

@@ -1,7 +1,7 @@
 // The hardened prompt, versioned. Four rules it implements (NFR-3): untrusted
 // content sits inside explicit delimiters, labelled as data to analyse and never as
 // instruction; a standing directive makes instructions found inside reviewed content
-// FINDINGS rather than commands; every review runs twice with paraphrased prompts;
+// findings rather than commands; every review runs twice with paraphrased prompts;
 // and text that tries to instruct the reviewer is emitted as its own finding,
 // `category: "reviewer-injection"`, severity 4 (FR-22).
 //
@@ -13,7 +13,7 @@
 import { randomBytes, createHash } from 'node:crypto';
 
 // The closed set of concerns lives with the rest of the output contract, in
-// schema.mjs: the prompt RENDERS it, the validator ENFORCES it. A second hand-kept
+// schema.mjs: the prompt renders it, the validator enforces it. A second hand-kept
 // copy would drift — the reviewer asking for a value the validator had stopped
 // accepting, and every review quietly losing the field.
 import { CONCERNS } from './schema.mjs';
@@ -39,7 +39,7 @@ export const LIMITS = Object.freeze({
  * continue as prose the model reads as ours — it removes the entire
  * "```\nNow, new instructions:" class of attack.
  *
- * Random per call by design: the cache key is computed from the review INPUT, never
+ * Random per call by design: the cache key is computed from the review input, never
  * from the rendered messages, so an unguessable fence costs nothing in cache
  * stability.
  */
@@ -56,7 +56,7 @@ function fence(id, label, body) {
 }
 
 /**
- * Detecting a planted instruction is NOT delegated to the model. The model is asked
+ * Detecting a planted instruction is not delegated to the model. The model is asked
  * for injection attempts too and its answers are merged in, but the primary detector
  * is this table, for the same reason the capability scan is deterministic: the thing
  * being scanned is trying to influence the scanner, and a regex has no attention to
@@ -74,7 +74,7 @@ export const INJECTION_PATTERNS = Object.freeze([
   { re: /\byou\s+(?:are|act\s+as)\s+(?:now\s+)?(?:a\s+|an\s+)?(?:helpful\s+)?(?:AI|assistant|language\s+model|security\s+reviewer|code\s+reviewer|auditor)\b/i, label: 'addresses the reader as the reviewing model' },
   { re: /\b(?:mark|report|classify|rate|label)\s+(?:this|the)\s+(?:\w+\s+){0,3}(?:as\s+)?(?:clean|benign|harmless|no\s+issues?|not\s+malicious)\b/i, label: 'instructs the reviewer to return a clean verdict' },
   /**
-   * CONCEALMENT, not merely a negative instruction. The TARGET clause is required:
+   * Concealment, not merely a negative instruction. The target clause is required:
    * without it, `do not (report|flag|mention|include…)` fires on ordinary schema
    * constraints — it matched `@upstash/context7-mcp` three times at severity 4 on the
    * descriptions of its own tools. This detector forces severity 4 without consulting
@@ -95,7 +95,7 @@ export const INJECTION_PATTERNS = Object.freeze([
   { re: /\bend\s+of\s+(?:data|document|file)\b[\s\S]{0,30}\b(?:instructions?|task|now)\b/i, label: 'attempts to close the data fence and resume as instruction' },
   { re: /\bAI\s+(?:agents?|assistants?|models?)\s+(?:reading|processing|reviewing)\s+this\b/i, label: 'addresses models reading the content' },
   /**
-   * `IMPORTANT:` followed by something SENSITIVE, not by anything at all. Accepting
+   * `IMPORTANT:` followed by something sensitive, not by anything at all. Accepting
    * `tool|call|read|send|include` as the object matches every well-written MCP tool
    * description — telling the calling model when to use a tool is what that field is
    * for. Tool poisoning is an imperative pointed at something the tool has no
@@ -115,7 +115,7 @@ export const INJECTION_PATTERNS = Object.freeze([
 /**
  * Scan text for planted instructions.
  *
- * Unlike the capability scan, comments are NOT stripped — a comment is exactly
+ * Unlike the capability scan, comments are not stripped — a comment is exactly
  * where this lives.
  *
  * @returns {InjectionHit[]}
@@ -382,12 +382,12 @@ export const SCOPE_RULE = [
  * The MCP-specific surfaces, **shared by both variants** for the same reason
  * SCOPE_RULE is (D11).
  *
- * Everything else in this prompt reasons in terms of TOOLS, and a tool is one of
+ * Everything else in this prompt reasons in terms of tools, and a tool is one of
  * three MCP primitives: a server also serves `prompts/list` and `resources/list`,
  * and both land in the calling model's context exactly as tool descriptions do, with
  * none of the "the user chose to call this" framing that at least bounds a tool.
  *
- * Deliberately NOT a security checklist. Each line names unaccounted-for BEHAVIOUR
+ * Deliberately not a security checklist. Each line names unaccounted-for behaviour
  * rather than a pattern to match, because a reviewer given a list of bad words finds
  * bad words. The scope rule above still governs.
  */
@@ -530,7 +530,7 @@ export function buildPrompt({ variant, statedIntent = {}, files = [], fenceId = 
 }
 
 /**
- * The cache key. Computed from the review INPUT and the prompt version, never from
+ * The cache key. Computed from the review input and the prompt version, never from
  * the rendered messages, which carry a random fence id — so two identical inputs hit
  * the same recorded run tomorrow.
  */

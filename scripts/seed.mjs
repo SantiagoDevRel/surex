@@ -9,29 +9,29 @@
  *   node scripts/seed.mjs --verify        # re-read what is on chain, write nothing
  *   node scripts/seed.mjs --repair-pointers   # re-derive quilt patch ids and fix the entries
  *
- * THE TWO RULES THIS SCRIPT EXISTS TO HONOUR
+ * The two rules this script exists to honour
  *
- * 1. Seeded entries are `unknown`. NEVER `clean` — being listed is not an
+ * 1. Seeded entries are `unknown`, never `clean` — being listed is not an
  *    endorsement, and a seeded entry that inherits an existing backdoor must gain
  *    no legitimacy from it. entities.mjs enforces it too: `buildVerdictHead`
  *    refuses `clean` without a review key.
  *
- * 2. The ~50 seed-time RegistryEntry bodies go into ONE Walrus Quilt. A standalone
+ * 2. The ~50 seed-time RegistryEntry bodies go into one Walrus Quilt. A standalone
  *    blob is two Sui transactions, so 50 of them is 100, and transaction count is
  *    the real budget (the testnet faucet took 53 blind attempts to answer once,
  *    FRICTION-LOG S1); a quilt batches up to 660 small blobs into 2 transactions
  *    total. Standalone certified blobs stay for source trees, reviews and dispute
  *    evidence, where per-record citability is the point.
  *
- *    The trade: a quilted record is addressed as (quilt blob, patch id) and has NO
+ *    The trade: a quilted record is addressed as (quilt blob, patch id) and has no
  *    certified Sui object of its own, so no per-record explorer link. Every pointer
  *    written here carries `addressing: 'quilt-patch'`, its own `patchId` and the
  *    quilt's digests, so a reader can tell which kind of record they have.
  */
 
-// @surex/core and @surex/worker are imported by RELATIVE path, not package name: the
+// @surex/core and @surex/worker are imported by relative path, not package name: the
 // repo root is a private workspace container with no dependencies of its own, so pnpm
-// links neither into the root node_modules. `viem` and `@arkiv-network/sdk` DO resolve
+// links neither into the root node_modules. `viem` and `@arkiv-network/sdk` do resolve
 // by name — node-linker=hoisted puts them at the root (see .npmrc).
 import { formatEther } from 'viem';
 import {
@@ -73,8 +73,8 @@ const log = (...a) => console.log(...a);
 const step = (t) => log(`\n── ${t} ${'─'.repeat(Math.max(0, 62 - t.length))}`);
 
 /**
- * The disclosure on every seeded record. Written by us, so the copy law binds it: the
- * word is REVIEWED, and a listing is never an endorsement.
+ * The disclosure on every seeded record. SureX copy, so the copy law binds it: the
+ * word is *reviewed*, and a listing is never an endorsement.
  */
 const SEED_DISCLOSURE =
   'Seeded from the public MCP registry. Nobody has reviewed this code. The entry exists so ' +
@@ -176,7 +176,7 @@ if (VERIFY_ONLY) {
   process.exit(failures.length ? 1 : 0);
 }
 
-// Frozen on the first run, so a resume seeds the SAME set.
+// Frozen on the first run, so a resume seeds the same set.
 step('1 · candidates');
 let state = RESET ? null : loadState(STATE_FILE);
 if (state) {
@@ -217,7 +217,7 @@ await pool(needLicence, LICENCE_CONCURRENCY, async (candidate) => {
   }
   recordServer(state, candidate.fingerprint, { licence: result, stage: 'licence-resolved' });
   done += 1;
-  // After EVERY server, so a stall costs one record and not the run.
+  // After every server, so a stall costs one record and not the run.
   saveState(state, STATE_FILE);
   const mark = result.eligible ? 'eligible' : 'INELIGIBLE';
   log(`  [${done}/${needLicence.length}] ${candidate.name} → ${result.spdx ?? '—'} ${mark} (${result.source})`);
@@ -239,7 +239,7 @@ if (DRY_RUN) {
 
 step('3 · Walrus — one quilt, every seed RegistryEntry body');
 /**
- * The record body. Must be BYTE-DETERMINISTIC for a given candidate, or the digest
+ * The record body. Must be byte-deterministic for a given candidate, or the digest
  * recorded on the Arkiv entity cannot be re-derived and every later check degrades to
  * "trust the store" — hence `capturedAt` minted once per server into the checkpoint,
  * never `new Date()` at call time.
@@ -267,7 +267,7 @@ function entryBody(candidate) {
     registryVersion: candidate.version,
     repo: candidate.repo,
     pkg: candidate.pkg,
-    // The pinned form of the same server is a DIFFERENT fingerprint under SXF-1.
+    // The pinned form of the same server is a different fingerprint under SXF-1.
     // `seeded: false` keeps it from reading as a claim that it is in the registry.
     aliases: candidate.pinned
       ? [{ kind: 'pinned-version', fingerprint: candidate.pinned.fingerprint, tier: candidate.pinned.tier, seeded: false }]
@@ -309,11 +309,11 @@ if (state.quilt?.certifyTx) {
 }
 
 // Repairs a mis-recorded identifier → patch-id mapping. `flow.listFiles()` returns
-// patch ids with NO identifier and NOT in input order (positional mapping measured
+// patch ids with no identifier and not in input order (positional mapping measured
 // right for 1 of 50), so a seed written under that assumption has every entry
 // pointing at another entry's bytes. The mapping is re-derived from the certified
 // quilt itself — identifier from the quilt index, digest from the bytes it serves.
-// It does NOT write a new quilt: those bytes are certified, and re-writing re-charges
+// It does not write a new quilt: those bytes are certified, and re-writing re-charges
 // (S3).
 if (REPAIR_POINTERS) {
   step('3b · repair — re-derive quilt patch ids from the certified quilt');
@@ -327,7 +327,7 @@ if (REPAIR_POINTERS) {
   const { patches, read } = await walrusWriter.mapCertifiedQuilt(state.quilt, { patchIds: knownPatchIds });
   log(`  read ${read.length} patches back · ${patches.size} distinct identifiers`);
 
-  // Cross-check against the record's OWN content, not just the index: each body
+  // Cross-check against the record's own content, not just the index: each body
   // carries its fingerprint and it must equal the identifier the quilt gave the
   // patch. Disagreement means the mapping is unreliable, so nothing gets written.
   let bodyChecked = 0;
@@ -357,7 +357,7 @@ if (REPAIR_POINTERS) {
     wrong += 1;
     recordServer(state, candidate.fingerprint, { entryBlob: correct, pointerRepaired: true });
     if (!record.registryEntryKey) continue;
-    // updateEntity is a FULL replacement, so the entity is rebuilt in its entirety
+    // updateEntity is a full replacement, so the entity is rebuilt in its entirety
     // by the same builder — which re-includes the project attribute, without which
     // it would silently drop out of every scoped query.
     updates.push({
@@ -433,7 +433,7 @@ for (let i = 0; i < pending.length; i += ARKIV_CHUNK) {
         reason: licence.eligible ? undefined : 'licence',
         tier: candidate.tier,
         severity: 0,
-        // An eligible-but-unreviewed entry IS the reviewer's work queue (query (e)).
+        // An eligible-but-unreviewed entry is the reviewer's work queue (query (e)).
         // A licence-blocked one is not: no amount of re-analysis changes a licence.
         needsReanalysis: licence.eligible,
         name: candidate.name,

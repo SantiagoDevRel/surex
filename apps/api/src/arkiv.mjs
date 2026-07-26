@@ -1,4 +1,4 @@
-// The read client. READ ONLY — there is no wallet in this process.
+// The read client. Read-only — there is no wallet in this process.
 //
 // Only the worker's wallet writes verdicts, and the two never share a process: an
 // API that could write is an API whose compromise rewrites the registry. There is
@@ -6,11 +6,11 @@
 //
 // SDK 0.7.0 specifics, measured (AGENTS.md §7, probes/arkiv-write-read.mjs):
 //   · 0.7.0 no longer re-exports viem → `http` comes from 'viem' directly.
-//   · `orderBy` is accepted silently and does NOTHING. Sort client-side, always.
-//   · `.createdBy(WRITER)` on EVERY consumer read. Never `ownedBy` — ownership is
+//   · `orderBy` is accepted silently and does nothing. Sort client-side, always.
+//   · `.createdBy(WRITER)` on every consumer read. Never `ownedBy` — ownership is
 //     transferable via changeOwnership, so ownedBy is attacker-influenceable and
 //     using it is a silent authorisation bypass.
-//   · One fetch() returns ONE cursor page. Anything that lists must paginate.
+//   · One fetch() returns one cursor page. Anything that lists must paginate.
 
 import { createPublicClient } from '@arkiv-network/sdk';
 import { braga } from '@arkiv-network/sdk/chains';
@@ -25,7 +25,7 @@ export const BRAGA_CHAIN_ID = 60138453102;
 /**
  * The writer whose entities are the only ones this API will ever return.
  *
- * Load-bearing SECURITY, not tidiness: Braga is a shared public testnet with no
+ * Load-bearing security, not tidiness: Braga is a shared public testnet with no
  * uniqueness constraint on our attributes, so without this filter anyone can write
  * a colliding fingerprint under `project=surex-*` with `state=clean` and the gate
  * reads their verdict instead of ours.
@@ -38,7 +38,7 @@ export const DEFAULT_PROJECT = 'surex-lisbon';
 /** Hard cap on pages walked by a listing query, so one bad filter cannot hang a request. */
 const MAX_PAGES = 25;
 /**
- * Page size for any listing query. Must be set EXPLICITLY: `QueryResult` computes
+ * Page size for any listing query. Must be set explicitly: `QueryResult` computes
  * `_endOfIteration = !limit || entities.length < limit`, so a query with no limit
  * reports itself finished after one page and `next()` throws `NoCursorOrLimitError`.
  */
@@ -55,7 +55,7 @@ const HEAD_FANOUT = 25;
 
 /**
  * When two heads exist for one fingerprint, which one is current: newest by
- * `lastModifiedAtBlock`, and on a TIE the more restrictive state wins. Never prefer
+ * `lastModifiedAtBlock`, and on a tie the more restrictive state wins. Never prefer
  * the more permissive one — a registry that rounds a flag down to a pass in a tie
  * has the failure mode that matters pointing the wrong way.
  */
@@ -64,7 +64,7 @@ const STATE_RESTRICTIVENESS = { flagged: 0, disputed: 1, stale: 2, unreviewable:
 /**
  * Many head entities → one head per fingerprint, the current one. Every listing
  * route needs it: mapping each row straight to a head shows a fingerprint with two
- * live heads TWICE, and the two rows can carry different states.
+ * live heads twice, and the two rows can carry different states.
  */
 export function dedupeHeads(entities) {
   const grouped = new Map();
@@ -215,9 +215,9 @@ function recordFrom(entity, kind) {
  * Read the whole result set, page by page. Three sharp edges in 0.7.0's
  * `QueryResult`:
  *
- *   1. `hasNextPage` is a METHOD, not a getter. `while (result.hasNextPage)` reads
+ *   1. `hasNextPage` is a method, not a getter. `while (result.hasNextPage)` reads
  *      a function reference — always truthy — and loops forever.
- *   2. `next()` MUTATES the result in place and returns `undefined`. The natural
+ *   2. `next()` mutates the result in place and returns `undefined`. The natural
  *      `result = await result.next()` throws on the following line.
  *   3. Pagination requires an explicit `.limit()`. Without one the result declares
  *      itself finished, and calling `next()` anyway throws NoCursorOrLimitError.
@@ -242,7 +242,7 @@ export function createArkivStore(options = {}) {
   const rpcUrl = options.rpcUrl ?? env.ARKIV_RPC_URL ?? DEFAULT_RPC;
   const project = options.project ?? env.SUREX_ARKIV_PROJECT ?? DEFAULT_PROJECT;
   const writerAddress = options.writerAddress ?? env.SUREX_WRITER_ADDRESS ?? DEFAULT_WRITER_ADDRESS;
-  // Default to the GATE's own hot-path network budget, not something longer: the
+  // Default to the gate's own hot-path network budget, not something longer: the
   // gate gives up at GATE_BUDGET.networkTimeoutMs and fails open, so anything above
   // that is work nobody is still waiting for. Braga reads measure ~100–180 ms.
   const timeoutMs = Number(options.timeoutMs ?? env.SUREX_ARKIV_TIMEOUT_MS ?? GATE_BUDGET.networkTimeoutMs);
@@ -280,7 +280,7 @@ export function createArkivStore(options = {}) {
     let q = client
       .buildQuery()
       .where(scope(predicates))
-      .createdBy(writerAddress) // NEVER ownedBy — see the header of this file.
+      .createdBy(writerAddress) // Never ownedBy — see the header of this file.
       .withAttributes(true)
       .withMetadata(true);
     if (payload) q = q.withPayload(true);
@@ -289,7 +289,7 @@ export function createArkivStore(options = {}) {
   };
 
   /**
-   * The hot path. One query, one page — and then the SAME choice the batch makes,
+   * The hot path. One query, one page — and then the same choice the batch makes,
    * through `newestHead`. Never `.limit(1)` + `entities[0]`: that is not "the head"
    * but "whichever head the node returned first", and `/r/<fp>` and the registry
    * list then disagree about one entry at the same moment.
@@ -305,7 +305,7 @@ export function createArkivStore(options = {}) {
   }
 
   /**
-   * The SessionStart prefetch. ONE round trip for a whole config — the fingerprints
+   * The SessionStart prefetch. One round trip for a whole config — the fingerprints
    * are OR-ed into a single predicate rather than looped. (`or()` accepts both an
    * array and varargs on 0.7.0; the array form is used here.)
    */
@@ -328,7 +328,7 @@ export function createArkivStore(options = {}) {
   async function getEntry(fp) {
     if (!isFingerprint(fp)) return null;
     const [entryRes, sourceRes, reviewRes, head] = await Promise.all([
-      // Not `.limit(1)`: the submit pipeline CREATES a registryEntry on every run
+      // Not `.limit(1)`: the submit pipeline creates a registryEntry on every run
       // and never updates one, so a resubmitted package has several and only the
       // newest describes the current entry.
       scoped([eq('entityType', 'registryEntry'), eq('fingerprint', fp)], { limit: HEAD_FANOUT }).fetch(),
@@ -359,7 +359,7 @@ export function createArkivStore(options = {}) {
   }
 
   /**
-   * A direct key read. `getEntity` has NO creator filter, so the provenance check
+   * A direct key read. `getEntity` has no creator filter, so the provenance check
    * that `.createdBy` does for queries has to be done by hand here — otherwise
    * /v1/source/<key> is a hole straight through the writer filter: anyone could
    * write an entity, hand us its key, and have the API serve it as ours.
@@ -415,7 +415,7 @@ export function createArkivStore(options = {}) {
         (a, b) =>
           (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
           Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
-          // Within a state, MOST RECENTLY ADDED first, not alphabetical.
+          // Within a state, most recently added first, not alphabetical.
           String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')) ||
           String(a.name ?? a.fingerprint).localeCompare(String(b.name ?? b.fingerprint)),
       );

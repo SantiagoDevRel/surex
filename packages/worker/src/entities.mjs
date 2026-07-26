@@ -6,15 +6,15 @@
 //
 // Three invariants the SDK will not enforce for you:
 //
-//  1. EVERY entity carries the project attribute. `updateEntity` is a FULL
-//     REPLACEMENT, so dropping it on a rewrite makes the entity vanish from every
+//  1. Every entity carries the project attribute. `updateEntity` is a full
+//     replacement, so dropping it on a rewrite makes the entity vanish from every
 //     scoped query while still existing on chain — measured, 35 ms to disappear.
 //     buildUpdate() refuses to produce an update without it.
-//  2. Numeric attribute values must be INTEGERS or the SDK throws
-//     InvalidAttributeError. Timestamps are epoch MILLISECONDS (verified to
+//  2. Numeric attribute values must be integers or the SDK throws
+//     InvalidAttributeError. Timestamps are epoch milliseconds (verified to
 //     round-trip exactly on Braga, 1784950249894 in and out) which also matches
 //     the /v1 contract's `enforceAfter`.
-//  3. `expiresIn` is SECONDS and must be a positive EVEN integer.
+//  3. `expiresIn` is seconds and must be a positive even integer.
 
 import { readFileSync } from 'node:fs';
 
@@ -35,9 +35,9 @@ export const SEED_STATE = 'unknown';
  * The fingerprints of servers **we wrote ourselves**, and the only ones that may
  * ever be published as `flagged` or `disputed` (AGENTS.md §4).
  *
- * Two properties, both load-bearing. The check lives at the WRITE BOUNDARY, not in
+ * Two properties, both load-bearing. The check lives at the write boundary, not in
  * a publishing script, because the worker is the only process with a wallet and a
- * new script would otherwise skip it. And it matches on FINGERPRINTS, not names:
+ * new script would otherwise skip it. And it matches on fingerprints, not names:
  * a name is a label the caller chooses (`totally-not-a-fixture-thirdparty` matches
  * `/fixture/`), a fingerprint is derived from the configuration being judged.
  */
@@ -51,7 +51,7 @@ export function selfAuthoredPath() {
 }
 
 /**
- * Load the allowlist. A missing file means an EMPTY allowlist — nothing may be
+ * Load the allowlist. A missing file means an empty allowlist — nothing may be
  * flagged. Fail closed: a lost file must cost us our own fixtures, not let
  * accusations through.
  */
@@ -80,8 +80,8 @@ export function isSelfAuthored(fingerprint) {
 }
 
 /**
- * DO NOT add a `recordSelfAuthored` that allowlists a fingerprint because the
- * submitted repo's owner is one of ours. `github.com/<us>/x` is NOT a namespace
+ * Do not add a `recordSelfAuthored` that allowlists a fingerprint because the
+ * submitted repo's owner is one of ours. `github.com/<us>/x` is not a namespace
  * only we can publish under: GitHub serves any commit in a repository's fork
  * network from the upstream namespace, so anyone who can push to a fork of one of
  * our public repos gets a sha that `fetchRepoAtCommit` resolves under our owner —
@@ -93,7 +93,7 @@ export function isSelfAuthored(fingerprint) {
  *
  * The allowlist stays an artefact a human curates off the request path
  * (`scripts/allow-self-authored.mjs`); until an operator runs it, a self-owned flag
- * is WITHHELD. A real fix means proving the commit is reachable from a branch of
+ * is withheld. A real fix means proving the commit is reachable from a branch of
  * the named repository.
  */
 
@@ -103,7 +103,7 @@ export const ACCUSING_STATES = Object.freeze(['flagged', 'disputed']);
 const projectAttr = (project = PROJECT) => ({ key: 'project', value: project });
 
 /**
- * Assert an integer rather than truncating one. NOT `Math.trunc(value)`: severity
+ * Assert an integer rather than truncating one. Not `Math.trunc(value)`: severity
  * 1.5 would land on chain as 1, a band below what the caller meant, and the gate's
  * block threshold reads that number.
  */
@@ -147,11 +147,11 @@ function attrs(list) {
  *
  * `contentSha256` is mandatory — it is the check binding the bytes an aggregator
  * serves to the Arkiv record, and the only one that runs on node's crypto alone.
- * `nShards` is mandatory because blob IDs are deterministic over content AND
+ * `nShards` is mandatory because blob IDs are deterministic over content and
  * network configuration.
  *
- * A WHITELIST, not a spread, so an invented field cannot reach the chain. The cost
- * is that a NEW pointer field is silently dropped until it is named here.
+ * A whitelist, not a spread, so an invented field cannot reach the chain. The cost
+ * is that a new pointer field is silently dropped until it is named here.
  */
 export function evidenceOf(pointer) {
   if (!pointer) return undefined;
@@ -182,14 +182,14 @@ export function evidenceOf(pointer) {
   // Custody. 'wallet' = ours, so `suiObjectId`, `registerTx` and `certifyTx` are
   // ours to stand behind. 'publisher' = an HTTP publisher's wallet, so there is no
   // register digest, the Sui object is theirs, and `certifyTx` is a certification
-  // they pointed at rather than one we sent. ABSENT on records written before
+  // they pointed at rather than one we sent. Absent on records written before
   // 2026-07-25: read absence as "not stated", never as "ours".
   if (pointer.registeredBy) out.registeredBy = pointer.registeredBy;
   if (pointer.publisher) out.publisher = pointer.publisher;
   // 'alreadyCertified' explains why a publisher-written record has no object id,
   // size or encoding type: the bytes were already stored.
   if (pointer.publisherOutcome) out.publisherOutcome = pointer.publisherOutcome;
-  // `!== undefined`, not truthiness: `false` means the read-back was SKIPPED, which
+  // `!== undefined`, not truthiness: `false` means the read-back was skipped, which
   // must stay distinguishable from "field not applicable".
   if (pointer.readbackVerified !== undefined) out.readbackVerified = pointer.readbackVerified;
   return out;
@@ -218,7 +218,7 @@ export function buildRegistryEntry({
   };
 }
 
-/** SourceRecord — one per version. The CODE. Immutable. */
+/** SourceRecord — one per version. The code. Immutable. */
 export function buildSourceRecord({
   fingerprint,
   versionString,
@@ -258,7 +258,7 @@ export function buildSourceRecord({
   };
 }
 
-/** ReviewRecord — one per review run. The VERDICT. Immutable. N reviews : 1 source. */
+/** ReviewRecord — one per review run. The verdict. Immutable. N reviews : 1 source. */
 export function buildReviewRecord({
   fingerprint,
   sourceKey,
@@ -303,9 +303,9 @@ export function buildReviewRecord({
 }
 
 /**
- * VerdictHead — the mutable pointer the gate reads. ONE live per fingerprint.
+ * VerdictHead — the mutable pointer the gate reads. One live per fingerprint.
  *
- * `clean` is reachable ONLY from a real review; a seeded entry gets `unknown` and a
+ * `clean` is reachable only from a real review; a seeded entry gets `unknown` and a
  * licence-ineligible one `unreviewable` + `reason: 'licence'`. An entry whose code
  * we have never read must not become the reason someone installs it.
  */
@@ -352,7 +352,7 @@ export function buildVerdictHead({
     throw new Error('state=unreviewable needs a reason (licence|source-unavailable|remote-endpoint|no-agreement|withheld)');
   }
 
-  // The two gates on a public accusation, both HERE rather than in a calling
+  // The two gates on a public accusation, both here rather than in a calling
   // script: this module is the one the wallet goes through, so it cannot be
   // bypassed by adding a script.
   if (ACCUSING_STATES.includes(state)) {

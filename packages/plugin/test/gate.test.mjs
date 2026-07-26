@@ -219,7 +219,7 @@ test('STOP: a flagged server halts the call and asks the human, case in one stri
   assert.equal(code, 0, 'a hook must always exit 0; a non-zero exit is non-blocking');
   const out = JSON.parse(stdout);
   // `ask`, not `deny`: both stop the call, and `ask` puts the case to the human.
-  // What must NEVER appear is 'allow' — it GRANTS the call outright and bypasses
+  // What must never appear is 'allow' — it grants the call outright and bypasses
   // the normal permission prompt (FRICTION-LOG C2).
   assert.equal(out.hookSpecificOutput.permissionDecision, 'ask');
   assert.notEqual(out.hookSpecificOutput.permissionDecision, 'allow');
@@ -230,7 +230,7 @@ test('STOP: a flagged server halts the call and asks the human, case in one stri
   assert.match(reason, /reads a credential file it never declares/);
   assert.match(reason, /src\/x\.ts:88/);
   assert.match(reason, /No human audited this/);
-  // The override must be an invocation that EXISTS here — bare `surex` is not on
+  // The override must be an invocation that exists here — bare `surex` is not on
   // PATH from a marketplace install (FRICTION-LOG C7).
   assert.match(reason, new RegExp(`allow ${id.fingerprint}`), 'every block prints the override');
   assert.match(reason, /at your own risk/, 'and says whose risk it is');
@@ -245,7 +245,7 @@ test('WARN: an unknown server gets a notice and NO permission decision', async (
   assert.equal(code, 0);
   const out = JSON.parse(stdout);
   assert.match(out.systemMessage, /not in the registry/);
-  // Emitting permissionDecision:"allow" here would GRANT the call outright
+  // Emitting permissionDecision:"allow" here would grant the call outright
   // (FRICTION-LOG C2), auto-approving exactly the servers nobody has reviewed.
   assert.equal(out.hookSpecificOutput, undefined, 'the unknown path must never carry a decision');
 });

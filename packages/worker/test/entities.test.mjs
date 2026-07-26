@@ -55,7 +55,7 @@ test('an evidence pointer without contentSha256 or nShards is refused', () => {
 });
 
 /**
- * Custody has to reach the RECORD, not just the pointer. `evidenceOf` is a
+ * Custody has to reach the record, not just the pointer. `evidenceOf` is a
  * whitelist, so a pointer field it does not name is silently dropped — which is how
  * a `registeredBy: 'publisher'` pointer once produced an on-chain payload that could
  * not say whose wallet registered its evidence.
@@ -131,7 +131,7 @@ test('unreviewable needs a reason', () => {
 });
 
 test('needsReanalysis is a string, and severity/enforceAfter stay integers', () => {
-  // About attribute ENCODING, but a `flagged` head has to clear the two
+  // About attribute encoding, but a `flagged` head has to clear the two
   // write-boundary gates first — allowlist and provenance. Those rules are tested
   // in accusation-gate.test.mjs; satisfying them here does not weaken this test.
   setSelfAuthored(['sxf1_x']);

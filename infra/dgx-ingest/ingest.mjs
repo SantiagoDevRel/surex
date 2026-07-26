@@ -10,7 +10,7 @@
 //
 // Three properties it exists to guarantee:
 //
-//   1. The request returns in milliseconds. A review is MINUTES, and a handler that
+//   1. The request returns in milliseconds. A review takes minutes, and a handler that
 //      waits for one times out at every hop and gets retried mid-signing.
 //   2. One job at a time, FIFO. One GPU and one wallet: two concurrent pipelines
 //      sign two transaction sets at once.
@@ -37,7 +37,7 @@ const TOKEN = process.env.SUREX_INGEST_TOKEN ?? '';
 const REPO_DIR = process.env.SUREX_INGEST_REPO_DIR || '/home/santiagodevrel/surex';
 
 /**
- * The command, WITHOUT the per-job flags — those are appended as argv and never
+ * The command, without the per-job flags — those are appended as argv and never
  * interpolated into a string; there is no shell anywhere in this file. Two forms:
  *
  *   `node scripts/ingest-submission.mjs`          whitespace-separated
@@ -120,7 +120,7 @@ function authorised(req) {
 // ── validation ───────────────────────────────────────────────────────────────
 //
 // Every pattern starts with an alphanumeric: that is what stops a value beginning
-// with `-` from reaching the child as a FLAG, and makes `..` unrepresentable in
+// with `-` from reaching the child as a flag, and makes `..` unrepresentable in
 // either half of a repo name. With no shell in this file, argument injection is the
 // whole of the attack surface.
 
@@ -160,7 +160,7 @@ function validate(body) {
 /**
  * The stderr tail is stored and returned, so anything shaped like a key is scrubbed
  * first. A bare 64-hex string goes too: a raw private key looks exactly like a
- * sha256. The pipeline's own result JSON is NOT passed through here — its
+ * sha256. The pipeline's own result JSON is not passed through here — its
  * fingerprint and blob id are the answer, not a leak.
  */
 function scrub(text) {
@@ -228,7 +228,7 @@ function restore() {
   for (const j of parsed?.jobs ?? []) {
     if (!j?.id) continue;
     if (j.status === 'running') {
-      // The child died with the process, and is NOT re-run: it may already have
+      // The child died with the process, and is not re-run: it may already have
       // written a blob or signed an Arkiv transaction, so a silent second run would
       // double-write the registry.
       j.status = 'failed';
@@ -251,8 +251,8 @@ function restore() {
 // ── the queue ────────────────────────────────────────────────────────────────
 
 function pump() {
-  // Never start a pipeline we are about to kill — it would sign into a process with
-  // seconds to live.
+  // Never start a pipeline that is about to be killed — it would sign into a process
+  // with seconds to live.
   if (shuttingDown) return;
   if (activeId) return;
   const id = queue.shift();
@@ -298,7 +298,7 @@ function run(job) {
   let err = '';
   /**
    * What is left of a line that arrived cut in half. Separate from `out`, which is a
-   * capped TAIL kept for resultFrom(): a review long enough to overflow 256 KB would
+   * capped tail kept for resultFrom(): a review long enough to overflow 256 KB would
    * lose its early stages if progress were read from there instead of off the stream.
    */
   let carry = '';
@@ -343,10 +343,10 @@ function run(job) {
 }
 
 /**
- * Keep the LATEST progress line on the job, and persist only when the STAGE changes:
+ * Keep the latest progress line on the job, and persist only when the stage changes:
  * a stage speaks more than once as its facts land, and persist() serialises every
  * job plus a write and a rename of the state file. Stage granularity loses nothing —
- * restore() FAILS a running job rather than resuming it, so persisted progress is
+ * restore() fails a running job rather than resuming it, so persisted progress is
  * only ever read as "how far it had got"; the finer detail is served from memory.
  *
  * A job that is no longer running is left alone: a straggling `data` event after
@@ -367,8 +367,8 @@ function finish(job, { stdout = '', stderr = '', code = null, signal = null, err
    * First writer wins; everything after it is dropped. Two paths reach here for the
    * same job:
    *
-   *   - a failed spawn emits BOTH `error` and `close`. Running the tail of this
-   *     function twice clears `activeId` twice and lets pump() start a SECOND
+   *   - a failed spawn emits both `error` and `close`. Running the tail of this
+   *     function twice clears `activeId` twice and lets pump() start a second
    *     pipeline alongside the first, which concurrency 1 does not survive.
    *   - on shutdown the job is already marked interrupted, and the child's SIGTERM
    *     close would relabel it as an ordinary exit 143, losing the "may have
@@ -392,7 +392,7 @@ function finish(job, { stdout = '', stderr = '', code = null, signal = null, err
     job.status = 'failed';
     job.error = String(result.error ?? 'the pipeline reported a failure without a reason');
   } else if (code === 0) {
-    // Exit 0 and no parseable result is NOT a success: reporting it as one puts a
+    // Exit 0 and no parseable result is not a success: reporting it as one puts a
     // verdict URL in front of a maintainer for a review that never happened.
     job.status = 'failed';
     job.error = 'the pipeline exited 0 but printed no JSON result';
@@ -459,7 +459,7 @@ function publicJob(job) {
   if (job.progress) view.progress = job.progress;
   if (job.status === 'queued') {
     const at = queue.indexOf(job.id);
-    // Position among the jobs still WAITING — the running one is not counted, so `1`
+    // Position among the jobs still waiting — the running one is not counted, so `1`
     // means "next".
     view.queuePosition = at === -1 ? null : at + 1;
   }
@@ -603,7 +603,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 restore();
 server.listen(PORT, '127.0.0.1', () => {
-  // The BOUND port, not the configured one: they differ whenever `PORT` is 0, which
+  // The bound port, not the configured one: they differ whenever `PORT` is 0, which
   // is how the service is exercised against a stub without claiming a fixed port.
   log(`surex ingest on 127.0.0.1:${server.address()?.port ?? PORT}`);
   log(`repo dir ${REPO_DIR} · state ${STATE_FILE} · timeout ${TIMEOUT_MS}ms · concurrency 1`);

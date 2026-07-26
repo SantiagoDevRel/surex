@@ -105,7 +105,7 @@ test('every fixture record is marked illustrative', () => {
 /* ─────────────────────────────────────────────────────────── the World lane ──*/
 
 test('the signal formulas match the API, byte for byte', () => {
-  // ⚠️ THE SAME VECTORS ARE PINNED IN apps/api/test/world.test.mjs. The browser
+  // The same vectors are pinned in apps/api/test/world.test.mjs. The browser
   // chooses a signal before a proof exists and the API recomputes it from the
   // request, refusing a proof bound to anything else. The formula lives in two
   // packages, so drift is a runtime signal_mismatch unless it breaks this first.
@@ -113,7 +113,7 @@ test('the signal formulas match the API, byte for byte', () => {
   assert.equal(submitSignal('https://github.com/acme/acme-mcp'), 'f65c55b952154a9e743b0d92f05ce944f9d888dc1d47f9cb323da43e35eec6e9');
   assert.equal(evidenceHashOf('e'), '3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea');
   assert.equal(normaliseRepo('https://GitHub.com/Acme/acme-mcp.git/'), 'github.com/acme/acme-mcp');
-  // The COMPOSITION the route actually computes, pinned identically in the API
+  // The composition the route actually computes, pinned identically in the API
   // suite — matching leaves do not imply matching pipelines.
   assert.equal(
     disputeSignal('k', evidenceHashOf('e')),
@@ -154,7 +154,7 @@ test('the signing key is never exposed to the browser', () => {
 });
 
 test('the World copy holds the two distinctions it exists for', () => {
-  // The SHORT line is the one always on screen, so it is the one that has to carry
+  // The short line is the one always on screen, so it is the one that has to carry
   // "a proof in the browser is not an accepted claim".
   assert.match(COPY.world.heldShort, /NOT SEEN|NOT YET/i);
   assert.match(COPY.world.heldBody, /not acceptance/i);
@@ -183,7 +183,7 @@ test('each credential copy states its OWN bar, and Face Check is never sold as u
   //   deviceLegacy       → an account; no biometric at all
   const { face, orb, device } = COPY.world.credential;
 
-  // `short` is ALWAYS on screen (beside the World step, and again at the button);
+  // `short` is always on screen (beside the World step, and again at the button);
   // `body` is the same claim in full, one disclosure away.
   assert.match(face.short, /live person|liveness/i);
   assert.ok(
@@ -214,7 +214,7 @@ test('each credential copy states its OWN bar, and Face Check is never sold as u
 });
 
 test('no static string claims a uniqueness the default credential does not establish', () => {
-  // Every string outside `world.credential` renders WITHOUT knowing which
+  // Every string outside `world.credential` renders without knowing which
   // credential the deployment requested, so each must be true of the weakest it
   // can request. `world.credential.orb` is exempt: it renders only when the Orb is
   // what was actually requested.

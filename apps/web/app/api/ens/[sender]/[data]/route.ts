@@ -224,7 +224,7 @@ export async function GET(
   const expires = BigInt(Math.floor(Date.now() / 1000) + cfg.config.ttlSeconds);
   const digest = signatureDigest({ resolver: cfg.config.resolver, expires, callData, result });
 
-  // RAW hash, never `signMessage` — that would add a second EIP-191 prefix and
+  // Raw hash, never `signMessage` — that would add a second EIP-191 prefix and
   // the resolver's `ecrecover` would return an address nobody holds.
   const signature = await privateKeyToAccount(cfg.config.signingKey).sign({ hash: digest });
 

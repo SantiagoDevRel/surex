@@ -2,8 +2,8 @@
 //
 // The hard rule this file exists to enforce:
 //
-//     A MALFORMED MODEL RESPONSE IS A FAILED REVIEW (`unreviewable`).
-//     IT IS NEVER A `clean` VERDICT.
+//     A malformed model response is a failed review (`unreviewable`).
+//     It is never a `clean` verdict.
 //
 // `clean` is the only verdict that causes SureX to say nothing at all, so a parser
 // that shrugs at a broken response and defaults to it turns every model hiccup into
@@ -20,7 +20,7 @@ export const VERDICTS = Object.freeze(['clean', 'flagged', 'unreviewable']);
  * converge — so there is a review, and it has no verdict. A model may not return it
  * (nothing in the prompt offers it); only the merge produces it.
  *
- * **`no-reading` is a third thing again**: both readings failed, so NOTHING WAS READ.
+ * **`no-reading` is a third thing again**: both readings failed, so nothing was read.
  * Filling that blank with `no-agreement` tells the world "the readings disagreed and
  * no majority formed" about a run that never happened — a fabricated account, on a
  * public page. The reviewer sits behind a home tunnel; this is an ordinary failure.
@@ -35,11 +35,11 @@ export const CAPABILITY_KEYS = Object.freeze([
 ]);
 
 /**
- * The KIND of problem a review found, as a closed set.
+ * The kind of problem a review found, as a closed set.
  *
- * Deliberately NOT a severity scale and NOT a security taxonomy. It answers one
+ * Deliberately not a severity scale and not a security taxonomy. It answers one
  * question — what sort of gap is there between what this server says and what it
- * does — and **the ORDER is load-bearing**: "nothing", through "does less than it
+ * does — and **the order is load-bearing**: "nothing", through "does less than it
  * claims", to "actively hides what it does". `pickConcern` breaks a tie by the lower
  * index.
  *
@@ -54,12 +54,12 @@ export const CONCERNS = Object.freeze([
   // It does not deliver what it advertises — declared tools that are not
   // implemented, a schema the handler ignores, a parameter nothing reads.
   'does-not-do-what-it-claims',
-  // It does MORE than its description accounts for, and the extra reads as
+  // It does more than its description accounts for, and the extra reads as
   // incidental: a usage ping, a version check, a file written outside its own
   // directory.
   'undeclared-behaviour',
   // A tool description, prompt template, resource or input schema aimed at
-  // steering the CALLING model — arguments the code never uses, invitations to
+  // steering the calling model — arguments the code never uses, invitations to
   // pass along file contents or keys, anything said about another server's tools.
   'misleading-description',
   // The user's files, environment, credentials or conversation reach a destination
@@ -210,11 +210,11 @@ export function validateModelOutput(raw) {
   }
 
   /**
-   * A missing `statedIntentSummary` is an ABSENT SENTENCE, not a failed review. When
+   * A missing `statedIntentSummary` is an absent sentence, not a failed review. When
    * it was an error, a model that collapsed it into `assessment` — both ask for prose
-   * — cost five honest fixtures BOTH readings: two correct `clean, severity 0` reads
+   * — cost five honest fixtures both readings: two correct `clean, severity 0` reads
    * discarded over a missing summary, published as `unreviewable` with
-   * `agreementRuns: 0`. The strict rule is right about the VERDICT and wrong about
+   * `agreementRuns: 0`. The strict rule is right about the verdict and wrong about
    * the prose decorating it, so this defaults to `''` as `unreviewableRecord` does.
    */
   const summary = asString(raw.statedIntentSummary) ?? '';
@@ -260,8 +260,8 @@ export function validateModelOutput(raw) {
   }
 
   /**
-   * `concern` and `assessment` are validated TOLERANTLY, deliberately. The strict
-   * rule protects the VERDICT; these two only describe a finding the rest of the
+   * `concern` and `assessment` are validated tolerantly, deliberately. The strict
+   * rule protects the verdict; these two only describe a finding the rest of the
    * response has already established with a file and a line. Failing a whole reading
    * over `"concern": "suspicious"` collapses the panel to a single run whose severity
    * is then capped — a worse verdict, for a label. An unrecognised concern becomes
@@ -314,7 +314,7 @@ export function validateReviewRecord(raw) {
   if (typeof raw.promptVersion !== 'string' || !raw.promptVersion) {
     errors.push('promptVersion must be a non-empty string');
   }
-  // The panel is two readings normally and FOUR when the first two split (one more of
+  // The panel is two readings normally and four when the first two split (one more of
   // each variant — see TIEBREAK_VARIANTS in review.mjs), so agreed readings run 0..4.
   // A ceiling of 2 here silently turns every majority-of-four verdict into
   // `unreviewable`: a validation failure reported as a review failure.

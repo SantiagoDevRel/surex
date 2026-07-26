@@ -4,11 +4,11 @@
 // `SUREX_REVIEWER_BASE_URL`, plain `fetch`, no SDK, no vendor field: the endpoint
 // must stay swappable, so nothing here may couple to DGX-specific APIs.
 //
-// THE CACHE IS NOT AN OPTIMISATION. The box runs at home behind a tunnel and it
+// The cache is not an optimisation. The box runs at home behind a tunnel and it
 // will drop mid-demo, so every real result is written to `fixtures/` and
-// committed. Two rules on that, and they are the whole reason this holds up:
+// committed. Two rules on that:
 //
-//   1. A cached result is ALWAYS marked as cached, with the timestamp of the
+//   1. A cached result is always marked as cached, with the timestamp of the
 //      original real run. It is never presented as fresh.
 //   2. A result that never ran is never invented. Cache miss + endpoint down is
 //      an `unreviewable` review, not a guess.
@@ -52,7 +52,7 @@ export const REVIEWER_ENV = Object.freeze({
 });
 
 /**
- * A reasoning model spends the SAME output budget on its chain of thought as on
+ * A reasoning model spends the same output budget on its chain of thought as on
  * its answer: `gpt-oss:20b` with `max_tokens: 8` returned `content: ""`, the whole
  * chain in `message.reasoning`, and `finish_reason: "length"` — an empty answer a
  * careless parser reads as a verdict. So the budget is generous, and
@@ -61,7 +61,7 @@ export const REVIEWER_ENV = Object.freeze({
 export const DEFAULT_MAX_TOKENS = 8192;
 
 /**
- * There is deliberately NO fallback base URL: a localhost default would mean a
+ * There is deliberately no fallback base URL: a localhost default would mean a
  * misconfigured worker quietly reviewing against nothing, or against whatever else
  * is listening. Unset is a configuration error and says so.
  */

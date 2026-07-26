@@ -1,6 +1,6 @@
 // The licence gate, offline. No network: these are the decisions, not the fetches.
 //
-// The rule under test is UNMATCHED IS INELIGIBLE: a false positive writes someone
+// The rule under test is that unmatched is ineligible: a false positive writes someone
 // else's code into storage that has no delete, so "we could not tell" must never
 // resolve to "go ahead".
 

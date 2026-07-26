@@ -5,7 +5,7 @@
 // The decision, and the words it is delivered in.
 //
 // Everything user-facing about a verdict is composed here so the copy law has one
-// place to be enforced: the word is REVIEWED — never trusted, verified or secure,
+// place to be enforced: the word is *reviewed* — never trusted, verified or secure,
 // and never "reputation" about anything agent-shaped.
 // Spec: docs/surex-prd.md §6, docs/surex-tech-spec.md §3.3.
 //
@@ -49,7 +49,7 @@ export function decide(head) {
 }
 
 /**
- * Which of the three block wordings applies. `enforceAfter` does NOT gate
+ * Which of the three block wordings applies. `enforceAfter` does not gate
  * blocking (FR-21) — a server blocks from the moment it is flagged; the window
  * only decides whether the block calls itself unconfirmed or confirmed.
  */
@@ -100,7 +100,7 @@ export function blockMessage(head, opts = {}) {
   const finding = head.topFinding ?? null;
 
   const lines = [];
-  // A QUESTION, because the gate hands the decision to the human
+  // A question, because the gate hands the decision to the human
   // (`permissionDecision: 'ask'`) rather than ending the call. The recommendation
   // is stated separately: advice about an action, never a claim about the code.
   lines.push(`Are you sureX you want to use ${name}?`);
@@ -150,7 +150,7 @@ export function blockMessage(head, opts = {}) {
   }
 
   lines.push('');
-  // Printed in EVERY block. The caller supplies the exact invocation because a
+  // Printed in every block. The caller supplies the exact invocation because a
   // bare `surex` is not on PATH from a marketplace install (FRICTION-LOG C7), and
   // printing a command that does not exist breaks the only escape hatch.
   const override = opts.overrideCommand ?? `surex allow ${head.fingerprint}`;
@@ -174,7 +174,7 @@ export function tierSentence(tier) {
 }
 
 /**
- * The warn notice. Display-only, and it carries NO permission decision — see
+ * The warn notice. Display-only, and it carries no permission decision — see
  * FRICTION-LOG C2: a hook returning `allow` grants the call outright, which
  * would auto-approve exactly the servers we know nothing about.
  */
@@ -192,7 +192,7 @@ export function warnMessage(head, ctx = {}) {
     default:
       // `unknown` covers two facts that must not read the same: listed but
       // unreviewed, and never submitted at all. `listed` is set by the caller from
-      // the API's own answer BEFORE any local display name is merged in — the gate
+      // the API's own answer before any local display name is merged in — the gate
       // always fills `name` from the local config, so `name` cannot tell them apart.
       //
       // Only the never-submitted branch gets the submit link; pointed at a listed

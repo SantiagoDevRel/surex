@@ -146,7 +146,7 @@ test('scanFiles records what it skipped instead of pretending it scanned it', ()
 test('a fetch held under another name is still network', () => {
   // The call-site rule needs the literal token `fetch(`, so a function taken and
   // called under another name is invisible to it. This is the lane that exists
-  // BECAUSE the model can be argued with and a regex cannot — an alias must not be a
+  // because the model can be argued with and a regex cannot — an alias must not be a
   // way around it. Caught by the `ambiguous-telemetry` fixture: an undeclared
   // outbound POST that the scanner reported as `network: absent`.
   const evasions = {

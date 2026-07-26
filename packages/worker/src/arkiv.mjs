@@ -4,13 +4,13 @@
 //  · 0.7.0 no longer re-exports viem — `http` from 'viem', `privateKeyToAccount`
 //    from 'viem/accounts'. The `@arkiv-network/sdk/accounts` subpath is gone, so
 //    every 0.6.x snippet on the internet fails at the import line (A1).
-//  · `createEntity()` AWAITS THE RECEIPT: ~4.6 s per call. That, not index lag, is
+//  · `createEntity()` awaits the receipt: ~4.6 s per call. That, not index lag, is
 //    the cost of a seed. Batch via `mutateEntities({creates:[…]})`.
 //  · Index lag after the receipt is ~40 ms to getEntity, ~80 ms to the query index
 //    (A4) — poll, but do not budget seconds for it.
 //  · `orderBy` is accepted silently and does nothing (A2). Sort client-side.
 //  · `updateEntity` is a full replacement (see entities.mjs buildUpdate).
-//  · Consumer reads filter on `createdBy`, NEVER `ownedBy` — ownership is
+//  · Consumer reads filter on `createdBy`, never `ownedBy` — ownership is
 //    transferable via changeOwnership, so ownedBy is attacker-influenceable (A5).
 //    The writer's readBack() below therefore checks `creator`, not `owner`.
 
@@ -116,7 +116,7 @@ export function createArkivWriter(options = {}) {
 
   /**
    * Many full-replacement updates, chunked into `mutateEntities({updates})`. Each
-   * `built` must be a COMPLETE entity — attributes and payload — because
+   * `built` must be a complete entity — attributes and payload — because
    * updateEntity replaces rather than merges; drop the project attribute and the
    * entity stays on chain but silently leaves every scoped query.
    */
@@ -142,7 +142,7 @@ export function createArkivWriter(options = {}) {
   /**
    * Prove a write landed the way a consumer will see it: the same
    * `.createdBy(writer)` scoped query the API and the gate run, not getEntity.
-   * getEntity has NO creator filter, so it would pass even for an entity written
+   * getEntity has no creator filter, so it would pass even for an entity written
    * from the wrong wallet — exactly the failure this check exists to catch.
    */
   async function readBackScoped({ entityType, fingerprint, limit = 1 }) {
@@ -161,12 +161,12 @@ export function createArkivWriter(options = {}) {
   }
 
   /**
-   * Every page of a scoped query. `fetch()` returns ONE cursor page, so anything
+   * Every page of a scoped query. `fetch()` returns one cursor page, so anything
    * checking a whole seed must walk the cursor or it silently checks page one and
    * calls it complete. Three 0.7.0 pagination footguns, all measured:
    *
-   *  1. `hasNextPage` is a **METHOD**, not a property. `while (result.hasNextPage)`
-   *     tests a function object and is ALWAYS true, so the loop runs until it
+   *  1. `hasNextPage` is a **method**, not a property. `while (result.hasNextPage)`
+   *     tests a function object and is always true, so the loop runs until it
    *     throws. It must be `result.hasNextPage()`.
    *  2. `next()` **mutates the QueryResult in place and returns `undefined`**.
    *     `result = await result.next()` therefore sets `result` to undefined and the
@@ -217,10 +217,10 @@ export function createArkivWriter(options = {}) {
    * deleted*. Exactly two things may be removed:
    *
    *   · seeding placeholders, which are not verdicts. Core defines `unknown` as the
-   *     ABSENCE of an entry, so a head in that state on chain is a contradiction.
-   *   · verdicts about OUR OWN fixtures, where we are the subject.
+   *     absence of an entry, so a head in that state on chain is a contradiction.
+   *   · verdicts about our own fixtures, where we are the subject.
    *
-   * NEVER a verdict about a third party. Nothing here enforces that — a flag would
+   * Never a verdict about a third party. Nothing here enforces that — a flag would
    * just get passed — so the calling script must name what it removes and why.
    *
    * One transaction per entity, so a partial run records each result separately

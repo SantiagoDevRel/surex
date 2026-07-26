@@ -1,7 +1,7 @@
 // The write boundary: who may be publicly flagged, and with what provenance.
 //
 // The rule — "only our own fixtures get flagged" — belongs in the worker, not in a
-// publishing script a new caller can skip, and it matches on FINGERPRINTS, because
+// publishing script a new caller can skip, and it matches on fingerprints, because
 // a name is whatever the caller types.
 //
 // These tests are the rule. Each one fails if its guard is removed.
@@ -81,7 +81,7 @@ test('a flag without provenance is refused', () => {
   setSelfAuthored([OURS]);
   const base = { fingerprint: OURS, state: 'flagged', tier: 'C', severity: 4, name: '@surex/mal-x' };
 
-  // Model and prompt but nothing saying WHICH bytes were read — the shape that
+  // Model and prompt but nothing saying which bytes were read — the shape that
   // renders "commit —" in a block message.
   assert.throws(
     () => buildVerdictHead({ ...base, modelId: 'm', promptVersion: 'rv-4' }),

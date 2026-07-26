@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Publish the REAL review of our own fixture, so the demo has no mocked link.
+// Publish the real review of the SureX fixture, so the demo has no mocked link.
 //
-// Writes a real cached review body to Walrus as its OWN certified blob — not a quilt
+// Writes a real cached review body to Walrus as its own certified blob — not a quilt
 // patch, because a review is exactly the record where per-record citability is the
 // point — and indexes it on Arkiv as a ReviewRecord plus a flagged VerdictHead.
 //
-// The only thing SureX ever flags is this fixture, which we wrote ourselves.
+// The only thing SureX ever flags is this fixture, which the project wrote itself.
 //
 //   node scripts/publish-fixture-review.mjs [--dry-run]
 //
@@ -147,10 +147,10 @@ log('\nwriting to Arkiv…');
 const arkiv = createArkivWriter({ log: (m) => log(m) });
 
 /**
- * Whatever is already on chain FOR THIS FINGERPRINT, so a re-run adds nothing twice.
+ * Whatever is already on chain for this fingerprint, so a re-run adds nothing twice.
  *
  * Must be `readBackScoped`, not `readAllScoped`: the latter takes {entityType, extra}
- * and SILENTLY IGNORES a `fingerprint` key, so it returns every seeded row and this
+ * and silently ignores a `fingerprint` key, so it returns every seeded row and this
  * script concludes "already on chain" about entities that do not exist.
  */
 async function existingKey(entityType) {

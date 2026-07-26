@@ -1,9 +1,9 @@
 // Reading a running pipeline's stdout. The pipeline writes two different things to
-// the SAME stream — progress lines as it goes, one result line at the end — and the
+// the same stream — progress lines as it goes, one result line at the end — and the
 // whole separation rests on one field:
 //
-//   · the RESULT carries `ok`   — `resultFrom()` scans backwards for it
-//   · a PROGRESS line does NOT  — `parseProgressLine()` refuses any line that has it
+//   · the result carries `ok`   — `resultFrom()` scans backwards for it
+//   · a progress line does not  — `parseProgressLine()` refuses any line that has it
 //
 // A progress line mistaken for a result puts a verdict URL in front of a maintainer
 // for a review that is still running, so both readers sit here where one test can
@@ -22,16 +22,16 @@ export const PROGRESS_KEY = 'surexProgress';
  */
 export const MAX_CARRY_BYTES = 64 * 1024;
 
-/** And a COMPLETE line longer than this is not one either. Bounds what ends up on the
+/** And a complete line longer than this is not one either. Bounds what ends up on the
  *  job, in the state file, and in the API's answer to the browser. */
 export const MAX_PROGRESS_LINE_BYTES = 8 * 1024;
 
 /**
  * Split what has arrived so far into complete lines, and carry the remainder.
  *
- * stdout arrives in ARBITRARY chunks: a single 200-byte JSON object routinely lands
+ * stdout arrives in arbitrary chunks: a single 200-byte JSON object routinely lands
  * as two `data` events, so parsing per chunk drops progress silently and at random.
- * Only the text before the LAST newline is returned as lines; everything after it is
+ * Only the text before the last newline is returned as lines; everything after it is
  * carried into the next call. `\r\n` is trimmed to `\n`.
  *
  * @param {string} carry what was left over from the previous chunk
@@ -60,7 +60,7 @@ export function drainLines(carry, chunk, { maxCarry = MAX_CARRY_BYTES } = {}) {
  *
  * The `ok` refusal is defence in depth, not the defence: `resultFrom` reads the raw
  * stdout, so a progress line carrying `ok` is still a candidate result there. The
- * invariant is only enforceable at the EMITTER, in scripts/ingest-submission.mjs.
+ * invariant is only enforceable at the emitter, in scripts/ingest-submission.mjs.
  *
  * @returns {{stage:string,label:string|null,done:number|undefined,total:number|undefined,detail:object}|null}
  */

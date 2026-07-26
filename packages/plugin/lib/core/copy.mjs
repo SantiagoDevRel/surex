@@ -15,7 +15,7 @@
  * Each entry: the pattern, what to say instead, and optionally the context that
  * makes the word a term of art rather than a claim.
  *
- * `unless` is checked against the SENTENCE containing the match, not the whole
+ * `unless` is checked against the sentence containing the match, not the whole
  * text — otherwise one legitimate mention of Walrus at the top of a page would
  * license every unearned claim below it.
  */

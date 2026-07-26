@@ -1,5 +1,5 @@
 // The HTTP publisher write path, offline. Guards the two things this mode changes:
-// WHO registered the blob, and whether the bytes that come back are the bytes we
+// who registered the blob, and whether the bytes that come back are the bytes we
 // sent.
 //
 // The two response shapes below were captured from the live testnet publisher, not
@@ -71,7 +71,7 @@ test('newlyCreated yields the object id and the encoding, and passes null certif
   assert.equal(parsed.encodingType, 'RS2');
   assert.equal(parsed.reportedSize, 36);
   assert.equal(parsed.deletable, false, 'permanent=true must come back non-deletable');
-  // The publisher certifies and STILL answers null here.
+  // The publisher certifies and still answers null here.
   assert.equal(parsed.certifiedEpoch, null);
 });
 
@@ -97,8 +97,8 @@ const sha = (b) => createHash('sha256').update(b).digest('hex');
 
 /**
  * A writer with no wallet and no network. `keypair` is stubbed because publisher
- * mode must not need our key to WRITE; `client` is stubbed only for `systemState`,
- * a chain READ, because the shard count still goes on every record.
+ * mode must not need our key to write; `client` is stubbed only for `systemState`,
+ * a chain read, because the shard count still goes on every record.
  */
 async function writerWith({ fetchImpl, publishers = ['https://pub.example'], ...rest }) {
   return createWalrusWriter({
@@ -123,7 +123,7 @@ const WRITE = { epochs: 53, label: 'test record' };
 
 /**
  * The captured `newlyCreated` shape with `size` set to the bytes a test sends. The
- * size guard fires BEFORE the readback, so a test about the readback must agree
+ * size guard fires before the readback, so a test about the readback must agree
  * with the publisher about length or it never reaches what it is testing.
  */
 function newlyCreatedFor(bytes) {
@@ -204,7 +204,7 @@ test('a publisher write never touches our Sui key', async () => {
 
   const p = await w.writeRecord(bytes, { ...WRITE });
   assert.equal(p.registeredBy, 'publisher');
-  // And the getter still resolves on demand, for the paths that DO spend.
+  // And the getter still resolves on demand, for the paths that do spend.
   assert.throws(() => w.address, /key was loaded/);
 });
 
@@ -242,7 +242,7 @@ test('the second publisher is tried when the first refuses, and both failures ar
       seen.push(String(url));
       if (String(url).startsWith('https://down.example')) {
         // An out-of-range epochs comes back as a 500 wrapping a Move abort, so the
-        // BODY is what tells you what happened (S2).
+        // body is what tells you what happened (S2).
         return { ok: false, status: 500, text: async () => 'EInvalidEpochsAhead' };
       }
       return { ok: true, status: 200, text: async () => JSON.stringify(ALREADY_CERTIFIED) };

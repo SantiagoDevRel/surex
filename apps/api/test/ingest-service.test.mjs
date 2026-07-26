@@ -1,13 +1,13 @@
 // The writer service, running for real, against a stub pipeline.
 //
 // `ingest-progress.test.mjs` holds the parsing to its contract; this one proves the
-// contract is WIRED: a real child process, a real socket, a real state file, and
+// contract is wired: a real child process, a real socket, a real state file, and
 // progress that survives a chunked stdout write through to `GET /v1/ingest/:id`.
 // No GPU, no wallet, nothing on chain.
 //
-// Every assertion is made on the job's FINAL view, never on a poll that caught a
+// Every assertion is made on the job's final view, never on a poll that caught a
 // stage mid-flight — sampling a running pipeline fails on a loaded machine for
-// reasons unrelated to the code. Each stub makes the fact under test the LAST thing
+// reasons unrelated to the code. Each stub makes the fact under test the last thing
 // it said.
 
 import { test } from 'node:test';
@@ -100,7 +100,7 @@ test('a progress line split MID-OBJECT across two writes still reaches the job v
   // The stub writes 18 bytes, yields, then writes the rest, so the parent genuinely
   // receives half a JSON object in one `data` event — parsing per chunk looks
   // correct by inspection and only shows up as stages going missing at random.
-  // One progress line only, so "the last thing it said" IS the line under test.
+  // One progress line only, so "the last thing it said" is the line under test.
   const service = startService(t, `
     const write = (s) => new Promise((r) => process.stdout.write(s, r));
     const line = ${PROGRESS({ stage: 'resolving', label: 'Reading acme/mcp', done: 1, detail: { repo: 'acme/mcp' } })};
@@ -170,17 +170,17 @@ test('a pipeline that prints progress and then dies is a FAILURE, never a verdic
   assert.equal(view.status, 'failed');
   assert.equal(view.result, undefined, 'no progress line may be served as the pipeline result');
   assert.equal(view.exitCode, 1);
-  // The progress it DID print is kept, and it advanced: reviewing then walrus. On a
+  // The progress it did print is kept, and it advanced: reviewing then walrus. On a
   // failure that is the difference between re-reviewing and retrying the storage.
   assert.equal(view.progress.stage, 'walrus');
   assert.equal(view.progress.done, 6);
 });
 
 test('the stage a job was on survives a HARD kill of the service', async (t) => {
-  // What persisting on a stage CHANGE buys: SIGKILL runs no shutdown handler and no
+  // What persisting on a stage change buys: SIGKILL runs no shutdown handler and no
   // finish(), so `reviewing` being on disk afterwards means the stage transition
   // wrote it while the pipeline was still running. restore() marks an interrupted
-  // job FAILED rather than re-running it (it may already have signed something), so
+  // job failed rather than re-running it (it may already have signed something), so
   // "it was reviewing" vs "it was writing to Arkiv" is what tells a human whether to
   // check the registry before re-submitting.
   const service = startService(t, `

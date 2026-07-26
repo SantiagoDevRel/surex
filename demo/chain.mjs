@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The whole chain, end to end, driven by a real Claude Code session: the fixture
-// MCP server → a real tool call → the plugin's PreToolUse hook (loaded as a PLUGIN,
+// MCP server → a real tool call → the plugin's PreToolUse hook (loaded as a plugin,
 // not a setting) → SXF-1 from config alone → the registry says flagged → the gate
-// fetches the evidence from Walrus and RECOMPUTES the blob ID → the call is denied.
+// fetches the evidence from Walrus and recomputes the blob ID → the call is denied.
 //
 // Run:  node demo/chain.mjs            (registry stood in locally)
 //       SUREX_API_URL=… node demo/chain.mjs   (against a live API)
@@ -106,7 +106,7 @@ if (!registryUrl) {
       return;
     }
     if (url.pathname.endsWith('/verdicts/batch')) {
-      // Answer for EVERY requested fingerprint: staying silent about one is how a
+      // Answer for every requested fingerprint: staying silent about one is how a
       // flag gets suppressed — see partitionBatchResponse in packages/core.
       let body = '';
       req.on('data', (d) => (body += d));
@@ -130,7 +130,7 @@ if (!registryUrl) {
 // ── 3. a real Claude Code session, with the plugin installed as a plugin ────
 const sandbox = mkdtempSync(join(tmpdir(), 'surex-chain-'));
 
-// Claude Code sets ${CLAUDE_PLUGIN_DATA} itself and OVERRIDES anything we pass: for
+// Claude Code sets ${CLAUDE_PLUGIN_DATA} itself, overriding anything passed in: for
 // a plugin loaded with --plugin-dir it is ~/.claude/plugins/data/<name>-inline. So a
 // demo run inherits the previous run's cache unless it is cleared here.
 const dataDir = join(homedir(), '.claude', 'plugins', 'data', 'surex-inline');
@@ -140,7 +140,7 @@ rmSync(join(dataDir, 'overrides.json'), { force: true });
 rmSync(join(dataDir, 'gate.log'), { force: true });
 
 // The server definition is written as a project-scope `.mcp.json` in the sandbox and
-// the session runs from there. A server passed ONLY via `--mcp-config` is invisible
+// the session runs from there. A server passed only via `--mcp-config` is invisible
 // to the gate: a hook receives no server config (FRICTION-LOG C3) and rediscovers the
 // definition from the config scopes on disk, and a file handed to the CLI is in none
 // of them. `--mcp-config` still points at the same file so the session connects
@@ -161,7 +161,7 @@ const claudeArgs = [
   '--mcp-config', mcpConfig,
   '--strict-mcp-config',
   '--plugin-dir', PLUGIN_DIR,
-  // NOTE: no `--setting-sources ''`. An empty-string argv entry is dropped when
+  // No `--setting-sources ''`. An empty-string argv entry is dropped when
   // spawning through a shell on Windows, the next flag is consumed as its value, and
   // the failure looks exactly like the hook not firing.
   '--allowedTools', 'mcp__fixture__search',
@@ -223,7 +223,7 @@ const blockText = toolResults
   .find((t) => t.includes('SureX blocked this call')) ?? '';
 
 step('the block message reached the model', Boolean(blockText));
-// Assert the SHAPE, not a specific line: the top finding differs between the
+// Assert the shape, not a specific line: the top finding differs between the
 // stand-in registry and live Arkiv, so a pinned line number fails the realer run.
 const findingLine = blockText.split('\n').find((l) => l.startsWith('Finding ('));
 step(

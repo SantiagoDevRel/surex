@@ -29,7 +29,7 @@ const pages = walk(CONTENT);
 test('no registry counts are hardcoded in prose', () => {
   // Deliberately narrow. Numbers are fine — "capped at 12 entries per capability"
   // is a property of the code and does not drift. What may not appear is a count
-  // OF THE REGISTRY, which changes every time the worker writes.
+  // of the registry, which changes every time the worker writes.
   const COUNTS = [
     /\bregistry\s+(?:currently\s+)?(?:holds|has|contains|is at)\s+[\d,]+/i,
     /\b[\d,]+\s+(?:entries|verdicts|reviews)\s+(?:on chain|in the registry|published|reviewed)\b/i,

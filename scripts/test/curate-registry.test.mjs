@@ -1,4 +1,4 @@
-// What the curation script is allowed to delete — a test about a HARD RULE, not a
+// What the curation script is allowed to delete — a test about a hard rule, not a
 // helper. AGENTS.md §4: a verdict is superseded, never deleted. curate-registry.mjs is
 // the only code in the repo that deletes anything, so the boundary is asserted here
 // rather than left to whoever runs it.
@@ -82,7 +82,7 @@ test('our own retired fixtures are removable; the scope check is a prefix, not a
   assert.equal(planFor(ours).action, 'remove');
   assert.ok(assertRemovable(ours));
 
-  // A name that merely CONTAINS the scope is not ours; a substring check here
+  // A name that merely contains the scope is not ours; a substring check here
   // deletes somebody else's flagged verdict.
   const impostor = head({ name: 'evil-@surex/lookalike', state: 'flagged', severity: 4 });
   assert.equal(planFor(impostor).action, 'keep');

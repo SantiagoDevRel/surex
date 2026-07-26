@@ -1,4 +1,4 @@
-// The deterministic capability scan. NOT the model: import matching and call-site
+// The deterministic capability scan. Not the model: import matching and call-site
 // matching over source text, with no network and no configuration the reviewed code
 // can influence, so the same bytes always give the same answer and a judge can
 // re-run it. Shown on `clean` verdicts too.
@@ -57,9 +57,9 @@ const CALL_RULES = Object.freeze({
   js: [
     { category: 'network', re: /(?<![.\w$])fetch\s*\(/, label: 'fetch()' },
     /**
-     * A REFERENCE to fetch, not a call through it. The pattern above needs the
+     * A reference to fetch, not a call through it. The pattern above needs the
      * literal token `fetch(`, so `const send = globalThis.fetch` is invisible to
-     * it — and taking the reference IS the capability. Deliberately also matches a
+     * it — and taking the reference is the capability. Deliberately also matches a
      * polyfill guard like `if (!globalThis.fetch)`: this surface is shown, never
      * used to block, so over-reporting beats a category silently absent.
      */
@@ -160,9 +160,9 @@ function languageOf(path) {
  * still the line number in the file the reader will open.
  *
  * A capability mentioned only in a comment is not a capability of the code, so
- * comments are excluded here — but NOT from the injection scan in `prompt.mjs`,
+ * comments are excluded here — but not from the injection scan in `prompt.mjs`,
  * where a comment is exactly where planted instructions live. String literals are
- * kept: a credential path in a string is what we are looking for.
+ * kept: a credential path in a string is what this scan looks for.
  */
 export function stripComments(text, language) {
   if (language === 'py') {

@@ -1,18 +1,18 @@
 // Worker configuration and key loading.
 //
-// SECRETS RULE (AGENTS.md §4): no private key ever enters this repo. Keys come
+// Secrets rule (AGENTS.md §4): no private key ever enters this repo. Keys come
 // from the environment first; when the environment is empty, they are read from
-// files OUTSIDE the repo — `claude-code-environment/.secrets/` for the Sui
+// files outside the repo — `claude-code-environment/.secrets/` for the Sui
 // keypair and `golem-project/tooling/hackathon-wallets/` for the Arkiv wallet.
 // Nothing here logs a key, and nothing here writes one anywhere.
 //
-// The worker is the ONLY process with a wallet. apps/api reads and cannot write
+// The worker is the only process with a wallet. apps/api reads and cannot write
 // (see apps/api/src/arkiv.mjs) — that split is the reason a compromised API
 // cannot rewrite the registry, so do not add a wallet to the read side.
 
 import { readFileSync } from 'node:fs';
 
-/** Scope attribute on every entity. MUST match apps/api DEFAULT_PROJECT. */
+/** Scope attribute on every entity. Must match apps/api DEFAULT_PROJECT. */
 export const PROJECT = process.env.SUREX_ARKIV_PROJECT || 'surex-lisbon';
 
 /** Arkiv. Chain id and RPC measured, AGENTS.md §7. */
@@ -36,7 +36,7 @@ export const EXPECTED_SUI_ADDRESS = (
 ).toLowerCase();
 
 /**
- * Expirations, in SECONDS, and every one an EVEN integer.
+ * Expirations, in seconds, and every one an even integer.
  *
  * `expiresIn` is seconds and must be a positive multiple of the 2 s block time —
  * SDK 0.7.0 throws InvalidExpirationError on an odd value where 0.6.8 silently
@@ -83,7 +83,7 @@ export function loadSuiSecret({ secretsFile = DEFAULT_SECRETS_FILE } = {}) {
  *
  * Default source is wallets.json **index 2 (1-based)**, the wallet with a live
  * GLM balance. The `[arkiv-writer]` entry in .secrets/surex-wallets.txt has a
- * zero balance and is deliberately NOT read here (AGENTS.md §7) — reaching for
+ * zero balance and is deliberately not read here (AGENTS.md §7) — reaching for
  * it produces a run that fails one transaction in, at the worst moment.
  */
 export function loadArkivWriterKey({ walletsFile = DEFAULT_WALLETS_FILE, index = 2 } = {}) {

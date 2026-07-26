@@ -3,8 +3,8 @@
 //
 //   allow  — reviewed, no mismatch. Exit 0, no stdout, no trace.
 //   warn   — unknown, stale, unreviewable, or the registry is unreachable.
-//            systemMessage ONLY and NO permissionDecision: a hook returning
-//            "allow" GRANTS the call outright (FRICTION-LOG C2), which would
+//            a systemMessage and no permissionDecision: a hook returning
+//            "allow" grants the call outright (FRICTION-LOG C2), which would
 //            auto-approve exactly the servers nobody has reviewed. No decision
 //            leaves Claude Code's own permission flow in charge.
 //   stop   — flagged or disputed at severity >= 3. `permissionDecision: 'ask'`,
@@ -46,7 +46,7 @@ function warn(message) {
  * the call — nothing runs until a person approves it — and `ask` puts the case in
  * front of them rather than ending it for them.
  *
- * Valid values are allow/deny/ask/defer. `allow` is unusable here: it GRANTS the
+ * Valid values are allow/deny/ask/defer. `allow` is unusable here: it grants the
  * call outright, bypassing the normal prompt (FRICTION-LOG C2).
  */
 function ask(reason) {
@@ -117,7 +117,7 @@ export function resolveTier(canonical, head, cwd) {
   if (canonical.transport !== 'stdio') return { tier: 'C', local: null };
   const { name, version } = canonical.package ?? {};
   if (!version || version === 'unpinned') return { tier: 'C', local: null };
-  // Tier C on purpose: the hash covers the ENTRY FILE, not the module graph behind
+  // Tier C on purpose: the hash covers the entry file, not the module graph behind
   // it, so the reviewed bytes are not provably the bytes that will run.
   if (String(version).startsWith('local:')) return { tier: 'C', local: null };
   const local = findLocalIntegrity(name, version, { cwd });
@@ -183,7 +183,7 @@ export async function runGate(input) {
   // merge below overwrites it — "is it listed at all" must be answered first.
   const listed = Boolean(head?.name);
   /**
-   * The PUBLISHED name wins when there is one, with the local one alongside. The
+   * The published name wins when there is one, with the local one alongside. The
    * published name is what the registry, the evidence page and the ENS record all
    * call this server; the local name is which of the user's own servers it is.
    */

@@ -56,7 +56,7 @@ test('the default view is exactly the states where a review reached a verdict', 
 });
 
 test('`stale` is in the default view — it is worse news than `clean`, not lesser news', () => {
-  // An entry whose reviewed release is no longer the released one ranks ABOVE
+  // An entry whose reviewed release is no longer the released one ranks above
   // clean, so hiding it while showing clean entries would hide the worse news.
   assert.ok(statusRank('stale') < statusRank('clean'));
   assert.equal(isDecided('stale'), true);
@@ -64,7 +64,7 @@ test('`stale` is in the default view — it is worse news than `clean`, not less
 
 test('the default set is derived from statusRank, so the two cannot drift', () => {
   // Both halves read out of isDecided() rather than the lists above, so this
-  // fails if the predicate moves OR if statusRank is reordered under it.
+  // fails if the predicate moves or if statusRank is reordered under it.
   const inView = ALL_STATES.filter((s) => isDecided(s)).map(statusRank);
   const outOfView = ALL_STATES.filter((s) => !isDecided(s)).map(statusRank);
   assert.ok(inView.length > 0 && outOfView.length > 0, 'the view must be a real partition');

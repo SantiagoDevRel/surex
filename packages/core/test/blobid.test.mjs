@@ -4,7 +4,7 @@ import { computeBlobId, computeBlobMetadata, encoderAvailable, WALRUS_TESTNET_SH
 import { verifyEvidenceBytes, sha256Hex, isQuiltPatch } from '../src/blob.mjs';
 
 /**
- * A REAL blob, written and certified by probes/walrus-write.mjs on Walrus testnet
+ * A real blob, written and certified by probes/walrus-write.mjs on Walrus testnet
  * on 2026-07-25. Nothing synthetic: the check is only worth something if it
  * reproduces an identifier a Sui transaction already committed to.
  *

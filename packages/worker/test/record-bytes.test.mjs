@@ -1,7 +1,7 @@
 // The bytes a verdict points at must contain the verdict's evidence.
 //
 // `JSON.stringify(body, Object.keys(body).sort())` reads as a key ordering and is
-// actually a RECURSIVE PROPERTY ALLOWLIST: every nested object keeps only the
+// actually a recursive property allowlist: every nested object keeps only the
 // properties whose names also appear at the top level, so a finding reaches the
 // content-addressed store as a bare `{"severity": 2}` and the blob ID commits to it.
 //

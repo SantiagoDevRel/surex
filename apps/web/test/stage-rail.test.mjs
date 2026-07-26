@@ -75,7 +75,7 @@ test('every stage has a name, a caption and a detail — none can be added silen
   for (const stage of SUBMISSION_STAGES) {
     assert.ok(COPY.pipeline.rail.name[stage], `no rail name for ${stage}`);
     assert.ok(COPY.pipeline.stage[stage], `no caption for ${stage}`);
-    // The lede IS the detail: absence of `body` is asserted too, because a test
+    // The lede is the detail: absence of `body` is asserted too, because a test
     // guarding copy the screen no longer renders passes while the claim is invisible.
     assert.ok(COPY.pipeline.rail.stage[stage]?.lede, `no lede for ${stage}`);
     assert.equal(COPY.pipeline.rail.stage[stage].body, undefined, `${stage} should carry no body`);
@@ -322,7 +322,7 @@ test('the name is built, and it is deliberately not a link', () => {
     // app renders an empty Records tab for a name that answers perfectly well.
     assert.equal(name.href, undefined);
     assert.equal(byLabel[COPY.pipeline.rail.fact.ensRead].value, COPY.verdict.ensExample);
-    // The PARENT is a real, ordinary registration and does render in the app.
+    // The parent is a real, ordinary registration and does render in the app.
     assert.equal(byLabel[COPY.pipeline.rail.fact.ensParent].href, `https://${DEFAULT_ENS_APP_HOST}/name/surex.eth`);
   } finally {
     delete process.env.NEXT_PUBLIC_SUREX_ENS_PARENT;
@@ -340,8 +340,8 @@ test('the label is 45 characters and legal, which is the whole reason it exists'
 });
 
 test('the ENS encoding has not drifted from lib/ens.ts', () => {
-  // `lib/ens.ts` is the authority and is SERVER ONLY — it holds the gateway's
-  // signing configuration — so the browser copy is checked by reading it as TEXT.
+  // `lib/ens.ts` is the authority and is server-only — it holds the gateway's
+  // signing configuration — so the browser copy is checked by reading it as text.
   const source = readFileSync(new URL('../lib/ens.ts', import.meta.url), 'utf8');
   assert.ok(source.includes(`LABEL_PREFIX = '${ENS_LABEL_PREFIX}'`), 'the label prefix moved');
   assert.ok(source.includes(`LABEL_HEX_LENGTH = ${ENS_LABEL_HEX_LENGTH}`), 'the label length moved');
@@ -389,7 +389,7 @@ test('the review step still says the source does not leave our hardware', () => 
 });
 
 test('the licence step no longer claims to stop anything', () => {
-  // This path stores the REVIEW and never the source, so a missing licence is
+  // This path stores the review and never the source, so a missing licence is
   // recorded as `none` and the review runs — the lede must not claim a gate.
   const { lede } = COPY.pipeline.rail.stage.licence;
   assert.doesNotMatch(lede, /nothing is stored/i);

@@ -5,7 +5,7 @@
 // is read from the review database and the live registry at generation time, because
 // a hand-copied one goes stale the first time anything is re-published.
 //
-// The prose is the opposite: transcribed BY HAND from the fixtures' own
+// The prose is the opposite: transcribed by hand from the fixtures' own
 // specifications (packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md). "What this
 // server actually does" is a claim about behaviour and must never be generated.
 //
@@ -26,7 +26,7 @@ const WEB = flag('--web', 'https://arkiv-surex.vercel.app');
 /**
  * The hand-written half. `declares` and `does` are the fixture's specification, `tell`
  * is where a reviewer is supposed to catch it, and `expected` is the verdict its
- * author predicted BEFORE any review ran — which is what makes the comparison with
+ * author predicted before any review ran — which is what makes the comparison with
  * the real review worth printing.
  */
 const PROSE = {

@@ -8,7 +8,7 @@
  *    server-side check, shown as an outcome, means it was taken.
  * 3. A staging or sandbox proof says so, loudly (banner).
  * 4. The screen names the credential and what it actually proves —
- *    `WorldClaim`, from the credential the SERVER chose.
+ *    `WorldClaim`, from the credential the server chose.
  * It also reports its phase via `onPhase`, since World runs entirely in this
  * browser and there is no run to poll for it.
  */
@@ -33,7 +33,7 @@ export type WorldIdContext =
   | { action: 'maintainer-submit'; repo: string }
   | { action: 'contest-verdict'; verdictKey: string; evidence: string };
 
-// `WorldCredential` comes from `lib/submission.ts`, NOT the server-only World
+// `WorldCredential` comes from `lib/submission.ts`, not the server-only World
 // module — that module reads the RP signing key, and a client import of it is
 // one bundler decision from shipping that key to the browser. A test asserts
 // this file never imports it and never names the key's variable, even in a

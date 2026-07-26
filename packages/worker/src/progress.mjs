@@ -1,11 +1,11 @@
 // Checkpoint and resume for the seed.
 //
 // A restart is expensive, measured twice over: the testnet SUI faucet 429s
-// continuously for minutes at a time (S1), and re-running a Walrus write RE-CHARGES
+// continuously for minutes at a time (S1), and re-running a Walrus write re-charges
 // rather than deduplicating, because `alreadyCertified` dedup is publisher
 // behaviour (S3). A seed that dies at record 40 pays twice for the first 39.
 //
-// So state is written after EVERY server, atomically, and re-running the same
+// So state is written after every server, atomically, and re-running the same
 // command continues instead of restarting. The file records what happened — a
 // failure is stored as a failure, never tidied.
 
@@ -29,7 +29,7 @@ export function emptyState({ runId, target, project, writerAddress, suiAddress }
     project,
     writerAddress,
     suiAddress,
-    // Crawl output, frozen on first run so a resume seeds the SAME set. Re-crawling
+    // Crawl output, frozen on first run so a resume seeds the same set. Re-crawling
     // on resume would silently change the population mid-run.
     candidates: [],
     /** fingerprint → { stage, licence, arkiv, error, … } */

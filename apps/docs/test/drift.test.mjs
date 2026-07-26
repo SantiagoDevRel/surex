@@ -1,14 +1,14 @@
 // The two things on this site that can silently become false. Everything else is
 // computed from `@surex/core` at build time or is prose that ages gracefully.
 //
-//   1. THE QUICKSTART FINGERPRINT. SXF-1 identifies a local script by the CONTENT
+//   1. The quickstart fingerprint. SXF-1 identifies a local script by the content
 //      of its entry file, so editing one byte of
 //      `packages/fixtures/mal-rug-pull/src/server.mjs` changes the fingerprint —
 //      and the quickstart's `curl`, its expected `/surex check` output and its
 //      override command all become wrong at once, with nothing failing anywhere.
 //      This recomputes it from the file.
 //
-//   2. STATUS CLAIMS. "This is built, that is not" has no source to derive from,
+//   2. Status claims. "This is built, that is not" has no source to derive from,
 //      so they live in `components/status.tsx`. This fails if a page states one
 //      inline — including, by name, the sentences already retracted once.
 //
@@ -117,7 +117,7 @@ test('no page states a retracted status inline', () => {
   }
 
   for (const path of sources()) {
-    // components/status.tsx is where these sentences are ALLOWED to live.
+    // components/status.tsx is where these sentences are allowed to live.
     if (rel(path) === 'components/status.tsx') continue;
     const text = readFileSync(path, 'utf8');
     for (const { re, why } of RETRACTED) {

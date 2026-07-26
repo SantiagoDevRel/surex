@@ -110,7 +110,7 @@ test('uvx accepts pip-style pins', () => {
 
 test('THE PORTABILITY TEST: the same server on Windows and macOS is ONE entry', () => {
   // Every MCP server in a Windows config is `cmd /c npx <pkg>`; the same server on
-  // macOS is `npx <pkg>`. Without unwrapping the two hash differently AND the
+  // macOS is `npx <pkg>`. Without unwrapping the two hash differently and the
   // Windows form loses the package name entirely.
   const windows = { command: 'cmd', args: ['/c', 'npx', '@playwright/mcp@1.2.3'] };
   const macos = { command: 'npx', args: ['@playwright/mcp@1.2.3'] };
@@ -133,7 +133,7 @@ test('a proxy shim resolves to the endpoint behind it, not the shim', () => {
     fingerprint({ command: 'npx', args: ['mcp-remote', 'https://mcp.vercel.com'] }),
     fingerprint({ type: 'http', url: 'https://mcp.vercel.com' }),
   );
-  // A proxy with no visible URL must NOT become a wrong remote entry.
+  // A proxy with no visible URL must not become a wrong remote entry.
   assert.equal(canonicalise({ command: 'npx', args: ['mcp-remote'] }).transport, 'stdio');
 });
 
@@ -177,7 +177,7 @@ test('every runner pointed at a local file gets the same treatment, not just nod
     const c = canonicalise(def);
     assert.equal(c.package.version, 'local-unresolved', JSON.stringify(def));
   }
-  // …but a published name that merely looks path-ish is NOT local.
+  // …but a published name that merely looks path-ish is not local.
   assert.notEqual(canonicalise({ command: 'npx', args: ['-y', '@scope/name@1.0.0'] }).package.version, 'local-unresolved');
   assert.notEqual(canonicalise({ command: 'npx', args: ['-y', 'github:owner/repo'] }).package.version, 'local-unresolved');
 });

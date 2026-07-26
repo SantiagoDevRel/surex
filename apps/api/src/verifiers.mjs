@@ -1,4 +1,4 @@
-// The identity seam. This is where World checks who is asking, BEFORE the route
+// The identity seam. This is where World checks who is asking, before the route
 // grants anything.
 //
 //   interface Verifiers {
@@ -17,16 +17,16 @@
 //   world         — the real one. `SUREX_WORLD=1`.
 //
 // `REFUSAL_STATUS` maps a refusal reason to a status, because the real verifier can
-// fail for reasons that are NOT "no human stands behind this agent":
+// fail for reasons other than "no human stands behind this agent":
 //
 //   our RPC was rate-limited      → 503 upstream_unavailable
 //   the request carried no proof  → 401 unauthenticated
 //   lookupHuman really returned 0 → 403 agent_not_human_backed   ← the gate
 //
-// 🐛 `lookupHuman`'s NULL IS NEVER TAKEN AT FACE VALUE. `@worldcoin/agentkit-core@0.2.0`'s
+// 🐛 `lookupHuman`'s null is never taken at face value. `@worldcoin/agentkit-core@0.2.0`'s
 // AgentBook verifier ends in `try { …readContract… } catch { return null }`, so a
 // dead RPC, a rate limit, a wrong contract address and a mis-checksummed address
-// ALL return exactly what an unregistered agent returns — measured both ways
+// all return exactly what an unregistered agent returns — measured both ways
 // against live World Chain 480 on 2026-07-25. Telling an honest human-backed agent
 // it is not human-backed because our RPC was throttled is the worst failure this
 // route has, so a null is re-read through our own viem client, where a transport
@@ -41,7 +41,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 /**
  * The request header an AgentKit client actually sends: `agentkit`, holding a
- * base64 JSON payload. NOT `x-payment` — that is x402's *payment* header, and the
+ * base64 JSON payload. Not `x-payment` — that is x402's *payment* header, and the
  * base64 `payment-required` header is the challenge travelling the other way.
  */
 export const AGENTKIT_HEADER = AGENTKIT;
@@ -60,7 +60,7 @@ export const AGENT_BOOK_NETWORKS = Object.freeze({
     chainId: 480,
     caip2: 'eip155:480',
     address: AGENT_BOOK_ADDRESS,
-    // Passed EXPLICITLY, never left to viem's chain default, so the endpoint is
+    // Passed explicitly, never left to viem's chain default, so the endpoint is
     // visible and greppable. Override with SUREX_WORLD_RPC_URL (W5).
     defaultRpcUrl: 'https://worldchain-mainnet.g.alchemy.com/public',
     canonical: true,
@@ -112,7 +112,7 @@ export const REFUSAL_STATUS = Object.freeze({
   // our fault, and we say so rather than blaming the agent or the network
   world_id_not_configured: 'internal',
   world_id_misconfigured: 'internal',
-  // upstream's fault. NEVER agent_not_human_backed.
+  // upstream's fault. Never agent_not_human_backed.
   upstream_unavailable: 'upstream',
   // the caller did not present a usable proof — that is not the same claim as
   // "no human stands behind you", so it must not borrow that message
@@ -143,11 +143,11 @@ const sha256Hex = (value) => createHash('sha256').update(String(value)).digest('
 
 /**
  * The `signal` for each flow, per tech spec §7.1. The signal is what binds a proof
- * to ONE dispute or ONE repository: without it, a proof for "I contest something"
+ * to one dispute or one repository: without it, a proof for "I contest something"
  * is replayable against every other verdict in the registry.
  *
  * ⚠️ The web app derives the same two strings in `apps/web/lib/world.ts`. They are
- * pinned by a fixed vector in BOTH test suites, so a change on one side fails on
+ * pinned by a fixed vector in both test suites, so a change on one side fails on
  * the other instead of silently producing proofs this server rejects.
  */
 export function disputeSignal({ verdictKey, evidenceHash }) {
@@ -174,8 +174,8 @@ export function evidenceHashOf(body) {
 /* ─────────────────────────────────────────────────────────── nullifier store ─*/
 
 /**
- * Uniqueness, per tech spec §7.1 — and NOTHING ELSE ABOUT THE PERSON (NFR-4). Per
- * row: the nullifier as a DECIMAL STRING, the action, and the timestamps it was
+ * Uniqueness, per tech spec §7.1 — and nothing else about the person (NFR-4). Per
+ * row: the nullifier as a decimal string, the action, and the timestamps it was
  * seen at. No proof, no merkle root, no IP, no user agent. Decimal because hex
  * parsing is the bug class here: `0x0A`, `0x0a` and `0xa` are one person and three
  * different strings.
@@ -302,11 +302,11 @@ export function createIllustrativeVerifiers({ logger = console } = {}) {
 /* ─────────────────────────────────────────────────────────── the real thing ─*/
 
 /**
- * World ID (humans) + AgentBook (agents). Two halves with INDEPENDENT
+ * World ID (humans) + AgentBook (agents). Two halves with independent
  * configuration, so one cannot take the other down:
  *
  *   agent half  — needs an RPC and nothing else. Reading AgentBook requires no Orb;
- *                 only REGISTERING an agent does.
+ *                 only registering an agent does.
  *   human half  — needs a Developer Portal relying party (`WORLD_RP_ID`). With none
  *                 configured it fails with a configuration error, never a pass.
  */
@@ -365,7 +365,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
   /**
    * The AgentKit challenge, in the exact `extensions.agentkit` shape the SDK's
    * client expects — so `createHeader(challenge)` consumes it unmodified. Served in
-   * the body of the refusal rather than through `@x402/hono`: this is IDENTITY, not
+   * the body of the refusal rather than through `@x402/hono`: this is identity, not
    * payment, and an x402 payment flow is explicitly deferred (AGENTS.md §5).
    */
   function challenge({ headers = {}, path = '/v1/disputes' } = {}) {
@@ -394,7 +394,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
   /* ── AGENT: does a human stand behind this wallet? ─────────────────────── */
 
   /**
-   * Resolve a wallet to an anonymous human id, and NEVER confuse "no" with
+   * Resolve a wallet to an anonymous human id, and never confuse "no" with
    * "could not ask".
    */
   async function lookupHumanStrict(address) {
@@ -440,7 +440,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
 
     const header = headers[AGENTKIT] ?? headers[AGENTKIT.toLowerCase()] ?? null;
     if (!header) {
-      // A body field is a CLAIM, not a proof. Anyone can type someone else's
+      // A body field is a claim, not a proof. Anyone can type someone else's
       // registered address; only a signature proves control of the wallet.
       return refuse(
         'agentkit_header_missing',
@@ -539,7 +539,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       );
     }
 
-    // Bind the signature to THIS dispute where the client supports it. The AgentKit
+    // Bind the signature to this dispute where the client supports it. The AgentKit
     // message covers domain, uri, nonce and time — not the evidence. Without
     // `requestId` a captured header can file a different dispute for five minutes.
     const bodyDigest = disputeSignal({
@@ -632,7 +632,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       );
     }
 
-    // ⚠️ THE ENVIRONMENT GATE. A staging proof is a simulator identity. Accepting
+    // ⚠️ The environment gate. A staging proof is a simulator identity. Accepting
     // one in production would mean anyone with the simulator is a unique human, so
     // the environment is pinned server-side and the client cannot choose it.
     const proofEnv = proof.environment ?? 'production';
@@ -644,7 +644,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       );
     }
 
-    // The signal binds the proof to THIS dispute / THIS repo.
+    // The signal binds the proof to this dispute / this repo.
     const expectedSignal =
       signal ??
       (action === WORLD_ACTIONS.submit
@@ -673,7 +673,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       }
     }
 
-    // Forward the payload BYTE-FOR-BYTE — reshaping it is the documented cause of
+    // Forward the payload byte-for-byte — reshaping it is the documented cause of
     // spurious invalid_proof.
     let res;
     let text;
@@ -722,7 +722,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       return refuse('proof_malformed', `World returned success but no readable nullifier: ${String(err?.message ?? err)}`);
     }
 
-    // Uniqueness, per flow, BEFORE anything is granted.
+    // Uniqueness, per flow, before anything is granted.
     //   maintainer-submit → one per person, ever.
     //   contest-verdict   → N per rolling window. A person who is right twice is
     //                       not a Sybil, and one-shot would silence them.
@@ -738,7 +738,7 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
 
     return {
       ok: true,
-      nullifier, // decimal string, and the ONLY thing retained about the person
+      nullifier, // decimal string, and the only thing retained about the person
       action,
       environment: proofEnv,
       signal: expectedSignal,
@@ -785,7 +785,7 @@ export function resolveVerifiers({ env = process.env, logger = console, fetchImp
     try {
       return createWorldVerifiers({ env, logger, fetchImpl });
     } catch (err) {
-      // Fail CLOSED to the stub, loudly. A misconfigured World verifier must never
+      // Fail closed to the stub, loudly. A misconfigured World verifier must never
       // become an absent one that quietly accepts.
       logger.error?.(`[surex-api] SUREX_WORLD=1 but the World verifiers could not be built: ${err?.message ?? err}. Falling back to the STUB, which refuses everything.`);
       return createStubVerifiers({ logger });

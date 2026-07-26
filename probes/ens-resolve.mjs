@@ -252,7 +252,7 @@ async function contract() {
         ['0x1900', RESOLVER, expires, viem.keccak256(cd), viem.keccak256(res)],
       ),
     );
-    // RAW hash. `signMessage` would add a second EIP-191 prefix and ecrecover
+    // Raw hash. `signMessage` would add a second EIP-191 prefix and ecrecover
     // would return a stranger.
     return account.sign({ hash: digest });
   };
@@ -540,10 +540,10 @@ async function endToEnd({ rpcUrl, chain, name }) {
 }
 
 /**
- * E6 · the DEPLOYED contract, hop by hop.
+ * E6 · the deployed contract, hop by hop.
  *
  * `getEnsText` is a black box: when the path breaks it returns `null`, which is
- * indistinguishable from an empty record. Every other mode BUILDS the request the
+ * indistinguishable from an empty record. Every other mode builds the request the
  * way the gateway parses it, so each half can pass against its own idea of the
  * request while disagreeing with the other — which is how a `resolve()` that dropped
  * `name` survived 17 Foundry tests and six EVM cases.
@@ -594,7 +594,7 @@ async function live() {
     return;
   }
 
-  // 2 — the real revert, with CCIP-Read switched OFF so viem does not follow it.
+  // 2 — the real revert, with CCIP-Read switched off so viem does not follow it.
   const inner = viem.encodeFunctionData({ abi: TEXT_ABI, functionName: 'text', args: [viem.namehash(name), key] });
   const outer = viem.encodeFunctionData({
     abi: RESOLVE_ABI,
@@ -630,7 +630,7 @@ async function live() {
   const { args } = viem.decodeErrorResult({ abi: LOOKUP_ABI, data: raw });
   const [sender, urls, callData, , extraData] = args;
 
-  // 3 — THE INVARIANT. The gateway needs the name and a namehash cannot be reversed,
+  // 3 — the invariant. The gateway needs the name and a namehash cannot be reversed,
   //     so callData must be the whole resolve() call. The selector alone is not
   //     enough: the failure mode is a dropped name, so decode and check it survives.
   const selector = callData.slice(0, 10).toLowerCase();

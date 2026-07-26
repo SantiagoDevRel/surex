@@ -2,7 +2,7 @@
 //
 // `unreviewable` with reason `licence` renders on the site as "no licence permits
 // us to store this source" — a statement about somebody else's package. It may only
-// be made when the licence was READ and found wanting, never because
+// be made when the licence was read and found wanting, never because
 // raw.githubusercontent rate-limited us mid-loop.
 //
 // The distinction being tested: 404 is an answer, 429 / 5xx / timeout is not.

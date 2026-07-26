@@ -4,7 +4,7 @@
 //
 //   1. `drainLines` — stdout arrives in arbitrary chunks, so a JSON object split
 //      across two `data` events must still parse. Get this wrong and progress does
-//      not break loudly, it goes MISSING at random, which reads as a hung pipeline.
+//      not break loudly, it goes missing at random, which reads as a hung pipeline.
 //   2. The `ok` invariant, from both sides. `resultFrom` finds the pipeline's
 //      verdict by scanning backwards for the last line with an `ok` field, so a
 //      progress line carrying one would be reported as a verdict for a review that
@@ -142,13 +142,13 @@ test('a progress line carrying `ok` is refused, not published as progress', () =
   assert.equal(parseProgressLine(PROGRESS({ ok: true })), null);
   assert.equal(parseProgressLine(PROGRESS({ ok: false })), null);
 
-  // What this does NOT do: resultFrom reads the RAW stdout, so a line that broke
+  // What this does not do: resultFrom reads the raw stdout, so a line that broke
   // the rule is still a candidate result there. The next test holds the invariant.
   assert.ok(resultFrom(PROGRESS({ ok: true })), 'resultFrom cannot tell — which is why the emitter must never produce one');
 });
 
 test('the pipeline emits no `ok` on any stage, on any route', () => {
-  // THE guard. The `ok` invariant is only enforceable at the emitter, and this is
+  // The guard. The `ok` invariant is only enforceable at the emitter, and this is
   // the test that fails if someone adds the field to the progress payload for
   // convenience — before it can ever reach a maintainer as a verdict.
   const lines = [];
@@ -326,7 +326,7 @@ test('a job with no progress yet reports none, rather than an invented stage', a
 });
 
 test('progress and the failure stage are different fields and stay that way', async () => {
-  // `progress.stage` is where the pipeline IS; `stage` is where it FAILED. Merging
+  // `progress.stage` is where the pipeline currently is; `stage` is where it failed. Merging
   // them would report a submission still writing its blob as one that failed at it.
   const app = createApp({
     logger: quiet,

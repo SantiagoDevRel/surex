@@ -1,12 +1,12 @@
 // The /v1 read path, as a Hono app.
 //
-// THE APP CAN ONLY READ. There is no wallet in this process and no write route to
+// The app can only read. There is no wallet in this process and no write route to
 // Arkiv; verdicts are written by the worker's wallet in a different process. That
 // separation is why a compromise of this service cannot rewrite the registry —
 // preserve it.
 //
 // Shapes, routes, error codes, cache TTLs and the gate's latency budget all come
-// from @surex/core's FROZEN contract. Nothing here redefines them.
+// from @surex/core's frozen contract. Nothing here redefines them.
 
 import { Hono } from 'hono';
 import {
@@ -41,9 +41,9 @@ const S = (ms) => Math.floor(ms / 1000);
 /**
  * Cache-Control for a route whose answer changes the moment the worker writes.
  *
- * `max-age` and `s-maxage` are different audiences. `max-age` is the CLIENT's
+ * `max-age` and `s-maxage` are different audiences. `max-age` is the client's
  * budget — the gate's frozen contract TTL, deliberately long. `s-maxage` is the
- * SHARED cache in front of us, and on Vercel that is a fleet-wide CDN which serves
+ * shared cache in front of us, and on Vercel that is a fleet-wide CDN which serves
  * one cached body to everybody for the whole `max-age` window when no shared
  * directive is given: measured live, a twelve-minute-old `/v1/entry/<fp>` while
  * `/v1/registry`, on a 60-second window, had already moved on.
@@ -65,7 +65,7 @@ function cacheControl(c, { clientTtlMs = 0, staleWhileRevalidateMs = 0 } = {}) {
 /**
  * Server-side hot-path cache, honouring exactly the TTLs in the frozen contract.
  *
- * The grace window is asymmetric on purpose: a cached BLOCKING head outlives its
+ * The grace window is asymmetric on purpose: a cached blocking head outlives its
  * TTL when Arkiv is unreachable, a non-blocking one does not. A network blip must
  * never un-flag a server we know is bad, and must never keep answering `clean` for
  * one we can no longer check.
@@ -142,7 +142,7 @@ export function createApp(options = {}) {
 
   /**
    * The `unknown` answer for a miss. Synthesised, not read from a fixture, so in
-   * mock mode it is marked HERE — the envelope middleware only reaches the root of
+   * mock mode it is marked here — the envelope middleware only reaches the root of
    * a body, and a head pulled out of `heads[]` must still carry the flag.
    */
   const unknown = store.illustrative
@@ -171,7 +171,7 @@ export function createApp(options = {}) {
   });
 
   /**
-   * The belt to mock.mjs's braces: in mock mode EVERY JSON body leaves with
+   * The belt to mock.mjs's braces: in mock mode every JSON body leaves with
    * `illustrative: true`, errors included, so a route that forgets the flag cannot
    * cause fixture data to be rendered as real.
    */
@@ -273,7 +273,7 @@ export function createApp(options = {}) {
       head = await store.getVerdictHead(fp);
       cache.set(fp, head ?? null);
     } catch (err) {
-      // A cached BLOCKING head survives an unreachable registry (CACHE.flaggedGraceMs).
+      // A cached blocking head survives an unreachable registry (CACHE.flaggedGraceMs).
       if (cached && (cached.head?.state === 'flagged' || cached.head?.state === 'disputed')) {
         telemetry.staleServed += 1;
         telemetry.record(cached.head);
@@ -369,7 +369,7 @@ export function createApp(options = {}) {
       return c.json(apiError(ERROR_CODES.NOT_FOUND, 'no registry entry for that fingerprint', { fingerprint: fp }), 404);
     }
     /**
-     * The links, on every record this returns. Applied PER RECORD, not once at the
+     * The links, on every record this returns. Applied per record, not once at the
      * top: the source blob and the review blob are different blobs, and collapsing
      * them into one set of links sends someone to the wrong one.
      */
@@ -486,7 +486,7 @@ export function createApp(options = {}) {
       registryError = String(err?.message ?? err).slice(0, 200);
     }
 
-    // Registry hit rate (failure-modes §3.1). REAL but narrow: what THIS process
+    // Registry hit rate (failure-modes §3.1). Real but narrow: what this process
     // observed since it started, which on serverless is one warm instance and not
     // the fleet — said in the body rather than quietly implied.
     const hitRate =
@@ -554,7 +554,7 @@ export function createApp(options = {}) {
     // Who is contesting. An agent is identified by an explicit contestantType, a
     // signed AgentKit header, an agentAddress, or an x402 payment header. The
     // `agentkit` header must stay in this list: without it a correctly signed agent
-    // carrying no `agentAddress` body field is classified as a HUMAN and refused for
+    // carrying no `agentAddress` body field is classified as a human and refused for
     // having no World ID proof.
     const headers = Object.fromEntries(c.req.raw.headers.entries());
     const agentAddress = body?.agentAddress ?? null;
@@ -600,7 +600,7 @@ export function createApp(options = {}) {
      * A refusal is not automatically "no human stands behind this agent".
      * `REFUSAL_STATUS` (verifiers.mjs) classifies the reasons that mean something
      * else — a rate-limited RPC reported as `agent_not_human_backed` tells an
-     * honest, registered agent it is not human-backed because OUR infrastructure was
+     * honest, registered agent it is not human-backed because our infrastructure was
      * throttled. Anything unclassified keeps the path's original code.
      */
     const refuse = (check, fallbackCode, fallbackStatus, fallbackMessage) => {
@@ -648,7 +648,7 @@ export function createApp(options = {}) {
         body,
         path: `/${API_VERSION}/disputes`,
       });
-      // THE AGENTKIT GATE. No humanId → no human stands behind this agent → no
+      // The AgentKit gate. No humanId → no human stands behind this agent → no
       // standing to dispute. Same code path for the stub and a real AgentBook lookup.
       if (!check?.ok || !check?.humanId) {
         return refuse(
@@ -681,7 +681,7 @@ export function createApp(options = {}) {
     // a refused request would lock a real person out of a dispute they never filed.
     check.commit?.();
 
-    // Accepted. A deterministic content id — NOT a chain key and not a tx digest,
+    // Accepted. A deterministic content id — not a chain key and not a tx digest,
     // because this process cannot write and will not hand back an identifier that
     // implies it did.
     const receivedAt = new Date().toISOString();
@@ -742,10 +742,10 @@ export function createApp(options = {}) {
 
   // ── the identity half is built; the ingest half is not ────────────────────
   //
-  // The World ID gate runs FIRST and for real. NOT built: the repo-ownership proof,
+  // The World ID gate runs first and for real. Not built: the repo-ownership proof,
   // the licence gate, the Walrus upload and the Arkiv write, all of which need a
-  // wallet this process does not have. So a VALID proof gets 501, not 202 — and the
-  // nullifier is deliberately NOT spent, because nothing was queued and a person
+  // wallet this process does not have. So a valid proof gets 501, not 202 — and the
+  // nullifier is deliberately left unspent, because nothing was queued and a person
   // must not lose their one submission to a pipeline that never ran.
   const NOT_BUILT =
     'POST /v1/submissions is in the frozen contract but is NOT built in this lane. The submission path ' +
@@ -765,7 +765,7 @@ export function createApp(options = {}) {
     } catch {
       return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, commit, proof }'), 400);
     }
-    // Only the shape needed to run the gate. The commit is checked AFTER the proof,
+    // Only the shape needed to run the gate. The commit is checked after the proof,
     // by validateSubmission — identity first, then content. Checking the commit here
     // would refuse an anonymous request for the wrong reason, and would reveal that
     // the body was read before the gate.
@@ -812,7 +812,7 @@ export function createApp(options = {}) {
 
     // ── the proof checked out; hand it to the writer ────────────────────────
     //
-    // The ingest service holds the wallet, so the submission is FORWARDED. Nothing
+    // The ingest service holds the wallet, so the submission is forwarded. Nothing
     // below ever answers 202 unless the writer said it accepted.
     const shape = validateSubmission(body);
     if (!shape.ok) {
@@ -835,7 +835,7 @@ export function createApp(options = {}) {
         deduped: forwarded.deduped || undefined,
         queuePosition: forwarded.queuePosition ?? undefined,
         identity,
-        // Queued is not a promise of a clean answer: the review has NOT run yet.
+        // Queued is not a promise of a clean answer: the review has not run yet.
         note:
           'The release is queued for review. A verdict blob publishes to the index when the run completes, ' +
           'whatever it concludes.',
@@ -855,7 +855,7 @@ export function createApp(options = {}) {
       );
     }
 
-    // Reachable and refused, or not reachable at all — either way OUR problem, and
+    // Reachable and refused, or not reachable at all — either way our problem, and
     // the submitter is told so rather than left thinking they were rejected.
     return c.json(
       apiError(

@@ -1,25 +1,25 @@
-// What a review RESULT becomes once it is published — decided in one place, as data.
+// What a review result becomes once it is published — decided in one place, as data.
 //
 // The write boundary in `entities.mjs` answers "may this be written". This module
-// answers the question BEFORE it: "given what the model concluded, what is it
+// answers the question before it: "given what the model concluded, what is it
 // honest to publish".
 //
-// `planPublication` is TOTAL. Every (verdict, reason, ownership) triple maps to a
+// `planPublication` is total. Every (verdict, reason, ownership) triple maps to a
 // head `buildVerdictHead` will accept, and there is no input for which the answer is
 // "throw" — a crash after the review record is written leaves the registry with an
 // entry and no head, invisible to the listing query, which reads verdictHeads. That
 // says less than an honest `unreviewable`.
 //
-// THE RULE IT ENFORCES — AGENTS.md §4:
+// The rule it enforces — AGENTS.md §4:
 //
 //   Never publicly flag a real, named third-party project on the strength of an
 //   unaudited model verdict. The only servers SureX flags publicly are the ones it
 //   wrote itself.
 //
-// A maintainer who submits a repository consented to a REVIEW, not to an accusation
+// A maintainer who submits a repository consented to a review, not to an accusation
 // published under their project's name by a model nobody audited. So a third-party
 // `flagged` is not softened, rephrased or published at a lower severity — it is
-// WITHHELD: the entry says a review ran and its result is not being published, the
+// withheld: the entry says a review ran and its result is not being published, the
 // findings go to the maintainer, and the chain carries none of them.
 
 import { ACCUSING_STATES, isSelfAuthored } from './entities.mjs';
@@ -28,10 +28,10 @@ import { ACCUSING_STATES, isSelfAuthored } from './entities.mjs';
 export const DISPUTE_WINDOW_MS = 72 * 3600 * 1000;
 
 /**
- * The finding a reader is shown first, and WHOLE: the contract's shape is
+ * The finding a reader is shown first, and whole: the contract's shape is
  * `{file, line, category, description, severity}`, and the gate's block message and
  * `/r/<fp>` both render it. Dropping `file`/`line` leaves an accusation a developer
- * cannot locate, so ties break toward the finding that CAN be located.
+ * cannot locate, so ties break toward the finding that can be located.
  */
 export function topFindingOf(findings) {
   const list = (findings ?? []).filter((f) => f && typeof f === 'object');
@@ -50,8 +50,8 @@ export function topFindingOf(findings) {
 }
 
 /**
- * Why a result was not published as it stood. Carried back so the submitter is TOLD
- * — withholding means the findings are not published AND not lost.
+ * Why a result was not published as it stood. Carried back so the submitter is told
+ * — withholding means the findings are not published and not lost.
  */
 const WITHHELD_BECAUSE = Object.freeze({
   thirdParty: 'third-party',
@@ -67,7 +67,7 @@ const WITHHELD_BECAUSE = Object.freeze({
  * @param {number=} args.severity         the merged severity
  * @param {Array=} args.findings          the merged findings, whole
  * @param {string} args.fingerprint       what the guard checks against
- * @param {boolean=} args.selfOwned       repo is under an owner the OPERATOR declared
+ * @param {boolean=} args.selfOwned       repo is under an owner the operator declared
  *                                        ours (SUREX_SELF_OWNED), never caller-supplied
  * @param {(fp:string)=>boolean=} args.canAccuse  defaults to the same allowlist
  *                                        `buildVerdictHead` reads, so this cannot plan
@@ -102,7 +102,7 @@ export function planPublication({
       severity: 0,
       findings: [],
       topFinding: undefined,
-      // A clean verdict still says what the server DOES — the difference between
+      // A clean verdict still says what the server does — the difference between
       // "reviewed, nothing found" and a blank row, and there is no accusation in it.
       concern: 'none',
       assessment,
@@ -126,7 +126,7 @@ export function planPublication({
         concern,
         assessment,
         statedIntentSummary,
-        // `topFinding` is the FIRST of these, not the only one — a surface that
+        // `topFinding` is the first of these, not the only one — a surface that
         // captions it "1 of 1" understates every multi-finding review.
         findingCount: merged.length,
         enforceAfter: now + DISPUTE_WINDOW_MS,
@@ -134,9 +134,9 @@ export function planPublication({
         withheld: null,
       };
     }
-    // Held. Note what is NOT here: no severity, no findings, no topFinding, no
-    // category. "unreviewable, severity 3" is the accusation with the evidence
-    // removed — it says something bad and gives the maintainer nothing to answer.
+    // Held, and carrying no severity, no findings, no topFinding, no category.
+    // "unreviewable, severity 3" is the accusation with the evidence removed — it
+    // says something bad and gives the maintainer nothing to answer.
     return {
       state: 'unreviewable',
       reason: 'withheld',
@@ -149,7 +149,7 @@ export function planPublication({
       concern: undefined,
       assessment: undefined,
       /**
-       * Withheld too. It is meant to be the AUTHOR'S claim, but on real runs it
+       * Withheld too. It is meant to be the author's claim, but on real runs it
        * arrives carrying the conclusion ("claims X, BUT THE ACTUAL IMPLEMENTATION
        * …") — the finding in prose. The prompt asks the model to keep claim and
        * conclusion apart; a prompt is a request, and this is the publish path.
@@ -175,7 +175,7 @@ export function planPublication({
   // requires one. `no-agreement` is the default because a merge whose paraphrased
   // readings did not converge is the only way to arrive here without one.
   //
-  // Findings are NOT published on this path either: an unreviewable verdict is the
+  // Findings are not published on this path either: an unreviewable verdict is the
   // reviewer saying it established nothing.
   return {
     state: 'unreviewable',
@@ -196,7 +196,7 @@ export function planPublication({
 }
 
 /**
- * The head that is ALWAYS writable, for the moment the planned one is not — the
+ * The head that is always writable, for the moment the planned one is not — the
  * guard is the authority and may grow a rule `planPublication` has not been taught.
  * `unreviewable` is not an accusing state, so this shape passes every gate in
  * `buildVerdictHead` by construction: no allowlist check, no provenance requirement,
@@ -220,22 +220,22 @@ export function fallbackPlan(detail) {
 }
 
 /**
- * Tier, and the digest that earns it, for a repository submitted AT A COMMIT. NOT
- * `tierOf` from @surex/core — that answers the GATE's question (do the bytes
+ * Tier, and the digest that earns it, for a repository submitted at a commit. Not
+ * `tierOf` from @surex/core — that answers the gate's question (do the bytes
  * installed here match the ones reviewed), needs two digests, and so can only return
  * B or C from the writer's side. A commit sha is itself a digest over the tree it
  * names, so this path can honestly say Tier A.
  *
  * `integrity` is the delicate half: the gate compares it byte-for-byte against the
  * npm integrity of whatever is installed locally, and a mismatch renders as "THE
- * PUBLISHED ARTIFACT CHANGED AFTER THIS REVIEW". Record it ONLY when it is the same
- * KIND of digest the gate will hold:
+ * PUBLISHED ARTIFACT CHANGED AFTER THIS REVIEW". Record it only when it is the same
+ * kind of digest the gate will hold:
  *
  *   · reviewed the npm tarball, integrity confirmed → the npm integrity.
- *   · reviewed the git tree, package NOT on npm → `git:<sha>`. Nothing local can be
+ *   · reviewed the git tree, package not on npm → `git:<sha>`. Nothing local can be
  *     compared against it, and `resolveTier` returns C for an unpinned `github:`
  *     install before it looks, so it cannot manufacture a mismatch.
- *   · reviewed the git tree, package IS on npm → NOTHING. The trap: `git:<sha>` here
+ *   · reviewed the git tree, package is on npm → nothing. The trap: `git:<sha>` here
  *     would sit opposite a real `sha512-…` for anyone who pinned the version, and
  *     the gate would tell them their artifact had changed. Tier B and no digest.
  */

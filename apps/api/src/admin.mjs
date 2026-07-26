@@ -1,18 +1,14 @@
-// POST /a/<slug>/load-model — the demo-recovery control.
+// POST /a/<slug>/load-model — a demo-recovery control, not a security boundary.
+// An unguessable path, a shared password and a rate limit over one idempotent
+// action: making a model resident on the reviewer.
 //
-// HONESTLY: an unguessable path, plus a weak shared password, plus a rate limit,
-// controlling ONE idempotent action on our own box (make a model resident on the
-// reviewer). It is a demo control, not a security boundary, and the README says so
-// in those words.
-//
-// What keeps it defensible:
-//   · it mounts ONLY if SUREX_ADMIN_SLUG is set — no default is committed, so a
-//     deploy that forgets the env var has no admin surface at all, loudly;
-//   · the password travels in a HEADER, never a query string (query strings land
-//     in access logs, referrers and shell history);
-//   · the comparison is timing-safe;
-//   · the rate limit is checked BEFORE the password, so it limits guessing too;
-//   · it triggers exactly one thing, and that thing is idempotent.
+//   · mounts only when SUREX_ADMIN_SLUG is set; no default is committed, so a
+//     deploy that omits it has no admin surface
+//   · the password travels in a header — a query string would reach access logs,
+//     referrers and shell history
+//   · the comparison is timing-safe
+//   · the rate limit is checked before the password, so it limits guessing too
+//   · the single action it triggers is idempotent
 
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { apiError, ERROR_CODES } from '@surex/core';
@@ -27,7 +23,7 @@ export const MIN_SLUG_LENGTH = 16;
 
 /**
  * Constant-time string comparison. Both sides are hashed to a fixed 32 bytes first
- * because raw timingSafeEqual THROWS on a length mismatch, and catching that throw
+ * because raw timingSafeEqual throws on a length mismatch, and catching that throw
  * would leak the password's length through control flow.
  */
 export function timingSafeCompare(a, b) {
@@ -38,7 +34,7 @@ export function timingSafeCompare(a, b) {
 }
 
 /**
- * Fixed-window limiter, in process memory. On Vercel that is PER INSTANCE, so the
+ * Fixed-window limiter, in process memory. On Vercel that is per instance, so the
  * effective limit is (limit × warm instances) — not a defence against a distributed
  * attacker.
  */
@@ -73,7 +69,7 @@ export function createRateLimiter({ limit = DEFAULT_RATE_LIMIT, windowMs = DEFAU
 }
 
 /**
- * Best-effort client identity, falling back to a SHARED bucket — it errs toward more
+ * Best-effort client identity, falling back to a shared bucket — it errs toward more
  * limiting, never less. `x-forwarded-for` is client-supplied unless a proxy
  * overwrites it (Vercel does, a bare public port does not), so an attacker who can
  * set it can rotate buckets.
@@ -98,7 +94,7 @@ export function chatCompletionsUrl(baseUrl) {
 
 /**
  * Force a model resident on the reviewer: an ollama-compatible completion with
- * max_tokens 1, where the load is the side effect. Returns what HAPPENED including
+ * max_tokens 1, where the load is the side effect. Returns what happened including
  * the failure — "the button did nothing and said OK" is the worst outcome for a
  * recovery control.
  */
@@ -207,7 +203,7 @@ export function mountAdmin(app, options = {}) {
   }
 
   app.post(path, async (c) => {
-    // Rate limit FIRST, so this also limits password guessing.
+    // Rate limit first, so this also limits password guessing.
     const rl = limiter.hit(clientKey(c));
     if (!rl.allowed) {
       c.header('Retry-After', String(rl.retryAfterSeconds));

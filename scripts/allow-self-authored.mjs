@@ -4,20 +4,20 @@
 //   node scripts/allow-self-authored.mjs <sxf1_…> --why "our own news server, repo SantiagoDevRel/mcp-medellin-news"
 //   node scripts/allow-self-authored.mjs --list
 //
-// MANUAL ON PURPOSE. The allowlist is the only thing between an unaudited model
+// Manual on purpose. The allowlist is the only thing between an unaudited model
 // verdict and a public accusation about named software (AGENTS.md §4) — `buildVerdictHead`
 // refuses `flagged` for anything not on it — so the submit pipeline must never write
 // to it. Deriving membership from the submitted repo's GitHub owner is unsound:
-// codeload serves every commit in a FORK NETWORK from the upstream namespace, so
-// anyone who can push to a fork of one of our public repos picks both the bytes and,
-// through `package.json`, the fingerprint that would have been allowlisted. Until a
-// human runs this, a self-owned flag publishes as `unreviewable / withheld`.
+// codeload serves every commit in a fork network from the upstream namespace, so
+// anyone who can push to a fork of a SureX public repository picks both the bytes
+// and, through `package.json`, the fingerprint that would have been allowlisted.
+// Until a human runs this, a self-owned flag publishes as `unreviewable / withheld`.
 //
-// NOTE `scripts/review-and-publish.mjs` REGENERATES this file from the fixture
-// directory and drops entries added here. It writes a plain array, this writes
+// `scripts/review-and-publish.mjs` regenerates this file from the fixture directory
+// and drops entries added here. It writes a plain array, this writes
 // `{fingerprints, provenance}`; both shapes load (see `loadSelfAuthored`), but a
-// fixture republish still truncates the list — fail-safe, and worth knowing before
-// you wonder where an entry went.
+// fixture republish still truncates the list — fail-safe, and the reason an entry
+// can vanish.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -40,8 +40,8 @@ function read() {
     if (Array.isArray(parsed)) return { fingerprints: parsed.map(String), provenance: {} };
     return { fingerprints: (parsed?.fingerprints ?? []).map(String), provenance: parsed?.provenance ?? {} };
   } catch {
-    // Absent or unreadable is an EMPTY allowlist, never a guess: a lost file must
-    // fail towards "we cannot flag our own fixtures", not the reverse.
+    // Absent or unreadable is an empty allowlist, never a guess: a lost file must
+    // fail towards "nothing may be flagged", not the reverse.
     return { fingerprints: [], provenance: {} };
   }
 }

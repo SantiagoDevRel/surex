@@ -320,7 +320,7 @@ test('cache round-trip: a cached result is served with its ORIGINAL timestamp an
     // Age the fixture before serving it. Pin the recorded time to a known past
     // rather than hoping the wall clock ticks: two stamps taken milliseconds apart
     // land in the same millisecond on a fast machine, and the property under test is
-    // "the cached answer reports when it was RECORDED, not when it was served".
+    // "the cached answer reports when it was recorded, not when it was served".
     const RECORDED_AT = '2020-01-01T00:00:00.000Z';
     const aged = { ...onDisk, recordedAt: RECORDED_AT };
     writeFileSync(join(dir, files[0]), JSON.stringify(aged));

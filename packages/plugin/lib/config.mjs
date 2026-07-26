@@ -1,6 +1,6 @@
 // Finding the MCP server definition that a tool call came from. The hook payload
 // carries `tool_name` and no server config (FRICTION-LOG C3), so both are
-// rediscovered from disk — the gate NEVER connects to an MCP server to identify
+// rediscovered from disk — the gate never connects to an MCP server to identify
 // one, which is what lets SessionStart prefetch work: it fires before MCP
 // connections exist.
 //
@@ -8,7 +8,7 @@
 //   user scope    ~/.claude.json  → .mcpServers
 //   local scope   ~/.claude.json  → .projects["<root>"].mcpServers
 //   project scope <root>/.mcp.json → .mcpServers
-// Project keys in ~/.claude.json use FORWARD SLASHES even on Windows.
+// Project keys in ~/.claude.json use forward slashes even on Windows.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -63,7 +63,7 @@ export function expandVars(value, env = process.env) {
 
 /**
  * Every MCP server visible from `cwd`, with the scope it came from. Precedence is
- * highest-first and NOT a merge: the first scope defining a name owns it entirely,
+ * highest-first and not a merge: the first scope defining a name owns it entirely,
  * since a half-merged definition fingerprints as a server that exists nowhere.
  */
 export function discoverServers(cwd = process.cwd(), opts = {}) {
@@ -96,7 +96,7 @@ export function discoverServers(cwd = process.cwd(), opts = {}) {
     if (!existsSync(path)) continue;
     const json = readJson(path);
     if (!json?.mcpServers) continue;
-    // A server the user declined is not running, so it is not one we speak about.
+    // A server the user declined is not running, so it is not reported on.
     const entry = claudeJson.projects?.[toProjectKey(dir)] ?? {};
     const disabled = new Set(entry.disabledMcpjsonServers ?? []);
     for (const [name, def] of Object.entries(json.mcpServers)) {

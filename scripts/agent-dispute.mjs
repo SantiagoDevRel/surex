@@ -7,17 +7,17 @@
 //   · with a wallet a human registered in AgentBook   → 202 accepted, standing granted
 //   · with a wallet nobody registered                 → 403 agent_not_human_backed
 //
-// 🐛 Do NOT rewrite this on top of `agentkit.fetch`: it silently does nothing against
-// current `@x402/hono`. It reads the challenge from the response BODY
+// 🐛 Do not rewrite this on top of `agentkit.fetch`: it silently does nothing against
+// current `@x402/hono`. It reads the challenge from the response body
 // (`.extensions.agentkit`), but x402 2.19 returns body `{}` and puts the challenge in
-// a base64 `payment-required` HEADER — so it bails through a bare `return response`
+// a base64 `payment-required` header — so it bails through a bare `return response`
 // with no signature, no retry, no thrown error and not one `onEvent`, which from
 // outside looks exactly like the server rejecting a legitimate agent. Read the
 // challenge, call `agentkit.createHeader(challenge)`, retry by hand; `createHeader`
 // itself is fine. (FRICTION-LOG W1, reproduced.)
 //
 // SureX serves the challenge in the body of its 401 rather than through @x402/hono
-// because this is IDENTITY, not payment — x402 payment flows are out of scope
+// because this is identity, not payment — x402 payment flows are out of scope
 // (AGENTS.md §5).
 
 import { createAgentkitClient } from '@worldcoin/agentkit';
@@ -113,7 +113,7 @@ console.log('\n▸ 2. Sign the challenge with createHeader() — NOT agentkit.fe
 const requestId = disputeSignal({ verdictKey: fingerprint, evidenceHash: evidenceHashOf(body) });
 const header = await agentkit.createHeader({
   ...challenge,
-  // Binds the signature to THIS rebuttal: the AgentKit SIWE message covers domain,
+  // Binds the signature to this rebuttal: the AgentKit SIWE message covers domain,
   // uri, nonce and time but not the evidence, so without it a captured header could
   // file a different dispute for the life of the nonce.
   info: { ...challenge.info, requestId },

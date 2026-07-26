@@ -47,7 +47,7 @@ export function readTree(dir, { maxFileBytes = 200 * 1024 } = {}) {
 }
 
 /**
- * Start the server over stdio and ask it what it declares — the server's OWN words,
+ * Start the server over stdio and ask it what it declares — the server's own words,
  * which is the half a review compares the code against.
  *
  * @param {object} opts
@@ -91,11 +91,11 @@ export function statedIntentFrom({ dir, name, entry, cwd, env, timeoutMs = 8000 
     }
 
     child.on('error', (err) => done({ tools: [], reason: `spawn-failed:${err.code ?? 'error'}` }));
-    // `close`, NOT `exit`: exit can fire before stdout is drained, discarding a
+    // `close`, not `exit`: exit can fire before stdout is drained, discarding a
     // tools/list answer already written and reporting the server as declaring nothing.
     child.on('close', (code) => done({ tools: [], reason: `exited:${code}` }));
 
-    // Consume COMPLETE lines only: splitting the running buffer on every `data` event
+    // Consume complete lines only: splitting the running buffer on every `data` event
     // re-parses partial lines and never advances past them, so no tool is ever seen.
     child.stdout.on('data', (d) => {
       buf += d.toString();

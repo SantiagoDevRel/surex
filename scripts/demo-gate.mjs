@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The demo, rehearsed: drive the REAL gate against the LIVE registry, once per
+// The demo, rehearsed: drive the real gate against the live registry, once per
 // branch of decide().
 //
 //   node scripts/demo-gate.mjs

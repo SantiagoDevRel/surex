@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Preflight. Run this BEFORE a seed, every time: the testnet faucet can take dozens
+// Preflight. Run this before a seed, every time: the testnet faucet can take dozens
 // of blind attempts to answer (S1), so a run that starts underfunded does not fail
 // fast — it stalls mid-way and leaves a half-populated registry.
 

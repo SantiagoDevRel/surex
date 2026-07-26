@@ -9,10 +9,10 @@
 // it the first page is three revisions of the same server. Paging is by opaque
 // `nextCursor`, not offset.
 //
-// WHICH CONFIG WE FINGERPRINT. Under SXF-1 pinned and unpinned are different
-// fingerprints on purpose, and the gate fingerprints what is in the USER's config —
+// Which config gets fingerprinted. Under SXF-1 pinned and unpinned are different
+// fingerprints on purpose, and the gate fingerprints what is in the user's config —
 // almost always the unpinned `npx -y @scope/pkg` a README told them to paste. So the
-// seeded entry is the UNPINNED form; seeding the registry's pinned form gives a
+// seeded entry is the unpinned form; seeding the registry's pinned form gives a
 // registry that looks full and matches nothing. The pinned fingerprint is recorded
 // alongside as an alias, labelled not-yet-seeded. Unpinned ⇒ Tier C, expected.
 
@@ -66,8 +66,8 @@ export async function crawlRegistry({ want = 400, pageSize = 100, maxPages = 20,
 /**
  * Named/positional argument descriptors → a flat arg list.
  *
- * With `onlyNamed`, only NAMED runtime arguments (flags) may precede the package
- * spec; a POSITIONAL one is deferred and placed after it. Publishers misfile
+ * With `onlyNamed`, only named runtime arguments (flags) may precede the package
+ * spec; a positional one is deferred and placed after it. Publishers misfile
  * package arguments under `runtimeArguments` — a CLI subcommand, an endpoint URL —
  * and composing those in the documented order yields `npx -y mcp marketintell`,
  * making the fingerprint's package name `mcp` (or an https URL): an entry no real
@@ -176,7 +176,7 @@ export function toCandidate(row) {
       : `${canonical.package.name}@${canonical.package.version}`,
     registryName: s.name,
     title: s.title ?? null,
-    // The server's OWN words, quoted verbatim. Not SureX copy — see entities.mjs.
+    // The server's own words, quoted verbatim. Not SureX copy — see entities.mjs.
     description: s.description ?? null,
     websiteUrl: s.websiteUrl ?? null,
     version: s.version ?? null,

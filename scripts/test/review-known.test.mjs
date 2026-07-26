@@ -11,7 +11,7 @@ import { readability, selectForReview, assertNoThirdPartyFlags } from '../review
 
 const src = (path, text) => ({ path, text });
 
-// readability — is there anything here a review could be ABOUT?
+// readability — is there anything here a review could be about?
 
 test('readable source passes', () => {
   const r = readability([
@@ -166,7 +166,7 @@ test('integrity is verified against the downloaded bytes', async () => {
   assert.equal(tampered.ok, false, 'bytes that are not the published tarball must not pass');
   assert.match(tampered.detail, /MISMATCH/);
 
-  // No hash published is NOT a pass — it is "nothing was checked", and the
+  // No hash published is not a pass — it is "nothing was checked", and the
   // difference matters when the answer is written down as provenance.
   const none = integrityMatches(bytes, null);
   assert.equal(none.checked, false);

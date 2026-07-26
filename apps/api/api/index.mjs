@@ -1,4 +1,4 @@
-// Vercel function entry. NODE RUNTIME, deliberately not edge: node:crypto (the
+// Vercel function entry. Node runtime, deliberately not edge: node:crypto (the
 // timing-safe admin compare and the dispute id), the Arkiv SDK's viem transport
 // and JSON import attributes all need a real Node runtime. There must never be an
 // `export const config = { runtime: 'edge' }` here.
@@ -7,10 +7,10 @@
 // same Hono app the tests exercise and `node src/server.mjs` serves.
 //
 // Hand-written rather than `@hono/node-server/vercel`: Vercel's Node runtime
-// PRE-PARSES the request body onto `req.body` and leaves the underlying stream
+// pre-parses the request body onto `req.body` and leaves the underlying stream
 // consumed, so an adapter that builds a Web `Request` from that stream waits on
 // something that will never emit — with `handle(app)` every GET worked and every
-// request WITH A BODY hung until the 504. So build the Request from `req.body`
+// request carrying a body hung until the 504. So build the Request from `req.body`
 // when Vercel has already parsed it, and drain the stream only when it has not.
 
 import { createApp } from '../src/app.mjs';
@@ -35,7 +35,7 @@ function bodyFrom(req) {
 function drain(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    // NOT unref'd, deliberately: an unref'd timer does not hold the event loop
+    // Not unref'd, deliberately: an unref'd timer does not hold the event loop
     // open, so with the stream already spent and nothing else pending it never
     // fires and the promise never settles — the same hang this adapter removes.
     const timer = setTimeout(() => resolve(Buffer.concat(chunks)), 1500);

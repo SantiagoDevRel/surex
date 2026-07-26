@@ -1,10 +1,10 @@
 // The licence gate — FR-16, tech spec §8.
 //
-// Runs BEFORE any source upload. Redistribution-permitting licences proceed to
+// Runs before any source upload. Redistribution-permitting licences proceed to
 // Walrus; everything else is written as `unreviewable` with `reason: 'licence'`
-// and NO source upload.
+// and no source upload.
 //
-// The rule that matters most: **unmatched is INELIGIBLE, not permissive.** No
+// The rule that matters most: **unmatched is ineligible, not permissive.** No
 // licence found, a proprietary licence and an unmatchable custom text land in the
 // same bucket, because a false positive writes someone else's code into
 // content-addressed storage that has no delete. Refusing wrongly costs one extra
@@ -23,7 +23,7 @@ const UA = 'surex-worker/0.1 (ETHGlobal Lisbon 2026; licence gate)';
  * The eligible set: exactly what tech spec §8 names — MIT, Apache-2.0, BSD-*, ISC,
  * MPL-2.0, the GPL family — and nothing more.
  *
- * Unlicense, CC0-1.0, Zlib and Python-2.0 are deliberately OUT despite permitting
+ * Unlicense, CC0-1.0, Zlib and Python-2.0 are deliberately out despite permitting
  * redistribution. Widening a gate that writes third-party source into storage with
  * no delete is a decision for a person to make and record.
  */
@@ -54,8 +54,8 @@ export function isEligibleSpdx(id) {
 
 /**
  * Evaluate an SPDX expression.
- *  · `A OR B`  → eligible if EITHER side is (the consumer picks).
- *  · `A AND B` → eligible only if BOTH are (the consumer must satisfy both).
+ *  · `A OR B`  → eligible if either side is (the consumer picks).
+ *  · `A AND B` → eligible only if both are (the consumer must satisfy both).
  *  · `A WITH e` → judged on A; an exception cannot make a refused licence eligible.
  * Anything we cannot parse is ineligible, by the rule at the top of this file.
  */
@@ -121,7 +121,7 @@ function splitTop(text, op) {
 
 /**
  * Non-SPDX spellings common in real package.json files, unambiguous ones only.
- * Bare "BSD" is deliberately NOT here: it names a family, not a licence, and the
+ * Bare "BSD" is deliberately not here: it names a family, not a licence, and the
  * LICENSE-file matcher pins the actual variant.
  */
 const ALIASES = new Map([
@@ -152,7 +152,7 @@ export function normaliseKnownAlias(text) {
 }
 
 /**
- * SPDX template matching for a licence FILE. Each entry is the set of phrases only
+ * SPDX template matching for a licence file. Each entry is the set of phrases only
  * that licence's real text contains, matched against whitespace-collapsed
  * lowercase; `not` clauses separate the near-identical BSD variants, where 2-Clause
  * and 3-Clause differ by one paragraph.
@@ -256,9 +256,9 @@ export function rawUrlsFor(repoUrl, filename) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Fetch a file and say WHY it failed. NEVER collapse the two failures into `null`:
+ * Fetch a file and say why it failed. Never collapse the two failures into `null`:
  * a 404 is a real negative (that file is not in that repo, try the next name), but
- * a timeout, 429 or 5xx is NO ANSWER AT ALL. Treating the second as the first makes
+ * a timeout, 429 or 5xx is no answer at all. Treating the second as the first makes
  * the gate publish `unreviewable`/`licence` — "no licence permits us to store this
  * source" — about somebody else's correctly licensed package, because of a rate
  * limit. `transport: true` marks that case for the caller.
@@ -312,7 +312,7 @@ export async function npmVersionMeta(name, version) {
   return {
     name: meta.name,
     version: meta.version,
-    // The npm `license` field IS package.json's, which is what the spec points at.
+    // The npm `license` field is package.json's own, which is what the spec points at.
     license: typeof meta.license === 'string' ? meta.license : meta.license?.type ?? null,
     integrity: meta.dist?.integrity ?? null,
     shasum: meta.dist?.shasum ?? null,
@@ -423,7 +423,7 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
   // 2. A LICENSE file in the repo, matched against SPDX templates.
   //
   // `undetermined` tracks a candidate that failed for a reason that is not an
-  // answer. No licence found AND something unreachable → refuse to CLAIM
+  // answer. No licence found and something unreachable → refuse to claim
   // ineligibility (see the return at the bottom): ineligible is a public statement
   // about somebody's package, "we could not tell" is not.
   let undetermined = null;
@@ -449,7 +449,7 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
           };
         }
         // A file that exists but does not match is the "custom text" case —
-        // INELIGIBLE, and stop looking: a repo whose LICENSE we cannot read is not
+        // ineligible, and stop looking: a repo whose LICENSE we cannot read is not
         // made eligible by a second file with a friendlier name.
         if (!spdx) {
           return {

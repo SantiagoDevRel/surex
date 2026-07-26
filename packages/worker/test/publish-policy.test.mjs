@@ -289,7 +289,7 @@ test('the fallback plan is writable even when everything else has failed', () =>
 });
 
 test('the guard still refuses a flag this module would never plan', () => {
-  // Belt and braces: if planPublication is ever bypassed, the boundary holds.
+  // If planPublication is ever bypassed, the boundary still holds.
   setSelfAuthored([]);
   assert.throws(
     () => buildVerdictHead({

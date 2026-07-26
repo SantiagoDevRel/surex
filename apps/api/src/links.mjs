@@ -1,7 +1,7 @@
 // Explorer URLs for a record. The one place recorded identifiers (blobId,
 // suiObjectId, both tx digests) become links, so no route hand-rolls a path.
 //
-// Bases are read from env at CALL time, not at import time — a test that sets an
+// Bases are read from env at call time, not at import time — a test that sets an
 // env var after importing must still see it.
 
 import { DEFAULT_AGGREGATORS } from '@surex/core';

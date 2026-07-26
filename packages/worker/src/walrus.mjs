@@ -3,7 +3,7 @@
 // Not negotiable, each because it was measured:
 //
 //  · Step the flow by hand — encode → register → upload → certify. The convenience
-//    wrapper `executeCertify()` DISCARDS the certify digest (FRICTION-LOG S4).
+//    wrapper `executeCertify()` discards the certify digest (FRICTION-LOG S4).
 //  · Read the epoch ceiling off chain. Testnet max is 53, not the 183 in every doc;
 //    `epochs=183` comes back as HTTP 500 wrapping a raw EInvalidEpochsAhead Move
 //    abort (S2).
@@ -11,32 +11,32 @@
 //    before, so a hardcoded ID is a time bomb.
 //  · Blobs are owned + permanent (`deletable: false`). The registry's evidence must
 //    not be quietly removable, including by us.
-//  · `contentSha256` on EVERY record. A Walrus blob ID is not sha256(bytes) — it is
+//  · `contentSha256` on every record. A Walrus blob ID is not sha256(bytes) — it is
 //    a commitment over the erasure-coded sliver structure — so the digest binding
 //    served bytes to the Arkiv record is a separate field computed here, consumed by
 //    verifyEvidenceBytes() in packages/core/src/blob.mjs.
-//  · `nShards` on every record too. Blob IDs are deterministic over content AND
+//  · `nShards` on every record too. Blob IDs are deterministic over content and
 //    network configuration; without the shard count a mismatch is unexplainable.
 //
-// Cost: one standalone blob = TWO Sui transactions, priced per blob rather than per
-// byte. `alreadyCertified` dedup is PUBLISHER behaviour, not protocol — this SDK
-// re-registers, re-certifies and RE-CHARGES for bytes already certified (S3), so a
+// Cost: one standalone blob = two Sui transactions, priced per blob rather than per
+// byte. `alreadyCertified` dedup is publisher behaviour, not protocol — this SDK
+// re-registers, re-certifies and re-charges for bytes already certified (S3), so a
 // re-run is not free and the seed checkpoints instead.
 //
-// PUBLISHER MODE (SUREX_WALRUS_PUBLISHER). The SDK uploads slivers directly to all
+// Publisher mode (SUREX_WALRUS_PUBLISHER). The SDK uploads slivers directly to all
 // 101 committee members in parallel, which a residential uplink does not complete —
 // 4/4 NotEnoughBlobConfirmationsError from the DGX where the HTTP publisher succeeds
 // at the same moment (S11: balance, Node version, IPv6 and file descriptors were
 // each ruled out; do not re-derive it). Set the variable and the record goes over
-// HTTP. Three things change about what a record may CLAIM:
+// HTTP. Three things change about what a record may claim:
 //
-//  · The PUBLISHER's wallet registers the blob, so `suiObjectId` and any digest are
-//    theirs. `registeredBy: 'wallet' | 'publisher'` is set EXPLICITLY on both paths
+//  · The publisher's wallet registers the blob, so `suiObjectId` and any digest are
+//    theirs. `registeredBy: 'wallet' | 'publisher'` is set explicitly on both paths
 //    — a reader must never infer custody from a missing field.
 //  · No register/certify digests on a fresh write; on a repeat, a certification
 //    event digest but no `suiObjectId`, size or encoding type. Thinner provenance is
 //    recorded as thinner, never padded out with a value we were not told.
-//  · The publisher DOES dedupe identical bytes for free, which the SDK does not.
+//  · The publisher dedupes identical bytes for free, which the SDK does not.
 //
 // A third party is now in the middle of the write, so this mode re-fetches the bytes
 // from the aggregator and compares digests at write time by default, refusing the
@@ -82,8 +82,8 @@ export function publishersFrom(env = process.env) {
  *                        registeredEpoch, certifiedEpoch, deletable, storage } }
  *   alreadyCertified → { blobId, event: { txDigest, eventSeq }, endEpoch }
  *
- * `alreadyCertified` carries NO object id, NO size and NO encoding type — each is
- * null rather than guessed, and `outcome` records WHY. `newlyCreated.blobObject
+ * `alreadyCertified` carries no object id, no size and no encoding type — each is
+ * null rather than guessed, and `outcome` records why. `newlyCreated.blobObject
  * .certifiedEpoch` also comes back **null** even though the publisher certified
  * before answering, so no surface may render a certified epoch from a publisher
  * write.
@@ -152,8 +152,8 @@ export function normaliseEncodingType(value) {
 /**
  * Turn a JSON record body into deterministic bytes. Sorted keys, trailing LF.
  *
- * NEVER `JSON.stringify(body, Object.keys(body).sort())`. An ARRAY replacer is a
- * property ALLOWLIST applied RECURSIVELY, not a key ordering: every nested object
+ * Never `JSON.stringify(body, Object.keys(body).sort())`. An array replacer is a
+ * property allowlist applied recursively, not a key ordering: every nested object
  * silently keeps only the properties whose names are also top-level keys of `body`,
  * and the hash then commits to the gutted version.
  *
@@ -165,7 +165,7 @@ export function recordBytes(body) {
 }
 
 /**
- * Order every object's keys, at every depth, WITHOUT dropping any of them.
+ * Order every object's keys, at every depth, without dropping any of them.
  * Arrays keep their order — a findings list is a sequence, not a set.
  */
 function sortDeep(value) {
@@ -191,8 +191,8 @@ function sortDeep(value) {
  * @property {'blob'|'quilt-patch'} addressing
  * @property {string=} patchId        quilt patch id, when addressing is quilt-patch
  * @property {string=} quiltBlobId    the containing quilt, when addressing is quilt-patch
- * @property {'wallet'|'publisher'} registeredBy  WHOSE wallet registered the blob;
- *   under `publisher` the object and any digest are THEIRS, not ours. Always
+ * @property {'wallet'|'publisher'} registeredBy  whose wallet registered the blob;
+ *   under `publisher` the object and any digest are theirs, not ours. Always
  *   present on both paths — custody is never inferred from a missing field.
  * @property {string=} publisher          base URL, when registeredBy is publisher
  * @property {'newlyCreated'|'alreadyCertified'=} publisherOutcome
@@ -205,7 +205,7 @@ export async function createWalrusWriter(options = {}) {
   const log = options.log ?? (() => {});
 
   /**
-   * The key loads ON DEMAND, not at construction: publisher mode needs no Sui
+   * The key loads on demand, not at construction: publisher mode needs no Sui
    * wallet, so constructing the writer must not require a key. The address
    * assertion rides along, firing before any write that spends and never for one
    * that does not.
@@ -382,7 +382,7 @@ export async function createWalrusWriter(options = {}) {
 
     if (verifyPublished) {
       // A publisher that truncated, re-encoded or lied about the blob id fails
-      // HERE rather than later in the gate, against a record already published as
+      // here rather than later in the gate, against a record already published as
       // evidence.
       const served = await fetchPublished(published.blobId);
       const servedSha = sha256Hex(served);
@@ -398,10 +398,10 @@ export async function createWalrusWriter(options = {}) {
       blobId: published.blobId,
       // undefined, not null, so it drops out of the serialised record the way the
       // SDK path's optional fields do. Never our address — on this path the blob
-      // object belongs to the PUBLISHER's wallet.
+      // object belongs to the publisher's wallet.
       suiObjectId: published.suiObjectId ?? undefined,
       // No digest on a fresh write. `alreadyCertified` gives the certification
-      // EVENT's digest — a real Sui transaction, just not one we sent.
+      // event's digest — a real Sui transaction, just not one we sent.
       registerTx: undefined,
       certifyTx: published.certifyTx ?? undefined,
       encodingType: published.encodingType,
@@ -467,19 +467,19 @@ export async function createWalrusWriter(options = {}) {
       digestFrom: 'written',
       certifiedEpoch: blob.blobObject?.certified_epoch ?? null,
       deletable: blob.blobObject?.deletable ?? null,
-      // Stated on BOTH paths — custody is never inferred from absent fields.
+      // Stated on both paths — custody is never inferred from absent fields.
       registeredBy: 'wallet',
     };
   }
 
   /**
-   * ONE quilt holding many small record bodies. Two Sui transactions total, no
+   * One quilt holding many small record bodies. Two Sui transactions total, no
    * matter how many records go in; a quilt takes at most 660 patches.
    *
-   * The trade: a quilted record is addressed as (quilt blob, patch id) and has NO
+   * The trade: a quilted record is addressed as (quilt blob, patch id) and has no
    * certified Sui object of its own. Every pointer carries `addressing:
    * 'quilt-patch'`, its own `patchId` and the containing `quiltBlobId` so a
-   * consumer can tell. `contentSha256` is per PATCH — that is what binds a single
+   * consumer can tell. `contentSha256` is per patch — that is what binds a single
    * record to its Arkiv entity even though the certification is shared.
    *
    * @param {{identifier:string, body:object|Uint8Array, tags?:Record<string,string>}[]} items
@@ -516,12 +516,12 @@ export async function createWalrusWriter(options = {}) {
     const certifyTx = await execute(flow.certify(), 'certify');
 
     // Mapping identifier → patch id, read back and checked rather than inferred.
-    // `listFiles()` gives patch ids and NO identifier field, in an order that is
+    // `listFiles()` gives patch ids and no identifier field, in an order that is
     // neither input order nor sorted-by-identifier (measured on a 50-patch quilt:
     // 1/50 and 5/50 respectively). Assuming either yields 50 records each pointing
     // at another record's bytes, undetectable without fetching. `writeQuilt()` does
     // return `index.patches[]` with both, but discards the register/certify digests
-    // (S4) — so no single SDK call gives provenance AND per-patch addressing.
+    // (S4) — so no single SDK call gives provenance and per-patch addressing.
     const listed = await flow.listFiles();
     const patchIds = listed.map((f) => f.id);
     const readBack = await client.walrus.getFiles({ ids: patchIds });
@@ -569,7 +569,7 @@ export async function createWalrusWriter(options = {}) {
         );
       }
       patches.set(p.identifier, {
-        // `blobId` stays the QUILT's — that is what carries the on-chain
+        // `blobId` stays the quilt's — that is what carries the on-chain
         // certification — and `patchId` is what fetches this record. Collapsing the
         // two would imply a certification this record does not individually have.
         blobId: encoded.blobId,
@@ -598,12 +598,12 @@ export async function createWalrusWriter(options = {}) {
 
   /**
    * Read a set of quilt patches back and report, per patch, the identifier the
-   * QUILT INDEX gives it and the sha256 of the bytes it actually serves.
+   * quilt index gives it and the sha256 of the bytes it actually serves.
    *
    * `patchIds` must be supplied: a WalrusFile exposes `getIdentifier()` but not its
    * own patch id, and there is no public encoder from (blobId, index range) to one,
    * so the ids come from write-time `flow.listFiles()` (what the seed checkpoint
-   * stores). Their ORDER is meaningless — only the set matters.
+   * stores). Their order is meaningless — only the set matters.
    */
   async function readQuiltPatches(patchIds) {
     if (!Array.isArray(patchIds) || !patchIds.length) {
@@ -625,7 +625,7 @@ export async function createWalrusWriter(options = {}) {
   }
 
   /**
-   * Rebuild the identifier → patch pointer map for a quilt that is ALREADY
+   * Rebuild the identifier → patch pointer map for a quilt that is already
    * certified, so a mapping recorded wrong is repairable without paying for a
    * second quilt (the SDK re-charges for identical bytes, S3).
    *
@@ -692,7 +692,7 @@ export async function createWalrusWriter(options = {}) {
 
   return {
     /**
-     * A GETTER, because reading it LOADS THE KEY. Publisher mode needs no key, so
+     * A getter, because reading it loads the key. Publisher mode needs no key, so
      * logging the address "for context" turns a keyless write into one that fails
      * without a secrets file. Read it only where you mean to spend.
      */

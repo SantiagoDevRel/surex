@@ -7,7 +7,7 @@
  * types — a malformed response must degrade to `unknown`, never to `clean`.
  */
 
-/** Contract states. `running` is NOT one of them — see `RowStatus`. */
+/** Contract states. `running` is not one of them — see `RowStatus`. */
 export type VerdictState =
   | 'clean'
   | 'flagged'
@@ -78,7 +78,7 @@ export interface BlobRef {
 }
 
 /**
- * Where a recorded identifier can be LOOKED AT, built by `apps/api/src/links.mjs` —
+ * Where a recorded identifier can be looked at, built by `apps/api/src/links.mjs` —
  * the only place that turns an id into a URL. Every field is optional: a dead
  * link that looks alive is worse than no link. Not part of `@surex/core`'s
  * frozen `VerdictHead` contract; the gate has no use for a URL.
@@ -111,7 +111,7 @@ export interface VerdictHead {
   integrity?: string;
   capabilities?: Capabilities;
   topFinding?: Finding;
-  /** rv-7: the KIND of gap between what the server says and what it does. */
+  /** rv-7: the kind of gap between what the server says and what it does. */
   concern?: string;
   /** rv-7: one or two sentences from the reading that decided the verdict. */
   assessment?: string;
@@ -121,7 +121,7 @@ export interface VerdictHead {
   evidence?: BlobRef;
   arkivEntityKey?: string;
   updatedAt?: string;
-  /** TRUE when this row is demo data. Never omitted when it is. */
+  /** True when this row is demo data. Never omitted when it is. */
   illustrative?: boolean;
 }
 
@@ -189,7 +189,7 @@ export interface Entry {
     licence?: string;
     blob?: BlobRef;
     normalisedTreeSha256?: string;
-    /** Its OWN links. The source blob and the review blob are different blobs. */
+    /** Its own links. The source blob and the review blob are different blobs. */
     links?: RecordLinks;
   };
   review?: {

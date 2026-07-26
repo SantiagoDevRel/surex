@@ -117,7 +117,7 @@ function RoadmapView({ viewKey }: { viewKey: ViewKey }) {
 }
 
 // Real tab semantics: role="tablist"/"tab" with aria-selected + aria-controls,
-// arrow keys move focus AND selection (roving tabindex), Home/End jump to ends.
+// arrow keys move focus and selection together (roving tabindex), Home/End jump to ends.
 const PANEL_ID = 'roadmap-panel';
 
 export function Roadmap() {

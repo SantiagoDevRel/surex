@@ -4,20 +4,20 @@
 //   node scripts/curate-registry.mjs --dry-run     # print the plan, touch nothing
 //   node scripts/curate-registry.mjs               # do it
 //
-// WHAT MAY BE REMOVED, AND WHY THAT LIST IS SHORT. AGENTS.md §4: a verdict is
+// What may be removed, and why that list is short. AGENTS.md §4: a verdict is
 // **superseded, never deleted**, or a registry becomes a place where inconvenient
 // findings quietly stop existing. Exactly three categories fall outside that rule:
 //
 //   1. `unknown` heads — seeding placeholders. `packages/core/src/verdict.mjs`
-//      defines `unknown` as the ABSENCE of an entry, so a stored `unknown` head is a
+//      defines `unknown` as the absence of an entry, so a stored `unknown` head is a
 //      record asserting there is no record. Deleting it removes no finding.
-//   2. Verdicts about OUR OWN fixtures. The rule exists so an accusation against
-//      somebody else cannot be made to disappear; retiring a review of a server we
-//      wrote hides nothing from anyone.
+//   2. Verdicts about SureX's own fixtures. The rule exists so an accusation against
+//      somebody else cannot be made to disappear; retiring a review of a server this
+//      project wrote hides nothing from anyone.
 //   3. A third party's `unreviewable` — no conclusion was ever reached. See the note
 //      on `assertRemovable`, which is where that case is argued and enforced.
 //
-// A third party's REACHED verdict is never removable, whatever the plan says.
+// A third party's reached verdict is never removable, whatever the plan says.
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -90,14 +90,14 @@ export function planFor(head) {
 
 /**
  * The guard, kept separate from the plan so it cannot be reasoned around: whatever
- * `planFor` decided, a third party's REACHED verdict — clean, flagged, disputed,
+ * `planFor` decided, a third party's reached verdict — clean, flagged, disputed,
  * stale — is never removable, and this throws if a plan ever asks.
  *
- * A third party's `unreviewable` IS removable, and that is the one case worth
+ * A third party's `unreviewable` is removable, and that is the one case worth
  * arguing. `unreviewable` means "we could not read this" — a licence that does not
  * permit review, source that does not match the declared tools, an OCI image with no
  * tarball. No conclusion was reached about the code, so there is no finding to bury;
- * §4 exists so an ACCUSATION cannot be made to disappear, and this is the opposite of
+ * §4 exists so an accusation cannot be made to disappear, and this is the opposite of
  * one.
  */
 export function assertRemovable(head) {
@@ -114,7 +114,7 @@ export function assertRemovable(head) {
   return true;
 }
 
-// Everything above is pure and importable; everything below runs ONLY under the
+// Everything above is pure and importable; everything below runs only under the
 // entrypoint guard at the bottom. Without it, importing this to test the rules opens
 // a chain connection and reads every head.
 

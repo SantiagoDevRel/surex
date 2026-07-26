@@ -1,7 +1,7 @@
-// What counts as a complete submission: a repository, plus a release tag OR a
+// What counts as a complete submission: a repository, plus a release tag or a
 // commit — never both required.
 //
-// The commit is the STRONGER of the two claims, naming bytes that cannot change
+// The commit is the stronger of the two claims, naming bytes that cannot change
 // where a tag can be repointed or deleted. A project that has never cut a release
 // resolves to its default-branch head, which carries a real 40-hex commit and an
 // empty tag by design (`listReleases`, source `default-branch`), so requiring the
@@ -88,8 +88,8 @@ test('a commit that is not a SHA is dropped rather than forwarded', async () => 
 
 test('a bogus commit with no tag is incomplete — the invalid value cannot stand in for one', async () => {
   // Relaxing the guard to `!release && !commitRaw` would accept a body whose only
-  // identifier is a string we then refuse to send, producing a submission that
-  // names a repository and nothing else.
+  // identifier is a string the action then refuses to send, producing a
+  // submission that names a repository and nothing else.
   const { outcome, calls } = await run({ repo: 'acme/acme-mcp', release: '', commit: 'HEAD' });
   assert.equal(outcome.kind, 'missing');
   assert.equal(calls.length, 0);

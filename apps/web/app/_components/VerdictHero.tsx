@@ -8,8 +8,7 @@ import { Stamp } from './Stamp.tsx';
 
 /**
  * The hero: one stamp, and the twenty-second version of the whole verdict
- * beside it. Nothing else competes at this size — §04 says one stamp per page
- * and means it.
+ * beside it. Nothing else competes at this size: one stamp per page (§04).
  */
 export function VerdictHero({ entry }: { entry: Entry }) {
   const { head } = entry;

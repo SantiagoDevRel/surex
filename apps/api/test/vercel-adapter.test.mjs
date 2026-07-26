@@ -2,8 +2,8 @@
 // shape it can hand us.
 //
 // Vercel's Node runtime pre-parses the body onto `req.body` and leaves the stream
-// consumed, so an adapter reading that stream waits forever: every request WITH A
-// BODY hung until the function timed out, while GETs answered fine.
+// consumed, so an adapter reading that stream waits forever: every request carrying
+// a body hung until the function timed out, while GETs answered fine.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

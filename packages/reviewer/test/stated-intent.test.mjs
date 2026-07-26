@@ -59,7 +59,7 @@ test('the prompt version is stamped and is not rv-1', () => {
   // rv-1 could not tell "declares nothing" from "we could not ask", so any verdict
   // carrying it was produced by a prompt that conflated the two.
   //
-  // This pin is meant to FAIL when the prompt changes. Every published verdict
+  // This pin is meant to fail when the prompt changes. Every published verdict
   // records the version it was produced under, so a prompt edit that kept the old
   // number would silently mix two reviewers' answers under one label. Bump it here
   // and recalibrate against the fixture set — never just here.
@@ -75,7 +75,7 @@ test('BOTH variants know MCP has three surfaces, not just tools', () => {
   // that reads only tool descriptions is blind to the cheapest place in the protocol
   // to hide an injection.
   //
-  // Asserted on BOTH variants for the reason SCOPE_RULE is: a vector only one of them
+  // Asserted on both variants for the reason SCOPE_RULE is: a vector only one of them
   // knows about produces a systematic disagreement, not a second opinion.
   for (const variant of VARIANTS) {
     const [system] = buildPrompt({ variant, statedIntent: { name: 'x', tools: [] }, files: [] }).messages;

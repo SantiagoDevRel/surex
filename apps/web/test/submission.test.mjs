@@ -2,7 +2,7 @@
  * The live loader's logic, without a browser. Run: node --test apps/web/test/
  *
  * Everything the loader says about a run is derived by pure functions in
- * `lib/submission.ts`. The assertions are mostly about ABSENCE — a missing field
+ * `lib/submission.ts`. The assertions are mostly about absence — a missing field
  * stays missing, a derived number says it is derived, and no component appears on
  * a hunch — so a two-minute silence is never filled with something nobody reported.
  *
@@ -207,7 +207,7 @@ test('it mounts when the backend says so outright', () => {
 });
 
 test('it mounts on a third reading, because a third reading only happens after a split', () => {
-  // The reviewer takes two paraphrased readings and goes to four ONLY when they
+  // The reviewer takes two paraphrased readings and goes to four only when they
   // disagree (AGENTS.md §7), so run >= 3 is the tie-break pair running.
   assert.equal(
     disagreementReported(status({ progress: { stage: 'reviewing', detail: { run: 3 } } })),
@@ -238,7 +238,7 @@ test('and it uses the sides when they are reported', () => {
 /* ------------------------------------------------------------- the trace --*/
 
 test('the trace remembers a write after the payload has moved on', () => {
-  // progress.detail describes the CURRENT stage only, so the blob id is gone from
+  // progress.detail describes the current stage only, so the blob id is gone from
   // the payload by the time Arkiv is written — losing it unmounts a receipt for a
   // write that really happened.
   let trace = {};
@@ -283,7 +283,7 @@ test('a result fingerprint that is not a fingerprint is not recorded', () => {
 /* ----------------------------------------------------------- the receipts --*/
 
 test('no write, no receipt — there is no pending variant', () => {
-  // `.sx-write` mounts once and the mount IS the animation, so a placeholder would
+  // `.sx-write` mounts once and the mount is the animation, so a placeholder would
   // animate a write that has not happened.
   assert.deepEqual(writeReceipts({}), []);
   assert.deepEqual(writeReceipts({ walrus: {} }), []);
@@ -332,7 +332,7 @@ test('ids are encoded into the path', () => {
 test('the link bases have not drifted from the API lane', () => {
   // This module cannot import `apps/api/src/links.mjs` — it is bundled for the
   // browser and that file reaches `@surex/core`, which reaches `node:crypto`. So
-  // the bases are a second copy, checked by reading the API file as TEXT.
+  // the bases are a second copy, checked by reading the API file as text.
   const links = readFileSync(new URL('../../../apps/api/src/links.mjs', import.meta.url), 'utf8');
   const blob = readFileSync(new URL('../../../packages/core/src/blob.mjs', import.meta.url), 'utf8');
 
@@ -352,7 +352,7 @@ test('the link bases have not drifted from the API lane', () => {
     'DEFAULT_AGGREGATORS[0] moved; the browser copy must move with it',
   );
 
-  // The PATHS, not only the bases. Every one was confirmed against a live explorer
+  // The paths, not only the bases. Every one was confirmed against a live explorer
   // — `/entities/<key>` and `/storage/entity/<key>` both 404 — so they are not
   // guessable and a silent change to one is a page full of dead links.
   for (const path of ['/v1/blobs/', '/object/', '/tx/', '/entity/']) {

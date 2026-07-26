@@ -5,12 +5,12 @@
 // packages/fixture-mcp:
 //   1. read its whole source tree (the reviewer needs the code)
 //   2. start it over stdio and ask it tools/list — the stated intent is what the
-//      server ACTUALLY declares, not what we assume
+//      server actually declares, never an assumption about it
 //   3. run the real double-pass review on the DGX
 //   4. write the review body to Walrus, index a ReviewRecord + VerdictHead on Arkiv
 //   5. append the outcome to a database written to the owner's Downloads
 //
-// Only OUR OWN fixtures are ever flagged (AGENTS.md §4). The ambiguous ones land
+// Only SureX's own fixtures are ever flagged (AGENTS.md §4). The ambiguous ones land
 // wherever the model lands, which is the point of having them.
 //
 //   node scripts/review-and-publish.mjs --dry-run     # review, print, write nothing
@@ -149,7 +149,7 @@ if (DRY) {
 log('\npublishing verdicts on chain…');
 
 /**
- * The commit these fixtures were read at. The worker REFUSES to write a flag without
+ * The commit these fixtures were read at. The worker refuses to write a flag without
  * it: a head published with none renders "commit —" in its block message, which is a
  * finding the accused cannot trace to any bytes.
  */
@@ -169,9 +169,9 @@ log(`  provenance: commit ${reviewedCommit.slice(0, 12)}`);
  * Regenerate the self-authored allowlist from the fixtures about to be published, and
  * hand it to the worker, which refuses to flag anything absent from it.
  *
- * FINGERPRINTS, computed here from our own directories — never names, because a name
- * is whatever the caller types and `totally-not-a-fixture-thirdparty` satisfies any
- * name regex.
+ * Fingerprints, computed here from the fixture directories — never names, because a
+ * name is whatever the caller types and `totally-not-a-fixture-thirdparty` satisfies
+ * any name regex.
  */
 const selfAuthored = [];
 for (const r of reviewed) {
@@ -199,7 +199,7 @@ for (const r of reviewed) {
   const canonical = canonicalise(config, { hashLocalEntry: localEntryResolver(ROOT) });
   const fingerprint = fingerprintOf(canonical);
 
-  // Idempotent: an existing head skips the whole server, INCLUDING the Walrus write.
+  // Idempotent: an existing head skips the whole server, including the Walrus write.
   // The SDK does not dedupe already-certified bytes (FRICTION-LOG S3), so a re-run
   // without this re-charges for every blob.
   if (await existingKey(fingerprint, 'verdictHead')) {
@@ -210,8 +210,8 @@ for (const r of reviewed) {
   const state = result.verdict === 'flagged' ? 'flagged'
     : result.verdict === 'unreviewable' ? 'unreviewable' : 'clean';
 
-  // AGENTS.md §4: publicly flag ONLY our own fixtures. Everything here is ours,
-  // but keep the guard explicit so this script cannot be pointed elsewhere.
+  // AGENTS.md §4: publicly flag only SureX-authored fixtures. Everything here is one,
+  // but the guard stays explicit so this script cannot be pointed elsewhere.
   if (state === 'flagged' && !/fixture|mal-|ambiguous-|honest-/.test(server.name)) {
     log(`  refusing to flag ${server.name}: not a SureX-authored fixture`);
     continue;

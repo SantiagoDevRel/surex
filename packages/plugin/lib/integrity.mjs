@@ -4,11 +4,11 @@
 // resolves to. npm publishes a per-version `dist.integrity` (sha512 of the
 // published tarball); the worker records it at review time and the gate compares
 // it to what is installed. Agreement is Tier A, absence is Tier B, disagreement is
-// a MISMATCH — which downgrades and warns and does NOT block (FR-19).
+// a MISMATCH — which downgrades and warns and does not block (FR-19).
 //
 // `npx -y pkg` never creates a local node_modules (it resolves into
 // ~/.npm/_npx/<hash>/), and pnpm, yarn and bun each lay things out differently, so
-// every layout is searched. WHERE the digest was found is reported: "could not
+// every layout is searched. Where the digest was found is reported: "could not
 // check" and "checked and it matched" must never look the same.
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
@@ -76,7 +76,7 @@ function fromPnpmLock(root, name, version) {
   return { integrity: m[1], source: path, layout: 'pnpm-lock.yaml' };
 }
 
-/** yarn berry keeps a `checksum`, which is NOT an npm integrity string. */
+/** yarn berry keeps a `checksum`, which is not an npm integrity string. */
 function fromYarnLock(root, name, version) {
   const path = join(root, 'yarn.lock');
   if (!existsSync(path)) return null;

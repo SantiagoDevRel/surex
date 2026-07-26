@@ -2,11 +2,11 @@
 //
 // `node ./server.js` gives nothing fingerprintable: the absolute path is
 // machine-specific and the basename is shared by every locally-run MCP server on
-// earth, so hashing either is a COLLISION — one local server's verdict handed to
-// another. The entry file's CONTENT is used instead, which reproduces on any
+// earth, so hashing either is a collision — one local server's verdict handed to
+// another. The entry file's content is used instead, which reproduces on any
 // machine holding the same file.
 //
-// The limitation, stated on the verdict: this hashes the ENTRY FILE, not the
+// The limitation, stated on the verdict: this hashes the entry file, not the
 // module graph behind it, so a local server whose imports changed keeps its
 // fingerprint. Local servers are therefore always Tier C.
 
