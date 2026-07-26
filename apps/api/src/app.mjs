@@ -39,6 +39,43 @@ export const MAX_FLAGGED = 500;
 const S = (ms) => Math.floor(ms / 1000);
 
 /**
+ * Cache-Control for a route whose answer changes the moment the worker writes.
+ *
+ * `max-age` and `s-maxage` are different audiences and this API had been treating
+ * them as one. `max-age` is the CLIENT's budget — the gate's contract TTL, frozen,
+ * and deliberately long: a coding agent asking the same question twice in fifteen
+ * minutes should not pay for two round trips. `s-maxage` is the SHARED cache in
+ * front of us, and on Vercel that is a fleet-wide CDN which will happily serve one
+ * cached body to everybody for the whole `max-age` window when no shared directive
+ * is given.
+ *
+ * That is what "the verdict did not update until we redeployed" actually was. A
+ * deploy changes the URL the CDN keys on, so redeploying looked like it flushed a
+ * server-side cache; it flushed the edge. Measured on the live API on 2026-07-26,
+ * before this change:
+ *
+ *     GET /v1/entry/<fp>   Cache-Control: public, max-age=900   X-Vercel-Cache: HIT   Age: 739
+ *
+ * — a twelve-minute-old entry served to `/r/<fp>` while `/v1/registry`, on a
+ * 60-second window, had already moved on. The two pages disagreed because their
+ * caches expired at different times, which is a far more confusing bug than either
+ * page simply being wrong.
+ *
+ * So: keep whatever client TTL the contract froze, and tell the shared cache to
+ * revalidate every time. The origin read is one Arkiv query of ~100–180 ms.
+ */
+function cacheControl(c, { clientTtlMs = 0, staleWhileRevalidateMs = 0 } = {}) {
+  const parts = [`public, max-age=${S(clientTtlMs)}`];
+  if (staleWhileRevalidateMs) parts.push(`stale-while-revalidate=${S(staleWhileRevalidateMs)}`);
+  // The shared cache never holds one of these. Both spellings: `s-maxage` is the
+  // HTTP standard one, and Vercel honours `CDN-Cache-Control` above it, so a proxy
+  // config that rewrites the first cannot quietly reintroduce the staleness.
+  parts.push('s-maxage=0');
+  c.header('Cache-Control', parts.join(', '));
+  c.header('CDN-Cache-Control', 'max-age=0, must-revalidate');
+}
+
+/**
  * Server-side hot-path cache.
  *
  * Honours exactly the TTLs in the frozen contract, because a positive TTL the
@@ -246,7 +283,7 @@ export function createApp(options = {}) {
       const head = cached.head ?? unknown(fp);
       telemetry.record(head);
       c.header('X-SureX-Cache', 'hit');
-      c.header('Cache-Control', `public, max-age=${S(cached.head ? CACHE.positiveTtlMs : CACHE.negativeTtlMs)}`);
+      cacheControl(c, { clientTtlMs: cached.head ? CACHE.positiveTtlMs : CACHE.negativeTtlMs });
       return c.json(head);
     }
 
@@ -273,11 +310,10 @@ export function createApp(options = {}) {
     const answer = head ?? unknown(fp);
     telemetry.record(answer);
     c.header('X-SureX-Cache', 'miss');
-    c.header(
-      'Cache-Control',
-      `public, max-age=${S(head ? CACHE.positiveTtlMs : CACHE.negativeTtlMs)}, ` +
-        `stale-while-revalidate=${S(CACHE.negativeTtlMs)}`,
-    );
+    cacheControl(c, {
+      clientTtlMs: head ? CACHE.positiveTtlMs : CACHE.negativeTtlMs,
+      staleWhileRevalidateMs: CACHE.negativeTtlMs,
+    });
     return c.json(answer);
   });
 
@@ -373,7 +409,7 @@ export function createApp(options = {}) {
       ...(Array.isArray(entry.sources) ? { sources: entry.sources.map((s) => withLinks(s, env)) } : {}),
       ...(Array.isArray(entry.reviews) ? { reviews: entry.reviews.map((r) => withLinks(r, env)) } : {}),
     };
-    c.header('Cache-Control', `public, max-age=${S(CACHE.positiveTtlMs)}`);
+    cacheControl(c, { clientTtlMs: CACHE.positiveTtlMs });
     return c.json(linked);
   });
 
@@ -417,7 +453,7 @@ export function createApp(options = {}) {
         }
       }
 
-      c.header('Cache-Control', `public, max-age=${S(CACHE.positiveTtlMs)}`);
+      cacheControl(c, { clientTtlMs: CACHE.positiveTtlMs });
       return c.json({ [kind]: withLinks(record, env), ...(evidence ? { evidence } : {}) });
     });
 
@@ -445,7 +481,7 @@ export function createApp(options = {}) {
     } catch (err) {
       return upstream(c, String(err?.message ?? err).slice(0, 200));
     }
-    c.header('Cache-Control', 'public, max-age=60');
+    cacheControl(c, { clientTtlMs: 0 });
     return c.json({
       ...listing,
       note:
@@ -465,7 +501,7 @@ export function createApp(options = {}) {
     } catch (err) {
       return upstream(c, String(err?.message ?? err).slice(0, 200));
     }
-    c.header('Cache-Control', 'public, max-age=60');
+    cacheControl(c, { clientTtlMs: 0 });
     return c.json({
       ...feed,
       note:
@@ -519,7 +555,7 @@ export function createApp(options = {}) {
     };
     for (const k of Object.keys(body)) if (body[k] === undefined) delete body[k];
 
-    c.header('Cache-Control', 'public, max-age=30');
+    cacheControl(c, { clientTtlMs: 0 });
     return c.json(body, registry ? 200 : 503);
   });
 

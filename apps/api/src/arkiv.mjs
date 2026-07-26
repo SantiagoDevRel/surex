@@ -50,6 +50,91 @@ const PAGE_SIZE = 100;
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
+/**
+ * How many heads a single-fingerprint read will look at before choosing.
+ *
+ * One live head per fingerprint is the invariant, so in practice this is 1. It is
+ * not 1 in the QUERY because the invariant is the worker's promise, not the
+ * chain's guarantee, and reading exactly one row makes a broken promise
+ * unobservable — which is how the API served a stale verdict while the registry
+ * list served the current one.
+ */
+const HEAD_FANOUT = 25;
+
+/**
+ * When two heads exist for one fingerprint, which one is current.
+ *
+ * Newest wins, by `lastModifiedAtBlock`. On a TIE the more restrictive state wins:
+ * the comment beside the batch reader has always said "never prefer the more
+ * permissive one" and the code did not do it, so two heads written in the same
+ * block could have resolved to `clean` over `flagged` depending on return order.
+ * A registry that can round a flag down to a pass in a tie has the failure mode
+ * that matters pointing the wrong way.
+ */
+const STATE_RESTRICTIVENESS = { flagged: 0, disputed: 1, stale: 2, unreviewable: 3, unknown: 4, clean: 5 };
+
+/**
+ * Many head entities → one head per fingerprint, the current one.
+ *
+ * Every listing route needs this and none of them had it: `listRegistry` and
+ * `listFlagged` mapped each row straight to a head, so a fingerprint with two live
+ * heads appeared TWICE — and since the two rows can carry different states, the
+ * registry could show the same server as both `flagged` and `clean`, one above the
+ * other, sorted apart by the state rank.
+ */
+export function dedupeHeads(entities) {
+  const grouped = new Map();
+  for (const entity of entities ?? []) {
+    const fp = (entity?.attributes ?? []).find((a) => a.key === 'fingerprint')?.value;
+    if (!fp) continue;
+    if (!grouped.has(fp)) grouped.set(fp, []);
+    grouped.get(fp).push(entity);
+  }
+  const heads = [];
+  for (const group of grouped.values()) {
+    const head = entityToHead(newestHead(group));
+    if (head) heads.push(head);
+  }
+  return heads;
+}
+
+/**
+ * Newest by block, for entity types that carry no `state` to break a tie with.
+ * `orderBy` is a documented no-op on 0.7.0, so every "the current one" question
+ * has to be answered here rather than by the query.
+ */
+export function newestBlock(entities) {
+  let best = null;
+  let bestBlock = -1;
+  for (const entity of entities ?? []) {
+    if (!entity) continue;
+    const block = Number(entity.lastModifiedAtBlock ?? entity.createdAtBlock ?? 0);
+    if (block >= bestBlock) {
+      best = entity;
+      bestBlock = block;
+    }
+  }
+  return best;
+}
+
+export function newestHead(entities) {
+  let best = null;
+  let bestBlock = -1;
+  let bestRank = Number.POSITIVE_INFINITY;
+  for (const entity of entities ?? []) {
+    if (!entity) continue;
+    const block = Number(entity.lastModifiedAtBlock ?? entity.createdAtBlock ?? 0);
+    const state = (entity.attributes ?? []).find((a) => a.key === 'state')?.value;
+    const rank = STATE_RESTRICTIVENESS[state] ?? 4;
+    if (block > bestBlock || (block === bestBlock && rank < bestRank)) {
+      best = entity;
+      bestBlock = block;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 function attrsToObject(entity) {
   const out = {};
   for (const a of entity?.attributes ?? []) out[a.key] = a.value;
@@ -111,6 +196,9 @@ export function entityToHead(entity) {
     integrity: p.integrity,
     capabilities: p.capabilities,
     topFinding: p.topFinding,
+    concern: p.concern,
+    assessment: p.assessment,
+    findingCount: p.findingCount,
     disputeSummary: p.disputeSummary,
     evidence: normaliseEvidence(p.evidence ?? p.blob) ??
       (p.evidenceBlobId ? { blobId: p.evidenceBlobId } : undefined),
@@ -193,7 +281,23 @@ export function createArkivStore(options = {}) {
     options.client ??
     createPublicClient({
       chain: braga,
-      transport: http(rpcUrl, { timeout: timeoutMs, retryCount: 1 }),
+      /**
+       * `cache: 'no-store'` on the JSON-RPC fetch itself.
+       *
+       * Today this process runs on Vercel's Node runtime with undici's plain
+       * `fetch`, which caches nothing, so this changes no behaviour here. It is
+       * still the right default and it is cheap: the moment this store is
+       * constructed inside a Next.js server component — the obvious next step for
+       * a page that wants to read the registry without a hop through this API —
+       * the global `fetch` becomes Next's, which caches POST-less requests and
+       * would serve a verdict read from its Data Cache. A read of a mutable chain
+       * pointer must never be answered from a cache the caller cannot see.
+       */
+      transport: http(rpcUrl, {
+        timeout: timeoutMs,
+        retryCount: 1,
+        fetchOptions: { cache: 'no-store' },
+      }),
     });
 
   const scope = (extra = []) => [eq('project', project), ...extra];
@@ -210,12 +314,28 @@ export function createArkivStore(options = {}) {
     return q;
   };
 
-  /** The hot path. One query, one page, one entity. */
+  /**
+   * The hot path. One query, one page — and then the SAME choice the batch makes.
+   *
+   * This was `.limit(1)` and `entities[0]`, which is not "the head" but "whichever
+   * head the node happened to return first". One live fingerprint with two heads —
+   * a republish leaves one, and `orderBy` is a documented no-op on 0.7.0 so
+   * nothing on the server side is sorting them — served the OLD verdict here and
+   * the new one from `getVerdictHeads`, so `/r/<fp>` and the registry list
+   * disagreed about the same entry at the same moment.
+   *
+   * The fix is not a better sort in two places; it is one function both callers
+   * use, because two implementations of "which head is current" is what produced
+   * the disagreement in the first place.
+   */
   async function getVerdictHead(fp) {
     if (!isFingerprint(fp)) return null;
-    const res = await scoped([eq('entityType', 'verdictHead'), eq('fingerprint', fp)], { limit: 1 }).fetch();
-    if (!res.entities.length) return null;
-    return entityToHead(res.entities[0]);
+    const res = await scoped(
+      [eq('entityType', 'verdictHead'), eq('fingerprint', fp)],
+      { limit: HEAD_FANOUT },
+    ).fetch();
+    const winner = newestHead(res.entities);
+    return winner ? entityToHead(winner) : null;
   }
 
   /**
@@ -231,20 +351,11 @@ export function createArkivStore(options = {}) {
     const { entities } = await fetchAllPages(
       scoped([eq('entityType', 'verdictHead'), predicate]),
     );
+    // One live head per fingerprint is the invariant; if the worker ever leaves
+    // two, `newestHead` decides — the same function the single-fingerprint read
+    // uses, so the batch and `/r/<fp>` cannot answer differently for one entry.
     const byFp = new Map();
-    for (const entity of entities) {
-      const head = entityToHead(entity);
-      if (!head) continue;
-      const existing = byFp.get(head.fingerprint);
-      // One live head per fingerprint is the invariant; if the worker ever leaves
-      // two, prefer the more recently modified rather than whichever came back
-      // first, and never prefer the more permissive one.
-      if (!existing || Number(entity.lastModifiedAtBlock ?? 0) >= Number(existing._block ?? 0)) {
-        head._block = Number(entity.lastModifiedAtBlock ?? 0);
-        byFp.set(head.fingerprint, head);
-      }
-    }
-    for (const head of byFp.values()) delete head._block;
+    for (const head of dedupeHeads(entities)) byFp.set(head.fingerprint, head);
     return byFp;
   }
 
@@ -252,13 +363,19 @@ export function createArkivStore(options = {}) {
   async function getEntry(fp) {
     if (!isFingerprint(fp)) return null;
     const [entryRes, sourceRes, reviewRes, head] = await Promise.all([
-      scoped([eq('entityType', 'registryEntry'), eq('fingerprint', fp)], { limit: 1 }).fetch(),
+      // Not `.limit(1)` — the same mistake that was just fixed one function below
+      // for heads. The submit pipeline CREATES a registryEntry on every run and
+      // never updates one, so a resubmitted package has several, and `entities[0]`
+      // is whichever the node returned first. The newest is the one that describes
+      // the current entry.
+      scoped([eq('entityType', 'registryEntry'), eq('fingerprint', fp)], { limit: HEAD_FANOUT }).fetch(),
       fetchAllPages(scoped([eq('entityType', 'source'), eq('fingerprint', fp)])),
       fetchAllPages(scoped([eq('entityType', 'review'), eq('fingerprint', fp)])),
       getVerdictHead(fp),
     ]);
 
-    const entry = entryRes.entities.length ? recordFrom(entryRes.entities[0], 'registryEntry') : null;
+    const newestEntry = newestBlock(entryRes.entities);
+    const entry = newestEntry ? recordFrom(newestEntry, 'registryEntry') : null;
     if (!entry && !head && !sourceRes.entities.length) return null;
 
     const sources = sourceRes.entities
@@ -312,14 +429,11 @@ export function createArkivStore(options = {}) {
     const { entities, truncated } = await fetchAllPages(
       scoped([eq('entityType', 'verdictHead'), or([eq('state', 'flagged'), eq('state', 'disputed')])]),
     );
-    const heads = entities
-      .map(entityToHead)
-      .filter(Boolean)
-      .sort(
-        (a, b) =>
-          Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
-          String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')),
-      );
+    const heads = dedupeHeads(entities).sort(
+      (a, b) =>
+        Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
+        String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')),
+    );
     return { heads: heads.slice(0, limit), total: heads.length, truncated: truncated || undefined };
   }
 
@@ -342,9 +456,7 @@ export function createArkivStore(options = {}) {
     const { entities, truncated } = await fetchAllPages(scoped(predicates));
 
     const RANK = { flagged: 0, disputed: 1, stale: 2, unreviewable: 3, clean: 4, unknown: 5 };
-    const heads = entities
-      .map(entityToHead)
-      .filter(Boolean)
+    const heads = dedupeHeads(entities)
       .sort(
         (a, b) =>
           (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
