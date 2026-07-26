@@ -42,17 +42,24 @@
    is ~1.3:1 and unreadable.
 
    Two-step on purpose:
-     1. `--sx-*` on :root  → the runtime values, which flip with the theme.
+     1. `--sx-*` on :root  → the runtime values.
      2. `@theme inline`    → makes them real Tailwind tokens, so a component
                              writes `text-clean`, never a hex.
 
    `inline` matters: it emits `color: var(--sx-clean)` into the utility rather
-   than resolving the hex at build time, which is what lets one class follow
-   the theme. A plain `@theme { --color-x: #hex }` bakes the hex in and CANNOT
-   be re-themed — the light variant then silently does not apply.
+   than resolving the hex at build time, so one class follows one token and a
+   token can be restated in one place.
 
-   Dark is the default. `prefers-color-scheme: light` moves to the light
-   variant; an explicit `data-theme` on <html> beats both, in either direction.
+   NOTHING HERE THEMES. There used to be a light variant — `[data-theme="light"]`
+   plus a `prefers-color-scheme: light` media block — and it is gone on purpose.
+   The site is one product with one design language now: v2 is dark-only by
+   design (design system screen 01), and the landing page states that by
+   existing. Leaving the app on an OS-following light palette meant a visitor
+   who happened to prefer light met a cream registry one click after a
+   near-black homepage, which reads as two different products rather than one.
+   Note that the two palettes had already converged: v1's DARK values and the
+   v2 tokens agree on every surface and every state hue (#0a0908, #f0ebea,
+   #7fb79a, #ff6a5c, #c4a2b8, #ffe900). Dark was never the compromise.
    ============================================================================ */
 
 :root {
@@ -141,100 +148,6 @@
   color-scheme: dark;
 }
 
-/* the light variant, factored out so the media query and the explicit
-   override cannot drift apart */
-:root[data-theme="light"] {
-  --sx-bg: #efebeb;
-  --sx-panel: #fcfafa;
-  --sx-panel-2: #e8e3e3;
-  --sx-line: rgba(75, 59, 64, 0.17);
-  --sx-line-2: rgba(75, 59, 64, 0.09);
-
-  --sx-ink: #4b3b40;
-  --sx-ink-2: #58464c;
-  --sx-ink-3: #615156;
-  /* one step down from #6c5a60: that value is 4.30:1 on a state tint over
-     panel-2 (the implicated row's gutter in a code excerpt) — see the header. */
-  --sx-faint: #635358;
-
-  --sx-accent: #403035;
-  --sx-accent-t: rgba(75, 59, 64, 0.07);
-  --sx-select: rgba(75, 59, 64, 0.16);
-
-  --sx-clean: #046a38;
-  --sx-clean-hi: #0b8f4d;
-  --sx-clean-t: rgba(4, 106, 56, 0.1);
-  --sx-clean-l: rgba(4, 106, 56, 0.66);
-
-  --sx-flagged: #a91e14;
-  --sx-flagged-hi: #d0271a;
-  --sx-flagged-t: rgba(169, 30, 20, 0.1);
-  --sx-flagged-l: rgba(169, 30, 20, 0.6);
-
-  --sx-disputed: #6e2b5a;
-  --sx-disputed-t: rgba(110, 43, 90, 0.1);
-  --sx-disputed-l: rgba(110, 43, 90, 0.58);
-
-  /* Sunbeam Yellow is ~1.3:1 on white. As TEXT it has to be the same hue at a
-     lightness that reads — anything brighter is an unreadable page. */
-  --sx-stale: #665e00;
-  --sx-stale-t: rgba(102, 94, 0, 0.1);
-  --sx-stale-l: rgba(102, 94, 0, 0.7);
-
-  --sx-glass: rgba(252, 250, 250, 0.82);
-
-  --sx-dot: rgba(75, 59, 64, 0.045);
-  --sx-wash-a: rgba(4, 106, 56, 0.04);
-  --sx-wash-b: rgba(218, 41, 28, 0.04);
-
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --sx-bg: #efebeb;
-    --sx-panel: #fcfafa;
-    --sx-panel-2: #e8e3e3;
-    --sx-line: rgba(75, 59, 64, 0.17);
-    --sx-line-2: rgba(75, 59, 64, 0.09);
-
-    --sx-ink: #4b3b40;
-    --sx-ink-2: #58464c;
-    --sx-ink-3: #615156;
-    /* keep in lockstep with :root[data-theme="light"] above */
-    --sx-faint: #635358;
-
-    --sx-accent: #403035;
-    --sx-accent-t: rgba(75, 59, 64, 0.07);
-    --sx-select: rgba(75, 59, 64, 0.16);
-
-    --sx-clean: #046a38;
-    --sx-clean-hi: #0b8f4d;
-    --sx-clean-t: rgba(4, 106, 56, 0.1);
-    --sx-clean-l: rgba(4, 106, 56, 0.66);
-
-    --sx-flagged: #a91e14;
-    --sx-flagged-hi: #d0271a;
-    --sx-flagged-t: rgba(169, 30, 20, 0.1);
-    --sx-flagged-l: rgba(169, 30, 20, 0.6);
-
-    --sx-disputed: #6e2b5a;
-    --sx-disputed-t: rgba(110, 43, 90, 0.1);
-    --sx-disputed-l: rgba(110, 43, 90, 0.58);
-
-    --sx-stale: #665e00;
-    --sx-stale-t: rgba(102, 94, 0, 0.1);
-    --sx-stale-l: rgba(102, 94, 0, 0.7);
-
-    --sx-glass: rgba(252, 250, 250, 0.82);
-
-    --sx-dot: rgba(75, 59, 64, 0.045);
-    --sx-wash-a: rgba(4, 106, 56, 0.04);
-    --sx-wash-b: rgba(218, 41, 28, 0.04);
-
-    color-scheme: light;
-  }
-}
 
 /* ---------------------------------------------------------------- colour --*/
 @theme inline {
@@ -278,8 +191,27 @@
   --color-termbg: var(--sx-termbg);
   --color-termink: var(--sx-termink);
 
-  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
-  --font-serif: var(--font-source-serif), Georgia, serif;
+  /*
+   * One typeface pair for the whole site, and it is the landing page's pair.
+   *
+   * These two tokens are the ONLY place the app's faces are named, so pointing
+   * them at SUSE Mono and SUSE rebrands every screen — registry, submit,
+   * verdict, dispute — without editing a single component. That is the reason
+   * the swap happens here and not in twenty files.
+   *
+   * The job of each face is unchanged, only the face itself: `--font-mono` is
+   * still structure (rows, labels, stamps, commands, terminals) and
+   * `--font-serif` is still voice (findings, rebuttals, long-form). SUSE Mono
+   * takes the first, SUSE the second — the same division v2 draws on the
+   * homepage, so a sentence does not change typeface when you follow a link.
+   *
+   * The fallbacks stay real: SUSE Mono is self-hosted latin + latin-ext only,
+   * and glyphs outside that charset (→ ✓ ✕ —) fall through to `ui-monospace`.
+   * That is the same behaviour the homepage already ships, not a regression
+   * introduced here.
+   */
+  --font-mono: var(--font-suse-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: var(--font-suse), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ---------------------------------------------------- the step, landing --*/
@@ -484,6 +416,15 @@
     font-family: var(--font-mono);
     font-size: 12.5px;
     -webkit-font-smoothing: antialiased;
+
+    /* A column so the footer can be pushed to the bottom (`mt-auto` on
+       `SiteFooter`). Short routes — a 404, a fingerprint with no entry — are
+       shorter than the viewport, and a footer that stops where the content
+       stops leaves a band of empty page under it that reads as the page having
+       failed to finish loading. Column with stretch is how block children
+       already lay out, so nothing above the footer moves. */
+    display: flex;
+    flex-direction: column;
 
     /* Three layers, all of them quiet:
          1. the halftone screen — texture you feel before you see it

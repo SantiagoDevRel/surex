@@ -1,127 +1,42 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-
-import { cn } from '@/lib/cn.ts';
-import { COPY } from '@/lib/copy.ts';
-
-import { ThemeToggle } from './ThemeToggle.tsx';
-import { SplitRule, Wordmark } from './Wordmark.tsx';
-
-const LINKS = [
-  {
-    href: '/registry',
-    label: COPY.nav.registry,
-    match: (p: string) => p.startsWith('/registry') || p.startsWith('/r/'),
-  },
-  { href: '/submit', label: COPY.nav.submit, match: (p: string) => p.startsWith('/submit') },
-];
+import { MAIN_ID, SiteHeader } from './home/SiteHeader.tsx';
 
 /**
- * The docs live on their own deployment, so this is an absolute URL and it is
- * pinned here rather than spelled inline at the call site.
+ * The site chrome, on every route.
  *
- * Verified 200 before shipping. A dead install link in the chrome is the worst
- * possible dead link on this site: it is the only control that leads to the
- * thing actually being installed.
- */
-const INSTALL_URL = 'https://surex-docs.vercel.app/guides/install';
-
-/**
- * Two clusters, not one run of text.
+ * This used to be a second header: its own wordmark, its own type scale, its
+ * own two links, an install button styled unlike the homepage's, and a theme
+ * toggle. It was suppressed on `/` so the two would not stack — which is the
+ * clearest statement of the problem, because a header that must be hidden when
+ * the other one appears is not chrome, it is a second design. The registry read
+ * as a different product one click from the landing page.
  *
- * The tagline used to sit between the mark and the nav links, at the same size
- * and nearly the same ink as `registry` and `submit a server` — so it read as a
- * third destination. It is a description, so it belongs to the mark: same
- * cluster, tied to it by a hairline, one step quieter (`text-faint`, no
- * uppercase tracking). Everything you can go to now lives on the right.
+ * So there is one header now and `SiteHeader` is it. This component's whole job
+ * is to put it inside the v2 token scope on routes that are not the homepage —
+ * `--v2-*` are plain custom properties that exist only under `[data-sx="v2"]`,
+ * so outside that scope every one of them resolves to nothing and the header
+ * renders unstyled. `/` gets the scope from `page.tsx`, which wraps the entire
+ * page in it; nesting the attribute here as well is harmless (the values are
+ * identical, and it is set, not inherited-and-modified), and paying for one
+ * redundant wrapper is cheaper than a route-aware branch that has to be right.
  *
- * Glass rather than a solid bar: the page carries a halftone screen and a
- * two-hue wash, and a translucent chrome lets both run under it instead of
- * ending at a hard edge. The split rule beneath is the mark's own division,
- * restated at page width.
+ * The theme toggle is gone with it. Nothing themes any more — see the header of
+ * `globals.css` for why — so a control offering a choice that no longer exists
+ * would have been a button that does nothing.
  */
 export function Chrome() {
-  const pathname = usePathname() ?? '/';
-
-  // The v2 homepage carries its own header — this is the registry/dossier
-  // chrome, and the two must never stack.
-  if (pathname === '/') return null;
-
   return (
-    <>
-    <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 bg-glass px-7 py-3.5 backdrop-blur-md">
-      {/* No aria-label on the link: the mark is an `img` that already carries
-          the brand name, and labelling both makes one control announce two
-          names. The SVG's label IS the link's accessible name. */}
-      <Link href="/" className="no-underline">
-        <Wordmark />
-      </Link>
-      <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line" />
-      <span className="text-mini text-faint">{COPY.brand.tagline}</span>
-
+    <div data-sx="v2" className="bg-[var(--v2-page)] text-[var(--v2-ink)]">
+      <SiteHeader />
       {/*
-        `flex-wrap` and `ml-auto` on a nav that can no longer fit on one line.
-
-        The header wraps; this nav did not, so below roughly 516px its five
-        children — two links, the install button, a divider and the theme toggle
-        — kept their fixed gaps and pushed the whole DOCUMENT into horizontal
-        scroll. Adding the install button is what tipped it over, and a page that
-        scrolls sideways on a phone is the first thing anyone notices.
-
-        `justify-end` so the cluster stays right-aligned once it wraps, rather
-        than the second line starting under the mark and reading as a new group.
+        The skip link's landing point. It sits here, once, rather than on each
+        route's `<main>`: there are six of those across the app and the verdict
+        and dispute routes carry three each, one per render branch, so "every
+        `<main>` has the id" is a claim that quietly stops being true the next
+        time somebody adds a branch. `tabIndex={-1}` because a plain <div> is
+        not focusable, and a skip link whose target cannot take focus moves the
+        viewport but leaves the keyboard where it was.
       */}
-      <nav className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-        {LINKS.map((link) => {
-          const active = link.match(pathname);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'py-1 text-row no-underline transition-colors duration-[140ms] ease-out',
-                active ? 'border-b border-accent text-ink' : 'text-ink-3 hover:text-ink-2',
-              )}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-        {/*
-          The only ACTION in the chrome, so it is the only thing here with a
-          border. The nav links are destinations inside the site and stay plain;
-          this one leaves for the docs and ends with the gate running on your
-          machine, which is a different kind of click and should not look like
-          a third tab.
-
-          `rel="noreferrer"` alongside `noopener` because the target is a
-          separate deployment: same project, different origin.
-        */}
-        <a
-          href={INSTALL_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={COPY.nav.installTitle}
-          className="rounded-input border border-accent bg-accent-t px-3 py-1.5 text-row font-semibold text-accent no-underline transition-colors duration-[140ms] ease-out hover:bg-accent hover:text-panel"
-        >
-          {COPY.nav.install}
-        </a>
-        {/*
-          Below 512px the nav wraps onto a second row, and measured at 368px and
-          375px — the most common phone width there is — this hairline was the
-          FIRST thing on that row: a lone vertical tick with nothing to its left,
-          which reads as leftover debris rather than as a separator. A separator
-          that separates nothing is noise, so it is dropped exactly where it
-          stops doing its job. 512px is the measured wrap point, not a guess.
-        */}
-        <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-line max-[512px]:hidden" />
-        <ThemeToggle />
-      </nav>
-    </header>
-    <SplitRule />
-    </>
+      <div id={MAIN_ID} tabIndex={-1} />
+    </div>
   );
 }

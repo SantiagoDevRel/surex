@@ -1,23 +1,12 @@
 import { COPY } from '@/lib/copy.ts';
 
-/** Same override as `SiteHeader` — see that file for why a plain Tailwind
- * class can't beat `[data-sx="v2"] a`'s unlayered default. */
-const MUTED_LINK = 'border-b-0! text-[var(--v2-ink-3)]! hover:text-[var(--v2-ink)]! -my-[14px] inline-flex min-w-[44px] items-center justify-center py-[14px]';
-
 /**
- * Destinations pulled straight from the mock — they're URLs, not copy, so
- * there's no COPY key for them (same reasoning as `Chrome.tsx`'s pinned
- * `INSTALL_URL`). Labels still come from `COPY.home.footer`.
- */
-const FOOTER_LINKS = [
-  { href: 'https://arkiv-surex.vercel.app', label: COPY.home.footer.registry },
-  { href: 'https://arkiv-surex-api.vercel.app/v1/registry', label: COPY.home.footer.api },
-  { href: 'https://surex-docs.vercel.app', label: COPY.home.footer.docs },
-  { href: 'https://app.ens.domains/surex.eth', label: COPY.home.footer.ens },
-  { href: 'https://github.com/SantiagoDevRel/surex', label: COPY.home.footer.github },
-] as const;
-
-/**
+ * The link row that used to close this section moved to `SiteFooter`, which
+ * renders on every route including this one — so it still appears directly
+ * below this wordmark, and now appears below the registry and the verdict
+ * pages too. Rendering it here as well would print the same five links twice
+ * on the homepage.
+ *
  * The wordmark as the last argument (design system screen 08). Fluid between
  * a 72px floor and the 200px the mock sets at 1440 — same anchored-clamp
  * method as `Hero`'s h1, solved for 72px/390 and 200px/1440.
@@ -44,16 +33,6 @@ export function Closer() {
 
       <div className="mt-[var(--v2-space-6)] inline-block border border-[var(--v2-border)] px-[26px] py-[16px] font-[family-name:var(--font-suse-mono)] text-[15px] text-[var(--v2-ink)]">
         {COPY.home.closer.installCommand}
-      </div>
-
-      <div className="mt-[var(--v2-space-6)] flex flex-wrap items-center justify-center gap-[var(--v2-space-5)] font-[family-name:var(--font-suse-mono)] text-[11.5px] text-[var(--v2-ink-3)]">
-        {FOOTER_LINKS.map((link) => (
-          <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={MUTED_LINK}>
-            {link.label}
-          </a>
-        ))}
-        <span aria-hidden="true">·</span>
-        <span>{COPY.home.footer.builtAt}</span>
       </div>
     </section>
   );
