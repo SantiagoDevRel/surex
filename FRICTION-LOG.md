@@ -1292,6 +1292,34 @@ did the identical thing.
   off. It then flagged the only code it could see. A budget shaped for "many small files" is the wrong shape
   for the packages that exist.
 
+### D12 · Adding a second prose field made the model silently drop the first — and a strict validator threw away two perfect readings — **[VERIFIED, reproduced 2/2 then fixed and re-measured]**
+**Severity: high.** It converted correct verdicts into `unreviewable` on five fixtures out of five, and the
+calibration harness reported a PASS while it happened.
+
+- **Expected:** adding two optional fields to the response schema (`concern`, a closed enum; `assessment`, one
+  or two sentences) is additive. Everything rv-6 asked for is still asked for, in the same words, so the
+  existing fields keep coming back.
+- **Happened:** every honest fixture came back `unreviewable` with `agreementRuns: 0` — *both* readings
+  discarded. Calibration: `honest 0/5 clean · ACCUSED: 0 · abstained: 5`, where the recorded baseline was
+  15/15 clean. The malicious fixtures were unaffected (6/6 flagged, mechanism found 6/6), which is what made it
+  look like a scoring quirk rather than a parse failure.
+- **How we found it:** dumping one raw response instead of trusting the aggregate. Both variants had returned
+  `verdict: clean`, `severity: 0`, `concern: "none"`, `findings: []` and a genuinely good paragraph — in
+  `assessment`. `statedIntentSummary` was **absent**. The model had been asked for two pieces of prose about
+  the same server, decided they were one question, and answered it once. `validateModelOutput` requires
+  `statedIntentSummary` to be a string, so both readings failed validation and the panel had nothing left.
+- **Fix, both halves.** The prompt now labels them as opposites and says so twice — `statedIntentSummary` is
+  *THE AUTHOR'S CLAIM*, `assessment` is *YOUR CONCLUSION*, "two different fields and both are required" — and
+  the validator treats a missing summary as an absent SENTENCE (`?? ''`) rather than a failed review. The
+  strict rule is right about the verdict and wrong about the prose decorating it. Re-measured after: both
+  variants valid, `clean` / `concern: none`, full assessments.
+- **Carry into the event:** when you add a field to a model's output schema, the risk is not that the new
+  field comes back malformed — it is that an OLD field stops coming back. Two fields that ask for prose about
+  the same subject will be merged by the model unless the prompt makes them opposites. And validate the new
+  field leniently: strictness should protect the decision, never the commentary around it. The tell is
+  `agreementRuns: 0` — that is not disagreement, it is *nothing parsed*, and the two are worth distinguishing
+  in whatever your harness prints.
+
 ---
 
 ## Vercel / Hono
@@ -1493,6 +1521,80 @@ Adding the third app in this monorepo (`apps/docs`) hit this twice, once in each
   prefix, and naming the base would have made the fix obvious instead of a guess.
 - **Fix we shipped:** the project is connected to the repository, so a push to `main` deploys it and nobody
   needs the CLI dance. The dance is written down in `apps/docs/AGENTS.md` for the day someone does.
+
+### V10 · `JSON.stringify(body, Object.keys(body).sort())` is a RECURSIVE PROPERTY ALLOWLIST, not a key sort — and it emptied every evidence blob we ever published — **[VERIFIED, reproduced locally and against a live blob]**
+**Severity: critical.** It is the plainest JavaScript in the repo and it deleted the product.
+
+- **Expected:** the second argument to `JSON.stringify` orders the keys. That is what the call reads like, and
+  it is what the comment above it said: *"Sorted keys, trailing LF."*
+- **Happened:** an ARRAY replacer is a property **allowlist**, applied at **every depth**. Every nested object
+  survived only the properties whose names also happened to be top-level keys of the body. So a review record
+  whose top level has `severity` published its findings as:
+
+      "findings": [ {"severity": 2}, {"severity": 1}, … ]   ← 14 of them
+      "capabilities": {}
+      "sourceCoverage": {}
+
+  `file`, `line`, `category`, `description` — the entire content of a finding, the part that lets a maintainer
+  check the claim — silently gone, and the content hash committed to the empty version. The whole product is
+  "a verdict points at the exact bytes it judged"; the bytes contained a list of bare integers.
+- **How we found it:** a code review read the line and did not believe it. Confirmed two ways in a minute —
+  `node -e` on the real import, then fetching the live blob behind a published verdict through the aggregator
+  link the API itself serves. Nothing in 764 tests looked at the bytes; every test asserted on the object
+  *before* serialisation.
+- **What made it invisible:** the symptom surfaced far away and looked like somebody else's bug. The verdict
+  page rendered a finding with no file and no line, so it was read as *the model is not citing locations* —
+  and the model was citing them perfectly. Three layers of correct code sat between the cause and the
+  complaint.
+- **Fix:** a real recursive key sort that drops nothing, plus `packages/worker/test/record-bytes.test.mjs`,
+  whose discriminating case is a nested key that does **not** appear at the top level — the exact thing the
+  old implementation deleted.
+- **Carry into the event:** if you write anything to a content-addressed store, assert on the BYTES at least
+  once. A round-trip test (`JSON.parse(recordBytes(x))` deep-equals `x`) is four lines and would have caught
+  this the day it was written. And `JSON.stringify`'s second argument is a replacer, never a sort — if you
+  want deterministic key order, write the sort.
+
+### V8 · A long `max-age` with no `s-maxage` lets Vercel's CDN serve a stale verdict fleet-wide — and redeploying looks like the fix — **[VERIFIED, measured live]**
+**Severity: high** for anything whose whole product is "the answer is current".
+
+- **Expected:** `Cache-Control: public, max-age=900` on `/v1/verdict` is the *client's* TTL — it is the number
+  the frozen contract gives the gate so a coding agent asking the same question twice does not pay twice.
+- **Happened:** a verdict written to Arkiv did not appear on the site. It appeared after a redeploy, so it read
+  as a build-time cache, and we went looking in the wrong place. Measured on the live API:
+
+      GET /v1/entry/<fp>   Cache-Control: public, max-age=900   X-Vercel-Cache: HIT   Age: 739
+      GET /v1/registry     Cache-Control: public, max-age=60    X-Vercel-Cache: MISS → HIT → HIT
+
+  Twelve minutes stale. With no shared-cache directive present, the Edge Network applies `max-age` to ITSELF,
+  so one cached body was served to everyone. A deploy changes the cache key, which is why a redeploy "fixed"
+  it every time and why the real cause survived several attempts.
+- **The tell that made it worse:** `/v1/entry` (900 s) and `/v1/registry` (60 s) were caching on *different*
+  windows, so `/r/<fp>` and the registry list disagreed with each other about the same entry. Two pages
+  contradicting each other is a much harder bug to read than one page being wrong.
+- **Fix:** keep the client TTL, add `s-maxage=0` and `CDN-Cache-Control: max-age=0, must-revalidate` to every
+  route whose answer changes when the worker writes. A test now asserts the header rather than the TTL — the
+  existing cache test pinned `max-age=900`, which *locked the staleness in* and would have gone green forever.
+- **Carry into the event:** if a fix appears to need a redeploy, suspect the CDN before the code. And when you
+  set `Cache-Control` on an API whose data mutates, decide the shared-cache value explicitly — the default is
+  not "no", it is "same as the client's".
+
+### V9 · Arkiv has no server-side ordering, so "the current head" is whichever row came back first — **[VERIFIED]**
+**Severity: medium.** A consequence of a documented SDK limitation, one layer up.
+
+- **Known and already written down (A6/V1):** `orderBy` is accepted silently and does nothing on 0.7.0; sort
+  client-side, always.
+- **What we had not followed through:** the hot-path read was `.limit(1)` + `entities[0]`, while the batch
+  read sorted by `lastModifiedAtBlock` and took the newest. One fingerprint with two live heads — which a
+  republish leaves behind — therefore resolved *differently on the two routes*: the single-entry page served
+  the old verdict and the registry list served the new one, at the same moment, with no cache involved.
+  The listing routes had a third behaviour again: they mapped every row to a row, so the same server appeared
+  **twice** in the registry, potentially once as `flagged` and once as `clean`.
+- **Fix:** one `newestHead()` used by every reader, plus `dedupeHeads()` for the listings. Ties break toward
+  the more RESTRICTIVE state — the old comment said "never prefer the more permissive one" and the code did
+  not do it, so two heads written in the same block could have rounded a flag down to a pass.
+- **Carry into the event:** "one live row per key" is an invariant your writer promises, not one the chain
+  enforces. Read as if it can be violated, and make every reader use the same tie-break function — two
+  implementations of *which row is current* is exactly how two pages start disagreeing.
 
 ## Next.js / Tailwind v4
 

@@ -95,6 +95,26 @@ This is both an integrity rule and a submission rule — see §6.
 **Never publicly flag a real, named third-party project** on the strength of an unaudited model verdict.
 The only thing flagged in any demo is the fixture we wrote ourselves.
 
+*How that rule is actually enforced, because "be careful" is not enforcement.* Two layers, and neither is in
+a publishing script — a script can be added, and this session found two that had been:
+
+1. **The write boundary.** `buildVerdictHead` (`packages/worker/src/entities.mjs`) refuses `state=flagged` or
+   `state=disputed` for a fingerprint that is not on the self-authored allowlist, and refuses any accusing
+   state with no `modelId` / `promptVersion` / *what was read*. The check is on the FINGERPRINT, never a name:
+   a name is whatever the caller types.
+2. **The plan.** `planPublication` (`packages/worker/src/publish-policy.mjs`) decides what a review RESULT
+   becomes before anything is written, and it is TOTAL — every (verdict, reason, ownership) triple maps to a
+   head the boundary accepts. A third-party `flagged` becomes **`unreviewable` / reason `withheld`**, carrying
+   no findings, no severity, no `concern` and no `assessment`; the full result goes back to the maintainer who
+   submitted it. `withheld` means withheld on *every* entity the run writes — the head, the review record's
+   annotations, and the Walrus blob body — because a head that withholds while the review record two entities
+   away is annotated `verdict=flagged` has not withheld anything.
+
+The second layer exists because the first one, on its own, took the pipeline down: a `flagged` third-party
+result produced a head the boundary refused, and the run exited 1 with the review record and the blob already
+on chain. Two real submissions died that way (`ing_60b23f6f3ee96740da`, `ing_cce408c05b3462b9ce`). The guard
+was right; nothing had decided what to do when it said no.
+
 **Log friction the moment it happens** → `FRICTION-LOG.md`. Sponsors run these events to find out where
 their products break, and some tracks grade that feedback directly. An entry written while it is costing
 you twenty minutes is worth many times one reconstructed on Sunday. Format: what we expected · what
