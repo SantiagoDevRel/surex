@@ -102,6 +102,43 @@ export function isSelfAuthored(fingerprint) {
   return loadSelfAuthored().has(String(fingerprint));
 }
 
+/**
+ * WHY THERE IS NO `recordSelfAuthored`, and why one was written and then deleted.
+ *
+ * The gap is real: the allowlist is regenerated from our fixture DIRECTORY, and a
+ * submitted repository is never a fixture directory — so `SUREX_SELF_OWNED`, the
+ * env that names the GitHub owners whose flags may publish, decided nothing. A
+ * self-owned submission could not publish a flag about its own code.
+ *
+ * The obvious fix was to let the pipeline add the fingerprint when the submitted
+ * repo's owner is one of ours, on the argument that `github.com/<us>/x` is a
+ * namespace nobody else can publish under, so the owner is a fact rather than a
+ * claim. **That argument is false, and a security review reproduced it:**
+ *
+ *   curl -sSL --fail https://codeload.github.com/octocat/Spoon-Knife/tar.gz/f675b3f7…
+ *   → exit 0, and the tree it returns exists only in a FORK.
+ *
+ * GitHub serves any commit in a repository's fork network from the upstream
+ * namespace. Anyone who can push to a fork of one of our public repos — which is
+ * anyone — obtains a sha that `fetchRepoAtCommit` resolves under our owner. They
+ * choose the bytes, the `package.json` name (which is what the fingerprint is
+ * derived from), and therefore which fingerprint gets allowlisted. The result is a
+ * published `flagged` verdict, with findings, for a fingerprint the attacker
+ * selected: our own real server, or — via the npm path, where the reviewed bytes
+ * come from the registry rather than the repo — somebody else's package entirely.
+ *
+ * That is the exact outcome AGENTS.md §4 exists to prevent, reached *through* the
+ * guard written to prevent it. And it collapses the two locks into one: a guard
+ * that consults state the same request just wrote is not a second opinion.
+ *
+ * So the allowlist stays what it was — an artefact a human curates, off the
+ * request path. `scripts/allow-self-authored.mjs` adds a fingerprint deliberately,
+ * with a note saying why; until an operator runs it, a self-owned flag is WITHHELD,
+ * which is the safe direction and an honest published state. Fixing this properly
+ * means proving the commit is reachable from a branch of the named repository, and
+ * that is a real piece of work rather than a line in the ingest.
+ */
+
 /** The states that make a public accusation about a named piece of software. */
 export const ACCUSING_STATES = Object.freeze(['flagged', 'disputed']);
 
@@ -358,6 +395,9 @@ export function buildVerdictHead({
   integrity,
   capabilities,
   topFinding,
+  concern,
+  assessment,
+  findingCount,
   disputeKey,
   disputeSummary,
   evidence,
@@ -437,6 +477,9 @@ export function buildVerdictHead({
       integrity,
       capabilities,
       topFinding,
+      concern,
+      assessment,
+      findingCount,
       disputeKey,
       disputeSummary,
       seedSource,

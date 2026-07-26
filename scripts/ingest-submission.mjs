@@ -29,10 +29,12 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-import { canonicalise, fingerprintOf, tierOf, SEVERITY_LABEL } from '../packages/core/index.mjs';
+import { canonicalise, fingerprintOf, SEVERITY_LABEL } from '../packages/core/index.mjs';
 import { reviewServer, PROMPT_VERSION } from '../packages/reviewer/src/review.mjs';
 import { resolveConfig } from '../packages/reviewer/src/model.mjs';
-import { licenceGate } from '../packages/worker/index.mjs';
+import {
+  licenceGate, planPublication, submissionPinning, fallbackPlan, isSelfAuthored,
+} from '../packages/worker/index.mjs';
 import {
   readPackage, readability, selectForReview, integrityMatches, REVIEW_LIMITS,
 } from './review-known.mjs';
@@ -269,17 +271,20 @@ async function main() {
     : { command: 'npx', args: ['-y', `github:${owner}/${repo}`] };
   const canonical = canonicalise(installConfig);
   const fingerprint = fingerprintOf(canonical);
-  const tier = tierOf(canonical);
 
   // The fingerprint is the id the verdict will be published under, so it is said
   // here rather than at the end — a watcher can open /r/<fp> before the review has
   // finished and see the entry appear under the name they were already given.
+  //
+  // The TIER is deliberately not on this line. It depends on which artifact is
+  // actually read and whether its digest verifies, and neither is known yet;
+  // announcing one here would mean revising it two stages later.
   progress(
     'resolving',
     onNpm
       ? `Published as ${npmName}@${published.version}`
       : 'Not published to npm — the repository is what a user installs',
-    { repo: `${owner}/${repo}`, commit, package: npmName, version: published?.version, fingerprint, tier },
+    { repo: `${owner}/${repo}`, commit, package: npmName, version: published?.version, fingerprint },
   );
 
   // 3. review the bytes that execute
@@ -313,6 +318,29 @@ async function main() {
     log('  not published to npm — reviewing the repository at the submitted commit');
     progress('fetching', 'Reading the repository at the submitted commit', { artifact: reviewedArtifact });
   }
+
+  /**
+   * What this submission actually pinned, now that the artifact is known.
+   *
+   * This used to be `tierOf(canonical)`, computed before the fetch, and it always
+   * returned `C` — "nothing was checked" — on a submission that named a
+   * 40-character commit sha. Something was checked. `submissionPinning` says what,
+   * and hands back the digest that earns the tier, or none where recording one
+   * would put a git sha where the gate expects an npm integrity.
+   */
+  const pinning = submissionPinning({
+    onNpm,
+    reviewedNpmTarball: reviewedArtifact.startsWith('npm:'),
+    npmIntegrity: published?.integrity ?? null,
+    integrityVerified: Boolean(integrityCheck?.checked && integrityCheck?.ok),
+    commit,
+  });
+  const tier = pinning.tier;
+  progress('fetching', `Reviewing ${reviewedArtifact} — tier ${tier}`, {
+    artifact: reviewedArtifact,
+    tier,
+    tierBasis: pinning.basis,
+  });
 
   /**
    * 4. Read the licence. RECORD it — do not refuse on it.
@@ -376,8 +404,9 @@ async function main() {
   if (!read.readable) {
     progress('fetching', `The source cannot be read: ${read.reason}`, { artifact: reviewedArtifact });
     return publishOutcome({
-      fingerprint, tier, state: 'unreviewable', reason: 'source-unavailable', why: read.reason,
-      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, licence, result: null,
+      fingerprint, tier, pinning, verdict: 'unreviewable', reason: 'source-unavailable', why: read.reason,
+      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, licence,
+      result: null, ours: false,
     });
   }
 
@@ -423,14 +452,13 @@ async function main() {
   });
 
   const omitted = (result.run?.sourceCoverage?.filesOmittedOrTruncated ?? 0) + (selection.dropped?.length ?? 0);
-  let state = result.verdict === 'clean' ? 'clean'
-    : result.verdict === 'flagged' ? 'flagged' : 'unreviewable';
-  let reason = state === 'unreviewable' ? (result.reason ?? 'no-agreement') : undefined;
+  let verdict = ['clean', 'flagged', 'unreviewable'].includes(result.verdict) ? result.verdict : 'unreviewable';
+  let reason = result.reason ?? null;
 
   // A clean verdict claims the reviewer read the code. If it did not read all of
   // it, that claim is false rather than cautious.
-  if (state === 'clean' && omitted > 0) {
-    state = 'unreviewable';
+  if (verdict === 'clean' && omitted > 0) {
+    verdict = 'unreviewable';
     reason = 'partial-source';
   }
 
@@ -439,18 +467,32 @@ async function main() {
    *
    * AGENTS.md §4 forbids publicly flagging a real, named third-party project on
    * the strength of an unaudited model verdict, and a maintainer submitting a
-   * repository consented to a review, not to an accusation. That rule stands.
+   * repository consented to a review, not to an accusation. That rule stands, and
+   * it is enforced twice: `planPublication` will not PLAN a flag that the write
+   * boundary would refuse, and `buildVerdictHead` refuses one regardless.
    *
    * It has never applied to code we own. `review-and-publish.mjs` publishes real
-   * flags against our own fixtures for exactly this reason: we are the subject,
-   * so there is nobody to protect from us. The submit path was holding those too,
-   * which meant the owner could not get a flagged verdict about his own server —
-   * the model read `mcp-medellin-news`, returned severity 3 with 11 findings, and
-   * the entry published as `unreviewable / withheld` with none of them.
+   * flags against our own fixtures for exactly this reason: we are the subject, so
+   * there is nobody to protect from us.
    *
-   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags publish. It is a
-   * deliberate allowlist and not a heuristic: getting this wrong in the other
-   * direction publishes an accusation about somebody else.
+   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags publish. It is set
+   * by the OPERATOR, in the environment of the box that holds the wallet — a
+   * submitter chooses a repository, never whose repositories count as ours. And
+   * the owner is not a claim in the submission: the bytes were just fetched from
+   * `github.com/<owner>/…`, which nobody else can publish under.
+   *
+   * It is ONE of two locks and never both. The other is the fingerprint allowlist
+   * the write boundary reads, which a human curates off the request path
+   * (`scripts/allow-self-authored.mjs`). The pipeline deliberately does NOT add to
+   * it: `owner` is not proof of authorship, because GitHub serves every commit in
+   * a repository's fork network from the upstream namespace — anyone who can push
+   * to a fork of one of our public repos gets a sha that resolves under our owner,
+   * and with it the choice of which fingerprint would be flagged. See the long
+   * note in packages/worker/src/entities.mjs.
+   *
+   * So a self-owned flag publishes only when an operator has already vouched for
+   * that fingerprint. Until then it is WITHHELD — the safe direction, and an
+   * honest state rather than a crash.
    */
   const selfOwned = String(process.env.SUREX_SELF_OWNED ?? 'SantiagoDevRel')
     .split(',')
@@ -458,13 +500,18 @@ async function main() {
     .filter(Boolean);
   const ours = selfOwned.includes(String(owner).toLowerCase());
 
-  if (state === 'flagged' && !ours) {
-    state = 'unreviewable';
-    reason = 'withheld';
+  if (verdict === 'flagged' && ours && !isSelfAuthored(fingerprint)) {
+    // Said out loud, because the difference between "we protected a third party"
+    // and "an operator has not vouched for our own server yet" is invisible in the
+    // published entry — both are `unreviewable / withheld` — and only one of them
+    // is something to act on.
+    log(`  ! ${fingerprint} is under a self-owned repo but is not on the self-authored`);
+    log('    allowlist, so the flag will be withheld. To publish it, vouch for the');
+    log(`    fingerprint deliberately: node scripts/allow-self-authored.mjs ${fingerprint}`);
   }
 
   return publishOutcome({
-    fingerprint, tier, state, reason,
+    fingerprint, tier, pinning, verdict, reason, ours,
     why: result.notice ?? null,
     name: npmName ?? `${owner}/${repo}`,
     commit, release, reviewedArtifact, integrityCheck, licence, result,
@@ -477,29 +524,114 @@ async function main() {
 // ---------------------------------------------------------------------------
 
 async function publishOutcome(o) {
+  /**
+   * One decision, taken once, in a module with a test that walks every verdict
+   * and asserts the write boundary accepts the result. Everything below — the
+   * review record, the blob body, the head — is rendered FROM this plan rather
+   * than each re-deciding from `o.verdict` on its own. That divergence is what
+   * killed two live submissions: the state was computed in one place and the head
+   * was written from a second expression that had drifted away from it.
+   */
+  const plan = planPublication({
+    verdict: o.verdict,
+    reason: o.reason,
+    severity: o.result?.severity ?? 0,
+    findings: o.findings ?? [],
+    concern: o.result?.concern ?? null,
+    assessment: o.result?.assessment ?? null,
+    statedIntentSummary: o.result?.statedIntentSummary ?? null,
+    fingerprint: o.fingerprint,
+    selfOwned: Boolean(o.ours),
+  });
+
   const summary = {
     ok: true,
     fingerprint: o.fingerprint,
-    state: o.state,
-    reason: o.reason ?? null,
+    state: plan.state,
+    reason: plan.reason ?? null,
     tier: o.tier,
+    tierBasis: o.pinning?.basis,
     name: o.name,
     reviewedArtifact: o.reviewedArtifact,
     commit: o.commit,
-    severity: o.result?.severity ?? 0,
-    severityLabel: SEVERITY_LABEL[o.result?.severity ?? 0],
-    findingCount: (o.findings ?? []).length,
+    // What was PUBLISHED. `severity: 3` beside `state: unreviewable` would be the
+    // accusation with its evidence stripped out.
+    severity: plan.severity,
+    severityLabel: SEVERITY_LABEL[plan.severity],
+    findingCount: plan.findings.length,
     verdictUrl: `${WEB}/r/${o.fingerprint}`,
+    /**
+     * The maintainer's half of a withheld result, and the reason withholding is
+     * not the same as hiding. It never reaches the chain, the blob or the ENS
+     * record — it travels back down the submission channel to the person who
+     * submitted the repository and asked to be told about their own code.
+     */
+    /**
+     * That a result was held, and NOT what it was.
+     *
+     * The findings used to ride here, on the reasoning that this channel goes back
+     * to the maintainer who submitted the repository. Two things are wrong with
+     * that. The submission is authenticated by World ID, which proves a PERSON and
+     * not a maintainer — `POST /v1/submissions` says so itself, the repo-ownership
+     * proof is listed as not built — so the submitter may be anyone. And the
+     * channel is `GET /v1/submissions/:id`, documented as public and
+     * unauthenticated: the job id is a bearer token for whatever it returns.
+     *
+     * Put together, shipping the findings here means anyone with a World ID can
+     * submit anyone's repository and read back an unaudited, file-and-line
+     * accusation about it. That is the thing the head withholds, handed over
+     * through a side door.
+     *
+     * So the status channel reports the SHAPE of the outcome — a review ran, its
+     * result is held, here is why — and the DGX keeps the detail in its own logs
+     * for an operator who can already read them.
+     */
+    withheld: plan.withheld
+      ? {
+          because: plan.withheld.because,
+          findingCount: plan.withheld.findingCount,
+          notice:
+            plan.withheld.because === 'third-party'
+              ? 'A review ran and reached a conclusion. SureX publishes findings only about servers it wrote ' +
+                'itself, so the registry entry records that a review happened and holds the result. Proving you ' +
+                'maintain this repository is not something this registry can do yet, so the findings are not ' +
+                'returned here.'
+              : 'A review ran and reached a conclusion, and it was not published.',
+        }
+      : null,
   };
 
-  log(`  ${o.state}${o.reason ? ` (${o.reason})` : ''} · ${summary.findingCount} finding(s) · ${o.reviewedArtifact}`);
+  if (plan.withheld?.findings?.length) {
+    // stderr, which the ingest service captures and no HTTP route serves. The
+    // operator can already read the wallet's logs; a stranger with a job id cannot.
+    log(`  withheld ${plan.withheld.findingCount} finding(s) — ${plan.withheld.because}:`);
+    for (const f of plan.withheld.findings) {
+      log(`    sev ${f.severity} ${f.category ?? 'finding'} · ${f.file ?? '?'}:${f.line ?? '?'} — ${f.description ?? ''}`);
+    }
+  }
+  log(
+    `  ${plan.state}${plan.reason ? ` (${plan.reason})` : ''} · published ${plan.findings.length} finding(s)` +
+    `${plan.withheld ? ` · ${plan.withheld.findingCount} held` : ''} · tier ${o.tier} · ${o.reviewedArtifact}`,
+  );
   if (DRY) {
-    progress('done', 'Dry run — nothing was written on chain', { state: o.state, fingerprint: o.fingerprint });
+    progress('done', 'Dry run — nothing was written on chain', { state: plan.state, fingerprint: o.fingerprint });
     return done({ ...summary, published: false, note: 'dry run — nothing written on chain' });
   }
 
   const { createWalrusWriter, createArkivWriter, buildReviewRecord, buildVerdictHead, buildRegistryEntry, recordBytes, sha256Hex } =
     await import('../packages/worker/index.mjs');
+
+  /**
+   * The verdict as PUBLISHED. Not the raw one.
+   *
+   * This was `o.result?.verdict`, and the consequence was that a third party whose
+   * review came back flagged got a head saying `unreviewable / withheld` and, two
+   * entities away, a review record annotated `verdict=flagged severity=3` — plus a
+   * certified blob saying the same. The head withheld the accusation and the
+   * record published it. Anyone querying `entityType=review` read straight past
+   * the rule. `withheld` has to mean withheld on every entity the run writes.
+   */
+  const publishedVerdict = plan.state === 'clean' ? 'clean' : plan.state === 'flagged' ? 'flagged' : 'unreviewable';
 
   const body = {
     schema: 'surex.review/1',
@@ -507,18 +639,41 @@ async function publishOutcome(o) {
     subject: o.reviewedArtifact,
     submittedCommit: o.commit,
     release: o.release ?? null,
-    verdict: o.result?.verdict ?? 'unreviewable',
-    publishedState: o.state,
-    reason: o.reason ?? null,
-    severity: o.result?.severity ?? 0,
-    // A withheld verdict publishes NO findings. The state says a review ran and
-    // its result is held; shipping the findings inside it would be publishing the
-    // accusation while claiming not to.
-    findings: o.reason === 'withheld' ? [] : (o.findings ?? []),
-    statedIntentSummary: o.result?.statedIntentSummary ?? null,
+    verdict: publishedVerdict,
+    publishedState: plan.state,
+    reason: plan.reason ?? null,
+    severity: plan.severity,
+    // A withheld result publishes NO findings and NO severity. The state says a
+    // review ran and its result is held; shipping the findings inside it — or the
+    // number that summarises them — would be publishing the accusation while
+    // claiming not to.
+    findings: plan.findings,
+    // Said plainly, because a reader of this blob deserves to know that the
+    // absence above is a decision and not an empty review.
+    withheld: plan.withheld
+      ? {
+          because: plan.withheld.because,
+          // Says only what is true. The previous wording claimed "the maintainer who
+          // submitted it was given the result in full" — a delivery this system
+          // cannot perform (there is no repo-ownership proof, so it cannot even
+          // establish who the maintainer is) published as a fact on chain.
+          statement:
+            'A review ran to completion. Its result is not published: SureX publishes findings only about ' +
+            'servers it wrote itself, and this repository is not ours.',
+        }
+      : null,
+    concern: plan.concern ?? null,
+    assessment: plan.assessment ?? null,
+    // From the PLAN, not from the raw result. It is nominally the author's own
+    // claim, and in practice the model writes the conclusion into it — so on a
+    // withheld run it was carrying the accusation into the public blob.
+    statedIntentSummary: plan.statedIntentSummary ?? null,
     capabilities: o.result?.capabilities ?? null,
     sourceCoverage: o.result?.run?.sourceCoverage ?? null,
     npmIntegrity: o.integrityCheck?.detail ?? null,
+    // What made this entry its tier, so the tier is never an assertion on its own.
+    tier: o.tier,
+    tierBasis: o.pinning?.basis ?? null,
     // An SPDX id, or `none` when we read and found nothing, or `unknown` when a
     // request failed. Published either way: "reviewed, licence none" is a fact a
     // reader can act on, and it used to be the reason there was no record at all.
@@ -583,7 +738,7 @@ async function publishOutcome(o) {
     return fail(
       'the review completed but its evidence could not be stored: Walrus did not confirm the blob write after ' +
       '3 attempts. Nothing was indexed, so there is no half-written record — the same submission can be retried.',
-      { stage: 'walrus-write', reviewCompleted: true, verdict: o.state, detail: String(lastError?.message ?? lastError).slice(0, 300) },
+      { stage: 'walrus-write', reviewCompleted: true, verdict: plan.state, detail: String(lastError?.message ?? lastError).slice(0, 300) },
     );
   }
   const evidence = { ...pointer, contentSha256 };
@@ -603,8 +758,8 @@ async function publishOutcome(o) {
     buildReviewRecord({
       fingerprint: o.fingerprint,
       sourceKey: o.reviewedArtifact,
-      verdict: o.result?.verdict ?? 'unreviewable',
-      severity: o.result?.severity ?? 0,
+      verdict: publishedVerdict,
+      severity: plan.severity,
       analyzedAt: Date.now(),
       modelId: o.result?.modelId, promptVersion: o.result?.promptVersion,
       blob: evidence,
@@ -617,33 +772,90 @@ async function publishOutcome(o) {
   // page that does not contain the entity they were shown.
   progress('arkiv', 'Review record indexed', { entityKey: reviewKey, txHash: txHashes[0] });
 
-  const head = await arkiv.createMany([
-    buildVerdictHead({
-      fingerprint: o.fingerprint,
-      state: o.state === 'clean' ? 'clean' : 'unreviewable',
-      reason: o.state === 'clean' ? undefined : o.reason,
-      tier: o.tier,
-      severity: o.state === 'clean' ? 0 : 0,
-      name: o.name,
-      latestReviewKey: o.state === 'clean' ? reviewKey : undefined,
-      sourceKey: o.reviewedArtifact,
-      reviewedCommit: o.commit,
-      modelId: o.result?.modelId, promptVersion: o.result?.promptVersion,
-      reviewedAt: new Date().toISOString(),
-      capabilities: o.result?.capabilities,
-      evidence,
-      requireReviewForClean: true,
-    }),
-  ]);
+  /**
+   * The head, from the plan — and never a reason for the run to die.
+   *
+   * `latestReviewKey` now travels on EVERY state, not only on `clean`. It was
+   * conditional, which left a withheld or unreviewable entry pointing at nothing
+   * while its review record sat on chain two entities away: the one link that
+   * proves a review actually ran was the link being withheld. The guard's rule is
+   * that `clean` REQUIRES a review key, not that the others may not have one.
+   *
+   * Provenance is unconditional for the same reason. `reviewedCommit`, `modelId`
+   * and `promptVersion` are what let a maintainer reproduce the reading, and the
+   * live `@surex/mal-*` heads written without them render "commit —" in a block
+   * message. The guard demands them for an accusing state; this pipeline supplies
+   * them for all of them.
+   */
+  const headFields = (p) => ({
+    fingerprint: o.fingerprint,
+    state: p.state,
+    reason: p.reason,
+    tier: o.tier,
+    severity: p.severity,
+    enforceAfter: p.enforceAfter,
+    name: o.name,
+    latestReviewKey: reviewKey,
+    sourceKey: o.reviewedArtifact,
+    reviewedCommit: o.commit,
+    integrity: o.pinning?.integrity,
+    modelId: o.result?.modelId ?? null,
+    promptVersion: o.result?.promptVersion ?? null,
+    reviewedAt: new Date().toISOString(),
+    capabilities: o.result?.capabilities,
+    topFinding: p.topFinding,
+    // rv-7: what KIND of gap this is, and one sentence about it. The head is the
+    // only entity the gate and `/r` read without a second fetch, so a verdict whose
+    // explanation lives only in the Walrus blob is a verdict nobody reads.
+    concern: p.concern,
+    assessment: p.assessment,
+    findingCount: p.findingCount,
+    evidence,
+    requireReviewForClean: true,
+  });
+
+  let head;
+  let published = plan;
+  try {
+    head = await arkiv.createMany([buildVerdictHead(headFields(plan))]);
+  } catch (err) {
+    /**
+     * The boundary refused, or the write did not land. Either way the review
+     * record and the certified blob are ALREADY on chain, so exiting here is what
+     * produced the failure this whole change exists to remove: an entry with no
+     * head, invisible to the listing query, and a maintainer watching a stage
+     * counter stop at 7 of 8.
+     *
+     * So fall back to the one shape that is writable by construction — an honest
+     * `unreviewable / withheld` — and say loudly why. Publishing less than we
+     * know is a decision the registry is allowed to make. Publishing nothing at
+     * all is just a lost submission.
+     */
+    log(`  ! the planned head was refused (${err?.message ?? err}) — falling back to a withheld entry`);
+    published = fallbackPlan(String(err?.message ?? err).slice(0, 300));
+    head = await arkiv.createMany([buildVerdictHead(headFields(published))]);
+  }
   // The head is the entity the gate reads before a tool call, so it is the last
   // thing said before the verdict URL: from here the entry answers.
   progress('arkiv', 'Verdict head indexed', { entityKey: head.created[0]?.key, txHash: head.txHashes[0] });
 
-  progress('done', `Published as ${o.state}${o.reason ? ` (${o.reason})` : ''}`, {
-    state: o.state,
-    reason: o.reason,
+  progress('done', `Published as ${published.state}${published.reason ? ` (${published.reason})` : ''}`, {
+    state: published.state,
+    reason: published.reason,
+    tier: o.tier,
     fingerprint: o.fingerprint,
     verdictUrl: summary.verdictUrl,
   });
-  return done({ ...summary, published: true, blobId: pointer.blobId, reviewKey });
+  return done({
+    ...summary,
+    state: published.state,
+    reason: published.reason ?? null,
+    severity: published.severity,
+    severityLabel: SEVERITY_LABEL[published.severity],
+    findingCount: published.findings.length,
+    published: true,
+    blobId: pointer.blobId,
+    reviewKey,
+    headKey: head.created[0]?.key ?? null,
+  });
 }

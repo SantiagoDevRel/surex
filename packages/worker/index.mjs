@@ -9,6 +9,7 @@ export * from './src/config.mjs';
 export * from './src/walrus.mjs';
 export * from './src/arkiv.mjs';
 export * from './src/entities.mjs';
+export * from './src/publish-policy.mjs';
 export * from './src/licence.mjs';
 export * from './src/registry.mjs';
 export * from './src/progress.mjs';
