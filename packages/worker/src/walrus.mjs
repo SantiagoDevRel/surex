@@ -175,9 +175,52 @@ export function normaliseEncodingType(value) {
   return null;
 }
 
-/** Turn a JSON record body into deterministic bytes. Sorted keys, trailing LF. */
+/**
+ * Turn a JSON record body into deterministic bytes. Sorted keys, trailing LF.
+ *
+ * THE BUG THIS REPLACES, because it is worth being unable to reintroduce:
+ *
+ *     JSON.stringify(body, Object.keys(body).sort())
+ *
+ * That reads as "serialise with the keys in sorted order". It is not what the
+ * second argument does. An ARRAY replacer is a property ALLOWLIST, and it is
+ * applied RECURSIVELY, at every depth — so every nested object kept only the
+ * properties whose names happened to also be top-level keys of `body`.
+ *
+ * The evidence blob is the thing this whole product rests on: a verdict points at
+ * the exact bytes it judged. Measured on the live blob behind a published verdict
+ * (`h8C_CpGKud76Ue-XOAngVkDbLfptoXe3Jj1T9LftBfM`), what it actually contained was
+ *
+ *     "findings": [ {"severity": 2}, {"severity": 1}, … ]   ← 14 of them
+ *     "capabilities": {}
+ *     "sourceCoverage": {}
+ *
+ * `severity` survived only because `severity` is also a top-level field. Every
+ * `file`, `line`, `category` and `description` — the entire content of a finding,
+ * the part that lets a maintainer check the claim — was silently deleted on the
+ * way to a content-addressed store, and the hash committed to the empty version.
+ *
+ * Determinism is what was actually wanted, and it needs a recursive key sort. It
+ * matters because the blob ID is derived from these bytes: two runs that produce
+ * the same record must produce the same ID, or the registry stores duplicates of
+ * one fact and pays for each.
+ */
 export function recordBytes(body) {
-  return new TextEncoder().encode(`${JSON.stringify(body, Object.keys(body).sort())}\n`);
+  return new TextEncoder().encode(`${JSON.stringify(sortDeep(body))}\n`);
+}
+
+/**
+ * Order every object's keys, at every depth, WITHOUT dropping any of them.
+ * Arrays keep their order — a findings list is a sequence, not a set.
+ */
+function sortDeep(value) {
+  if (Array.isArray(value)) return value.map(sortDeep);
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const out = {};
+    for (const key of Object.keys(value).sort()) out[key] = sortDeep(value[key]);
+    return out;
+  }
+  return value;
 }
 
 /**
