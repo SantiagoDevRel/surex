@@ -81,8 +81,13 @@ test('every stage has a name, a caption and a detail — none can be added silen
   for (const stage of SUBMISSION_STAGES) {
     assert.ok(COPY.pipeline.rail.name[stage], `no rail name for ${stage}`);
     assert.ok(COPY.pipeline.stage[stage], `no caption for ${stage}`);
+    // The lede IS the detail now. Each stage used to carry a paragraph under it
+    // explaining the mechanism, and six of those turned a flow you watch back
+    // into a page you read. Asserting the absence too, because a test that
+    // guards copy the screen no longer renders passes while the claim it
+    // protects is invisible.
     assert.ok(COPY.pipeline.rail.stage[stage]?.lede, `no lede for ${stage}`);
-    assert.ok(COPY.pipeline.rail.stage[stage]?.body, `no body for ${stage}`);
+    assert.equal(COPY.pipeline.rail.stage[stage].body, undefined, `${stage} should carry no body`);
     // A tech id must have a label, and `null` must stay a real answer rather than
     // becoming an empty chip.
     const tech = STAGE_TECH[stage];
@@ -414,21 +419,26 @@ test('every rail string obeys the copy law', () => {
   assert.deepEqual(failures, [], `\n${failures.join('\n')}\n`);
 });
 
-test('the rail names the DGX, and says the source does not leave it', () => {
-  const reviewing = COPY.pipeline.rail.stage.reviewing;
-  assert.match(reviewing.body, /DGX/);
-  assert.match(reviewing.body, /never goes to a hosted model|own hardware/i);
-  // Two readings, and what a split buys. The calibration changed the product here
-  // and the screen should not describe the old rule.
-  assert.match(reviewing.body, /two paraphrased readings/i);
-  assert.match(reviewing.body, /lower severity/i);
+test('the review step still says the source does not leave our hardware', () => {
+  // The paragraph that carried this is gone, so the claim moved INTO the lede
+  // rather than off the screen. It is the substantive thing this step asserts —
+  // a reviewer that shipped your source to a hosted model would be a different
+  // product — and the rail is the only place it gets said.
+  const { lede, body } = COPY.pipeline.rail.stage.reviewing;
+  assert.equal(body, undefined);
+  assert.match(lede, /own hardware/i);
+  assert.match(lede, /open-source model/i);
 });
 
-test('the walrus copy states the one thing a blob ID is not', () => {
-  const body = COPY.pipeline.rail.stage.walrus.body;
-  assert.match(body, /two Sui transactions/i);
-  assert.match(body, /contentSha256/);
-  assert.match(body, /not the sha256|rather than the sha256/i);
+test('the licence step no longer claims to stop anything', () => {
+  // It read "Nothing is stored until a licence permits it", true while the
+  // licence was a gate. This path stores the REVIEW and never the source, so a
+  // missing licence is recorded as `none` and the review runs. Copy describing a
+  // rule the code stopped following is exactly the drift this product exists to
+  // complain about, so it is asserted rather than trusted.
+  const { lede } = COPY.pipeline.rail.stage.licence;
+  assert.doesNotMatch(lede, /nothing is stored/i);
+  assert.match(lede, /recorded|none is an answer/i);
 });
 
 /* ---------------------------------------------------------------- the flow -*/
@@ -708,5 +718,8 @@ test('nothing in the rail says the gate blocks', () => {
   // who ends it, and "blocks" says the wrong one.
   const all = JSON.stringify(COPY.pipeline.rail);
   assert.ok(!/\bblocks?\b/i.test(all), 'the rail must not say the gate blocks');
-  assert.match(COPY.pipeline.rail.stage.arkiv.body, /single query/i);
+  // The arkiv paragraph that named the single query is gone with the other seven
+  // bodies. Its lede still has to name where the entity goes, because that is
+  // the whole content of the step now.
+  assert.match(COPY.pipeline.rail.stage.arkiv.lede, /arkiv/i);
 });

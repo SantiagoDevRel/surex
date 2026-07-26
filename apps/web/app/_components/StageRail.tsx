@@ -455,8 +455,11 @@ function StepDetail({
           */}
           {step === 'world' ? null : (
             <>
+              {/* The lede and nothing else. Each stage used to carry a paragraph
+                  under it explaining the mechanism, and six of those turned a
+                  flow you watch back into a page you read. What survives is the
+                  one sentence that says what the step IS. */}
               <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
-              <p className="mt-1.5 max-w-[64ch] text-mini leading-relaxed text-ink-2">{copy.body}</p>
             </>
           )}
 
