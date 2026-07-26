@@ -30,7 +30,6 @@ export default function SubmitPage() {
   return (
     <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-9">
       <h1 className="text-title font-semibold">{COPY.submit.title}</h1>
-      <p className="mt-2 max-w-[80ch] font-serif text-prose-lg text-ink-2">{COPY.submit.lede}</p>
 
       <div className="mt-6">
         <SubmitForm />

@@ -209,9 +209,11 @@ export function StageRail({
 
   return (
     <section aria-label={COPY.pipeline.rail.label} className="grid gap-2.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+      {/* The label alone, centred over the rail it names. The sentence that used
+          to sit beside it described what the reader is about to watch happen —
+          which the rail then does, one tile at a time. */}
+      <div className="flex justify-center">
         <SectionLabel className="text-faint">{COPY.pipeline.rail.label}</SectionLabel>
-        <span className="max-w-[80ch] text-mini text-faint">{COPY.pipeline.rail.legend}</span>
       </div>
 
       <Well className="px-3 py-3">
@@ -289,10 +291,25 @@ function StepTile({
         selected ? 'bg-accent-t' : 'hover:bg-accent-t',
       )}
     >
+      {/*
+        `key={phase}` is what makes the tile light up.
+
+        React reuses this node across polls, so a CSS animation attached to it
+        would run once on mount and never again — the step would change colour
+        with no moment attached to the change. Keying on the phase makes React
+        replace the node when the phase changes, which restarts the animation on
+        the TRANSITION and not on a re-render that changed nothing.
+
+        Only on the way IN to a landed state: `pending` is where every step sits
+        before the run reaches it, and flashing six tiles on first paint would
+        announce five things that have not happened.
+      */}
       <span
+        key={phase}
         className={cn(
           'grid h-14 w-14 shrink-0 place-items-center rounded-input border',
           face,
+          phase === 'done' || phase === 'stopped' ? 'sx-step-land' : null,
         )}
       >
         <TechMark tech={FLOW_TECH[step]} />
@@ -422,8 +439,29 @@ function StepDetail({
             <span className={tone.ink}>{COPY.pipeline.rail.flow.name[step]}</span>
             <span className="text-faint"> · {COPY.pipeline.rail.tech[tech]}</span>
           </p>
-          <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
-          <p className="mt-1.5 max-w-[64ch] text-mini leading-relaxed text-ink-2">{copy.body}</p>
+          {/*
+            The World step shows its TITLE and its claim, and no prose.
+
+            It is the first thing on the page and it was spending two paragraphs
+            on how the request is signed before the reader had seen the six
+            steps — so the flow and the section under it did not fit on one
+            screen, which is the whole reason the flow replaced an essay.
+
+            `WorldClaim` below is not prose and does not go: it is the one line
+            §5 requires, naming what the configured credential actually proves,
+            with the long form behind its own disclosure. A step that asks for a
+            biometric while saying nothing about what it establishes is the
+            failure that rule exists to prevent.
+          */}
+          {step === 'world' ? null : (
+            <>
+              {/* The lede and nothing else. Each stage used to carry a paragraph
+                  under it explaining the mechanism, and six of those turned a
+                  flow you watch back into a page you read. What survives is the
+                  one sentence that says what the step IS. */}
+              <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
+            </>
+          )}
 
           {step === 'world' ? (
             <WorldClaim credential={credential} />

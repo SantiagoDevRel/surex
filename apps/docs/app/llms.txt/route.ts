@@ -57,7 +57,7 @@ const BODY = `# SureX
 > permission flow decides.
 
 Docs:      https://surex-docs.vercel.app
-Registry:  https://arkiv-surex.vercel.app
+Registry:  https://arkiv-surex.vercel.app/registry
 API:       ${DEFAULT_API_BASE}
 Source:    https://github.com/SantiagoDevRel/surex
 Licence:   MIT

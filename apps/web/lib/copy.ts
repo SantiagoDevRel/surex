@@ -697,43 +697,34 @@ export const COPY = {
       stage: {
         resolving: {
           lede: 'A submission names a repository at one commit.',
-          body:
-            'A tag is a label that can be moved or deleted, so the commit is what the entry is about. The pipeline also asks npm whether this package is published, because what a user runs is the published tarball rather than the branch.',
         },
         licence: {
-          lede: 'Nothing is stored until a licence permits it.',
-          body:
-            'The licence is read before any source is written down. One that does not permit redistribution ends the run here and the entry publishes as unreviewable with that reason. A published answer about why nobody can review this, not a gap in the record.',
+          // Was 'Nothing is stored until a licence permits it.' — which stopped
+          // being true when the licence became a recorded fact rather than a
+          // gate. This path stores the REVIEW, never the source, so a missing
+          // licence is published as `none` and the review runs.
+          lede: 'The licence is read and recorded. None is an answer, not a stop.',
         },
         fetching: {
           lede: 'The bytes that execute, not the bytes on the branch.',
-          body:
-            'When the package is published, what gets read is the npm tarball, because that is what npx -y fetches and runs, and the commit travels beside it as provenance. When it is not published, the repository at that commit is what gets read. The record always says which of the two it was.',
         },
         starting: {
           lede: 'The server was started so it could be asked what tools it declares.',
-          body:
-            'This stage appears only when a run reports it. Starting a server means running somebody else’s code, so it happens with install scripts off, an environment stripped of credentials and a short timeout. The pass that reads the tool list out of the README instead never reports this stage at all.',
         },
         reviewing: {
-          lede: 'An open-source model reads the source against what the server says it does.',
-          body:
-            'It runs on an NVIDIA DGX Spark on our own hardware, reached over a Cloudflare tunnel, so the submitted source never goes to a hosted model. Two paraphrased readings of the same source; when the two disagree a second pair runs, and the lower severity is the one that stands.',
+          // Carries the DGX fact now that the paragraph under it is gone: the
+          // source never reaching a hosted model is the substantive claim this
+          // step makes, and it is worth a clause.
+          lede: 'An open-source model reads the source on our own hardware, against what the server says it does.',
         },
         walrus: {
           lede: 'The record goes to Walrus and is certified on Sui.',
-          body:
-            'One write is two Sui transactions: register, then certify. A blob ID is a commitment over the encoded blob rather than the sha256 of the bytes, so the digest that binds the bytes an aggregator serves to this record is recorded separately, as contentSha256.',
         },
         arkiv: {
           lede: 'The entity the gate reads is written to Arkiv.',
-          body:
-            'Braga testnet. The review record and the registry entry land first, then the verdict head, the one entity the gate resolves in a single query before an MCP tool call. Every read of it is scoped to the address that created it.',
         },
         done: {
           lede: 'Published. The entry answers from here on.',
-          body:
-            'The verdict is on the public index and has a page of its own. It is also readable as an ENS name on Ethereum mainnet, a subname nobody registered, resolved by wildcard through a signed CCIP-Read response. The ENS app cannot list offchain records, so read the name with getEnsText rather than looking for a records tab.',
         },
       },
 

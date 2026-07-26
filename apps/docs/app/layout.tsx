@@ -44,7 +44,8 @@ const navbar = (
     }
     projectLink="https://github.com/SantiagoDevRel/surex"
     // The registry is the product; the docs are about it. Keep it one click away.
-    chatLink="https://arkiv-surex.vercel.app"
+    // `/registry`, not the site root: the root is the landing page now.
+    chatLink="https://arkiv-surex.vercel.app/registry"
     chatIcon={<span style={{ fontSize: 11 }}>registry ↗</span>}
   />
 );
@@ -56,7 +57,7 @@ const footer = (
       not necessarily the copy installed on your machine.
       <br />
       <a href="https://github.com/SantiagoDevRel/surex">github.com/SantiagoDevRel/surex</a> ·{' '}
-      <a href="https://arkiv-surex.vercel.app">registry</a> ·{' '}
+      <a href="https://arkiv-surex.vercel.app/registry">registry</a> ·{' '}
       <a href="https://arkiv-surex-api.vercel.app">API</a> · <a href="/llms.txt">llms.txt</a>
     </div>
   </Footer>

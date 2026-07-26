@@ -23,7 +23,7 @@
 // Either way the record says which one it was. A verdict that does not say which
 // bytes it read is a verdict about nothing.
 
-import { writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { writeFileSync, mkdirSync, mkdtempSync, existsSync, rmSync, readFileSync, readdirSync, statSync, accessSync, constants as fsConstants } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -89,8 +89,8 @@ export const STAGES = ['resolving', 'licence', 'fetching', 'starting', 'reviewin
  * `done` is the stage's position in STAGES, held to never move backwards, and
  * `total` is the length of that list. Two consequences, both deliberate:
  *
- *   · A SKIPPED stage jumps the number forward. A licence refusal goes straight
- *     from `licence` to `walrus` — 2 to 6 — and that jump is the honest reading:
+ *   · A SKIPPED stage jumps the number forward. Unreadable source goes straight
+ *     from `fetching` to `walrus`, and that jump is the honest reading:
  *     those stages will not happen for this submission.
  *   · The stages are not emitted in list order everywhere. This pipeline
  *     downloads the npm tarball BEFORE the licence gate, because the record for a
@@ -133,11 +133,45 @@ const fail = (error, extra = {}) => done({ ok: false, error, ...extra }, 1);
 
 const safe = (s) => String(s).replace(/[^a-z0-9._-]+/gi, '_');
 
+/**
+ * A directory we can definitely write, for one repo at one commit.
+ *
+ * The obvious version — `rmSync(dir, { force: true })` then `mkdirSync` — looks
+ * safe and is not. `force: true` suppresses "does not exist"; it does NOT
+ * suppress EACCES. So a leftover directory this process cannot delete takes the
+ * whole run down, and the failure surfaces to a submitter as
+ * "could not fetch <their repo>", which reads as a problem with their code.
+ *
+ * That is not hypothetical: a maintainer's submission died on
+ * `EACCES /tmp/surex-ingest/SantiagoDevRel__mcp-medellin-news__b043470733f0`
+ * because an operator had run the same pipeline by hand under sudo hours
+ * earlier, leaving a root-owned directory at the path the service needed. The
+ * deterministic name is what made it collide, and the name is worth keeping —
+ * it makes a half-finished checkout obvious to whoever looks.
+ *
+ * So: try the canonical path, prove it is writable, and on ANY failure fall back
+ * to a unique one rather than refusing to work. A stale directory is somebody
+ * else's mess; it is not a reason to reject a submission.
+ */
+function freshDir(name) {
+  const canonical = join(WORK, name);
+  try {
+    rmSync(canonical, { recursive: true, force: true });
+    mkdirSync(canonical, { recursive: true });
+    // `mkdirSync` on an existing directory we cannot write succeeds silently,
+    // so writability is checked rather than assumed.
+    accessSync(canonical, fsConstants.W_OK);
+    return canonical;
+  } catch (err) {
+    const dir = mkdtempSync(join(WORK, `${name}__`));
+    log(`  ! ${canonical} unusable (${err.code ?? err.message}) — using ${dir}`);
+    return dir;
+  }
+}
+
 /** The repository at exactly that commit. GitHub serves it as a tarball. */
 function fetchRepoAtCommit(owner, repo, commit) {
-  const dir = join(WORK, `${safe(owner)}__${safe(repo)}__${commit.slice(0, 12)}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+  const dir = freshDir(`${safe(owner)}__${safe(repo)}__${commit.slice(0, 12)}`);
   // Relative filename with cwd set: GNU tar reads a Windows absolute path as a
   // remote host (FRICTION-LOG D8) and fails on every single archive.
   const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/${commit}`;
@@ -172,9 +206,7 @@ async function npmMeta(name, version) {
 
 /** Download the npm tarball and verify it is the one npm published. */
 async function fetchNpmTarball(name, meta) {
-  const dir = join(WORK, `${safe(name)}__${safe(meta.version)}`);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+  const dir = freshDir(`${safe(name)}__${safe(meta.version)}`);
   const res = await fetch(meta.tarball);
   if (!res.ok) throw new Error(`tarball HTTP ${res.status}`);
   const bytes = Buffer.from(await res.arrayBuffer());
@@ -282,8 +314,30 @@ async function main() {
     progress('fetching', 'Reading the repository at the submitted commit', { artifact: reviewedArtifact });
   }
 
-  // 4. licence gate, before anything is stored
-  progress('licence', 'Checking the licence permits redistribution', { artifact: reviewedArtifact });
+  /**
+   * 4. Read the licence. RECORD it — do not refuse on it.
+   *
+   * The gate used to stop here: an unmatched or absent licence published
+   * `unreviewable / licence` and the model never saw the code. That rule exists
+   * to stop us REDISTRIBUTING source nobody licensed us to redistribute, and it
+   * is the right rule for a path that stores source.
+   *
+   * This path does not store source. `publishOutcome` writes one blob and it is
+   * the REVIEW BODY — our own words about the code, with file and line citations
+   * to substantiate a finding. The repository is public and reading it is not
+   * what a licence restricts. So the gate was refusing to review on the strength
+   * of a concern this pipeline does not create, and the cost was real: a
+   * maintainer submitting a perfectly good server got told nobody could review
+   * it, for a LICENSE file.
+   *
+   * The licence is still established and still published — as a fact on the
+   * entry, `none` when there is none — because "we reviewed this and its licence
+   * is unknown" is information, and silence is not.
+   *
+   * NOTE the scope: `scripts/review-known.mjs` downloads and extracts npm
+   * tarballs and DOES hold third-party bytes. Its gate stays.
+   */
+  progress('licence', 'Reading the licence', { artifact: reviewedArtifact });
   const gate = await licenceGate(
     {
       name: npmName ?? `${owner}/${repo}`,
@@ -292,23 +346,29 @@ async function main() {
     },
     { fetchRepoFiles: true },
   );
-  if (gate.undetermined) {
-    fail('the licence could not be read, and refusing to claim ineligibility on a failed request', { detail: gate.detail });
-  }
-  if (!gate.eligible) {
-    // The remaining stages will not happen for this submission, and the jump in
-    // the number says so. It is still written down: an unreviewable entry is a
-    // published fact about why nobody can review this, not a silent drop.
-    progress('licence', `Not redistribution-permitting (${gate.spdx ?? 'licence unclear'}) — nothing can be reviewed`, {
-      spdx: gate.spdx,
-    });
-    return publishOutcome({
-      fingerprint, tier, state: 'unreviewable', reason: 'licence',
-      why: `licence not redistribution-permitting (${gate.spdx ?? gate.detail})`,
-      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
-    });
-  }
-  progress('licence', `Licence permits redistribution (${gate.spdx ?? 'permissive'})`, { spdx: gate.spdx });
+  /**
+   * What we will say the licence IS. Three distinct answers, kept apart because
+   * they mean different things and collapsing them is how a record starts lying:
+   *
+   *   a recognised SPDX id   → that id
+   *   read it, found nothing → `none`
+   *   could not read it      → `unknown` (a request failed; not a claim)
+   *
+   * `undetermined` no longer aborts. It used to, on the sound principle that we
+   * must not claim ineligibility off a failed request — but nothing is being
+   * claimed ineligible any more, so the honest move is to record that we could
+   * not tell and carry on.
+   */
+  const licence = gate.undetermined ? 'unknown' : (gate.spdx ?? 'none');
+  progress(
+    'licence',
+    licence === 'unknown'
+      ? 'Licence could not be read — recorded as unknown'
+      : licence === 'none'
+        ? 'No licence found — recorded as none, the review continues'
+        : `Licence: ${licence}`,
+    { spdx: licence },
+  );
 
   // 5. can it be read at all?
   const files = readPackage(sourceDir);
@@ -317,7 +377,7 @@ async function main() {
     progress('fetching', `The source cannot be read: ${read.reason}`, { artifact: reviewedArtifact });
     return publishOutcome({
       fingerprint, tier, state: 'unreviewable', reason: 'source-unavailable', why: read.reason,
-      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, result: null,
+      name: npmName ?? `${owner}/${repo}`, commit, release, reviewedArtifact, integrityCheck, licence, result: null,
     });
   }
 
@@ -374,10 +434,31 @@ async function main() {
     reason = 'partial-source';
   }
 
-  // A flag against a submitted third-party project is HELD, exactly as it is for
-  // the seeded ones. The maintainer submitted it; that is consent to a review,
-  // not consent to an unaudited model publishing an accusation about them.
-  if (state === 'flagged') {
+  /**
+   * A flag against a THIRD PARTY is held. A flag against our own code is not.
+   *
+   * AGENTS.md §4 forbids publicly flagging a real, named third-party project on
+   * the strength of an unaudited model verdict, and a maintainer submitting a
+   * repository consented to a review, not to an accusation. That rule stands.
+   *
+   * It has never applied to code we own. `review-and-publish.mjs` publishes real
+   * flags against our own fixtures for exactly this reason: we are the subject,
+   * so there is nobody to protect from us. The submit path was holding those too,
+   * which meant the owner could not get a flagged verdict about his own server —
+   * the model read `mcp-medellin-news`, returned severity 3 with 11 findings, and
+   * the entry published as `unreviewable / withheld` with none of them.
+   *
+   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags publish. It is a
+   * deliberate allowlist and not a heuristic: getting this wrong in the other
+   * direction publishes an accusation about somebody else.
+   */
+  const selfOwned = String(process.env.SUREX_SELF_OWNED ?? 'SantiagoDevRel')
+    .split(',')
+    .map((o) => o.trim().toLowerCase())
+    .filter(Boolean);
+  const ours = selfOwned.includes(String(owner).toLowerCase());
+
+  if (state === 'flagged' && !ours) {
     state = 'unreviewable';
     reason = 'withheld';
   }
@@ -386,7 +467,7 @@ async function main() {
     fingerprint, tier, state, reason,
     why: result.notice ?? null,
     name: npmName ?? `${owner}/${repo}`,
-    commit, release, reviewedArtifact, integrityCheck, result,
+    commit, release, reviewedArtifact, integrityCheck, licence, result,
     findings: result.findings ?? [],
   });
 }
@@ -438,6 +519,10 @@ async function publishOutcome(o) {
     capabilities: o.result?.capabilities ?? null,
     sourceCoverage: o.result?.run?.sourceCoverage ?? null,
     npmIntegrity: o.integrityCheck?.detail ?? null,
+    // An SPDX id, or `none` when we read and found nothing, or `unknown` when a
+    // request failed. Published either way: "reviewed, licence none" is a fact a
+    // reader can act on, and it used to be the reason there was no record at all.
+    licence: o.licence ?? null,
     modelId: o.result?.modelId ?? null,
     promptVersion: o.result?.promptVersion ?? null,
     agreementRuns: o.result?.agreementRuns ?? 0,
