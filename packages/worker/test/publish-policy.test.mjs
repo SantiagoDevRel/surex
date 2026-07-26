@@ -1,10 +1,9 @@
 // The submit pipeline must survive every verdict, and flag only what it wrote.
 //
-// The regression at the bottom of this file is the reason the module exists: two
-// real submissions died at the head write with the review record and the Walrus
-// blob already on chain. A test that only checked the happy state would have gone
-// green through all of it, so the important assertion here is not "clean maps to
-// clean" — it is "no reachable result produces a head the guard refuses".
+// The load-bearing assertion is the regression at the bottom — "no reachable result
+// produces a head the guard refuses" — not "clean maps to clean". A pipeline that
+// dies at the head write leaves the review record and the Walrus blob already on
+// chain, and a happy-path-only test goes green through all of it.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,10 +25,6 @@ const FINDINGS = [
   { file: 'src/index.js', line: 42, category: 'undeclared-network', description: 'posts the transcript to a host the README never names', severity: 3 },
   { file: 'src/util.js', line: 7, category: 'undeclared-filesystem', description: 'reads ~/.ssh/id_rsa', severity: 2 },
 ];
-
-// ---------------------------------------------------------------------------
-// the mapping
-// ---------------------------------------------------------------------------
 
 test('clean publishes clean, and carries nothing else', () => {
   const plan = planPublication({ verdict: 'clean', fingerprint: THEIRS, canAccuse: () => false });
@@ -75,8 +70,8 @@ test('our own code, on the allowlist, publishes a real flag with a dispute windo
 });
 
 test('self-owned but NOT on the write-boundary allowlist is withheld, not attempted', () => {
-  // The guard is the authority. Planning a flag it would refuse is how the
-  // pipeline died in the first place, so the plan asks the guard's own predicate.
+  // The guard is the authority, so the plan asks the guard's own predicate rather
+  // than planning a flag it would refuse.
   const plan = planPublication({
     verdict: 'flagged', severity: 4, findings: FINDINGS,
     fingerprint: OURS, selfOwned: true, canAccuse: () => false,
@@ -102,10 +97,8 @@ test('unreviewable keeps its reason, and invents one only when there is none', (
 });
 
 test('withholding also holds statedIntentSummary, which carries the conclusion in practice', () => {
-  // It is nominally "the author's claim". Measured on a live blob, what the model
-  // actually wrote into it was: "The server claims to provide … BUT THE ACTUAL
-  // IMPLEMENTATION only supports three RSS feeds…" — the finding, in prose, headed
-  // for a public content-addressed store on every state including this one.
+  // Nominally "the author's claim", but in practice the model writes the finding
+  // into it in prose — headed for a public content-addressed store on every state.
   const summary = 'It claims six feeds, but the implementation only wires three and ignores the rest.';
   const held = planPublication({
     verdict: 'flagged', severity: 3, findings: FINDINGS, statedIntentSummary: summary,
@@ -121,10 +114,9 @@ test('withholding also holds statedIntentSummary, which carries the conclusion i
 });
 
 test('withholding leaks nothing — not the concern, not the sentence, not the count', () => {
-  // `concern` is one word that says what is wrong with somebody's server, and
-  // `assessment` is the sentence arguing for it. Publishing either under a neutral
-  // state would be the accusation with the state filed off, which is worse than
-  // publishing it honestly.
+  // `concern` is one word saying what is wrong with somebody's server and
+  // `assessment` the sentence arguing for it — either one under a neutral state is
+  // the accusation with the state filed off.
   const plan = planPublication({
     verdict: 'flagged', severity: 4, findings: FINDINGS,
     concern: 'data-leaves-the-machine',
@@ -170,10 +162,6 @@ test('an unreviewable verdict publishes no findings — it established none', ()
   assert.equal(plan.withheld.findingCount, 2, 'still reported to the submitter');
 });
 
-// ---------------------------------------------------------------------------
-// the finding a reader is shown
-// ---------------------------------------------------------------------------
-
 test('topFinding keeps the file and the line a developer needs to check it', () => {
   const top = topFindingOf(FINDINGS);
   assert.equal(top.severity, 3);
@@ -196,10 +184,6 @@ test('topFinding of nothing is nothing', () => {
   assert.equal(topFindingOf([]), undefined);
   assert.equal(topFindingOf(undefined), undefined);
 });
-
-// ---------------------------------------------------------------------------
-// tier, and the digest that earns it
-// ---------------------------------------------------------------------------
 
 test('a verified npm tarball is tier A on the npm integrity', () => {
   const p = submissionPinning({
@@ -235,10 +219,6 @@ test('an npm tarball we could not verify is tier B, not tier A', () => {
 test('nothing pinned is still tier C', () => {
   assert.equal(submissionPinning({ onNpm: false, reviewedNpmTarball: false, commit: 'not-a-sha' }).tier, 'C');
 });
-
-// ---------------------------------------------------------------------------
-// the regression: no reachable plan may be refused by the write boundary
-// ---------------------------------------------------------------------------
 
 test('EVERY plan the pipeline can produce is one buildVerdictHead accepts', () => {
   setSelfAuthored([OURS]);

@@ -1,12 +1,8 @@
-// The three decisions in review-known.mjs that are not the model's.
-//
-// Each of these is load-bearing: `readability` decides whether a verdict about a
-// package is meaningful at all, `selectForReview` decides what the model is even
-// shown, and `assertNoThirdPartyFlags` is the thing standing between an unaudited
-// model verdict and a permanent public accusation against a real project.
-//
-// Every test here fails if its guard is deleted — that is the point. A guard
-// whose test passes with the logic removed is a comment.
+// The three decisions in review-known.mjs that are not the model's: `readability`
+// decides whether a verdict about a package is meaningful at all, `selectForReview`
+// decides what the model is even shown, and `assertNoThirdPartyFlags` stands between
+// an unaudited model verdict and a permanent public accusation against a real
+// project. Every test here fails if its guard is deleted.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,9 +11,7 @@ import { readability, selectForReview, assertNoThirdPartyFlags } from '../review
 
 const src = (path, text) => ({ path, text });
 
-// ---------------------------------------------------------------------------
 // readability — is there anything here a review could be ABOUT?
-// ---------------------------------------------------------------------------
 
 test('readable source passes', () => {
   const r = readability([
@@ -36,9 +30,9 @@ test('a single-line bundle is NOT readable', () => {
 });
 
 test('a large file with a huge average line length is NOT readable', () => {
-  // No single line over 5 000 chars, but 60 000 characters at ~400 per line:
-  // the second, independent tell. Without it a bundler that wraps at 400 columns
-  // would slip through.
+  // No single line over 5 000 chars, but 60 000 characters at ~400 per line: the
+  // second, independent tell, without which a bundler wrapping at 400 columns slips
+  // through.
   const line = `${'a'.repeat(399)}\n`;
   const r = readability([src('dist/bundle.js', line.repeat(150))]);
   assert.equal(r.readable, false);
@@ -53,10 +47,9 @@ test('minified vendor files next to real source are fine', () => {
 });
 
 test('type declarations do not make a bundled package readable', () => {
-  // The shape half of npm ships: one minified bundle plus a large, tidy .d.ts.
-  // Counting the declarations as source would pass the gate on a file that
-  // describes types and contains no behaviour — and a review of it finds nothing
-  // because there is nothing there, which reads as `clean`.
+  // Half of npm: one minified bundle plus a large, tidy .d.ts. Counting the
+  // declarations as source passes the gate on a file with no behaviour in it, and a
+  // review that finds nothing there reads as `clean`.
   const r = readability([
     src('dist/index.js', `!function(){${'q'.repeat(9000)}}()`),
     src('dist/index.d.ts', 'export declare function hello(name: string): string;\n'.repeat(60)),
@@ -75,9 +68,7 @@ test('an almost-empty source tree is NOT readable', () => {
   assert.equal(r.readable, false, '17 characters of source cannot support a verdict');
 });
 
-// ---------------------------------------------------------------------------
-// selectForReview — what the model is shown
-// ---------------------------------------------------------------------------
+// selectForReview — what the model is shown.
 
 test('package.json is kept even when the budget is already exhausted', () => {
   // The mal-postinstall lesson: the manifest is where a supply-chain attack
@@ -97,10 +88,10 @@ test('the budget is respected', () => {
 });
 
 test('a single-file package arrives WHOLE, not truncated to a per-file cap', () => {
-  // The shape most published MCP servers actually have: one compiled entry file.
-  // At a 12 000 per-file cap the model got the first 63% of server-memory's
-  // 19 000-character dist/index.js — the imports and the path setup, with every
-  // tool implementation cut off — and then flagged the only code it could see.
+  // The shape most published MCP servers have: one compiled entry file. At a 12 000
+  // per-file cap the model saw the first 63% of server-memory's 19 000-character
+  // dist/index.js — imports and path setup, every tool implementation cut off — and
+  // flagged the only code it could see.
   const whole = 'const x = 1;\n'.repeat(1500); // ~19 500 chars, one file
   const { kept, chars } = selectForReview([src('package.json', '{}'), src('dist/index.js', whole)]);
   const entry = kept.find((f) => f.path === 'dist/index.js');
@@ -121,9 +112,7 @@ test('dist/ is deprioritised when real source shipped alongside it', () => {
   assert.ok(!paths.includes('dist/index.js'), 'the compiled copy must not crowd out the source');
 });
 
-// ---------------------------------------------------------------------------
-// the publish guard
-// ---------------------------------------------------------------------------
+// the publish guard.
 
 test('publishing a flag against a third party THROWS', () => {
   assert.throws(
@@ -139,10 +128,9 @@ test('the guard catches a flag in either field that decides the WRITE', () => {
 });
 
 test('a WITHHELD row passes — that is the whole point of withheld', () => {
-  // Every withheld row carries `verdict: 'flagged'` by definition: it is what the
-  // model said, and `withheld` is the safe thing published about it. An earlier
-  // guard refused on the model verdict and aborted the entire publish on exactly
-  // the rows it was designed to permit. A real run found it.
+  // Every withheld row carries `verdict: 'flagged'` by definition — that is what the
+  // model said, and `withheld` is the safe thing published about it. A guard that
+  // refuses on the model verdict aborts the publish on exactly the rows it exists for.
   assert.doesNotThrow(() => assertNoThirdPartyFlags([
     { name: '@someone/mcp', verdict: 'flagged', publish: 'withheld' },
   ]));
@@ -163,9 +151,7 @@ test('clean and unreviewable rows pass the guard untouched', () => {
   assert.equal(assertNoThirdPartyFlags(rows), rows);
 });
 
-// ---------------------------------------------------------------------------
-// the tarball is the one npm published
-// ---------------------------------------------------------------------------
+// the tarball is the one npm published.
 
 test('integrity is verified against the downloaded bytes', async () => {
   const { integrityMatches } = await import('../review-known.mjs');
@@ -188,9 +174,9 @@ test('integrity is verified against the downloaded bytes', async () => {
 });
 
 test('type declarations never displace real source in the prompt budget', () => {
-  // @monnet/mcp sent the model 23 .d.ts files out of 24 and got a severity-3 flag
-  // out of a function signature. Declarations describe shapes; behaviour is in
-  // the .js next to them, and that is what a review is about.
+  // @monnet/mcp sent the model 23 .d.ts files out of 24 and got a severity-3 flag out
+  // of a function signature. Declarations describe shapes; a review is about the
+  // behaviour in the .js next to them.
   const decls = Array.from({ length: 20 }, (_, i) => src(`dist/tools/t${i}.d.ts`, 'export declare function f(): void;\n'.repeat(50)));
   const real = [src('dist/index.js', 'const x = 1;\n'.repeat(300)), src('dist/client.js', 'const y = 2;\n'.repeat(300))];
   const { kept } = selectForReview([...decls, ...real, src('package.json', '{}')]);

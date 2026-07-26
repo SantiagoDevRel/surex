@@ -100,9 +100,7 @@ test('identify() turns a tool_name into a fingerprint through config alone', () 
 test('identify() reports WHY it could not, instead of guessing', () => {
   assert.equal(identify('Bash', project, { homedir: home }).reason, 'not-an-mcp-tool');
   assert.equal(identify('mcp__nowhere__x', project, { homedir: home }).reason, 'config-not-found');
-  // A plugin-provided server's config lives inside that plugin. Naming it and
-  // admitting we cannot fingerprint it beats producing a wrong fingerprint,
-  // which would read as `unknown` — indistinguishable from a real miss.
+  // A guessed fingerprint would read as `unknown` — indistinguishable from a miss.
   assert.equal(identify('mcp__plugin_acme_srv__x', project, { homedir: home }).reason, 'plugin-provided');
 });
 
@@ -119,8 +117,7 @@ test('a cached flag survives its TTL; a cached clean does not', () => {
     { ttlMs: 1000, graceMs: 0, now: t0 });
 
   assert.equal(cacheGet(fpFlagged, t0 + 500)?.stale, false);
-  // Past the TTL, inside the grace: still returned, marked stale. A network
-  // blip must not un-flag a server we already know is bad.
+  // Past the TTL, inside the grace: a network blip must not un-flag a bad server.
   assert.equal(cacheGet(fpFlagged, t0 + 5000)?.stale, true);
   assert.equal(cacheGet(fpFlagged, t0 + 500_000), null, 'grace is finite');
   // A clean verdict earns no grace — it must be re-checked.
@@ -188,8 +185,7 @@ let apiUrl;
 const FLAGGED_FP = { value: null };
 
 before(async () => {
-  // A stand-in registry, so the gate's three outcomes are exercised for real
-  // rather than by mocking the module that decides them.
+  // A stand-in registry, so the three outcomes are exercised for real.
   api = createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const fp = url.searchParams.get('fp');
@@ -222,27 +218,20 @@ test('STOP: a flagged server halts the call and asks the human, case in one stri
   );
   assert.equal(code, 0, 'a hook must always exit 0; a non-zero exit is non-blocking');
   const out = JSON.parse(stdout);
-  // `ask`, not `deny`, since 2026-07-25. BOTH stop the call — nothing runs on an
-  // `ask` until a person answers — and the difference is who ends it. A finding
-  // from one unaudited model has earned the right to stop a call; it has not
-  // earned the right to be the last word on somebody else's machine, and a gate
-  // that cannot be answered is one developers uninstall (AGENTS.md §4).
-  //
-  // What must NEVER appear here is 'allow', which GRANTS the call outright and
-  // bypasses the normal permission prompt (FRICTION-LOG C2).
+  // `ask`, not `deny`: both stop the call, and `ask` puts the case to the human.
+  // What must NEVER appear is 'allow' — it GRANTS the call outright and bypasses
+  // the normal permission prompt (FRICTION-LOG C2).
   assert.equal(out.hookSpecificOutput.permissionDecision, 'ask');
   assert.notEqual(out.hookSpecificOutput.permissionDecision, 'allow');
   const reason = out.hookSpecificOutput.permissionDecisionReason;
-  // A question, because Claude Code is showing the human a prompt. Announcing a
-  // block while they are being asked would describe a product we do not ship.
+  // A question, because Claude Code is showing the human a prompt.
   assert.match(reason, /Are you sureX you want to use/);
   assert.match(reason, /does not recommend proceeding/);
   assert.match(reason, /reads a credential file it never declares/);
   assert.match(reason, /src\/x\.ts:88/);
   assert.match(reason, /No human audited this/);
-  // The override must be present and must be an invocation that EXISTS on this
-  // machine — bare `surex` is not on PATH from a marketplace install
-  // (FRICTION-LOG C7), so the gate prints the resolved absolute form there.
+  // The override must be an invocation that EXISTS here — bare `surex` is not on
+  // PATH from a marketplace install (FRICTION-LOG C7).
   assert.match(reason, new RegExp(`allow ${id.fingerprint}`), 'every block prints the override');
   assert.match(reason, /at your own risk/, 'and says whose risk it is');
 });
@@ -256,9 +245,8 @@ test('WARN: an unknown server gets a notice and NO permission decision', async (
   assert.equal(code, 0);
   const out = JSON.parse(stdout);
   assert.match(out.systemMessage, /not in the registry/);
-  // The one that matters: emitting permissionDecision:"allow" here would GRANT
-  // the call outright (FRICTION-LOG C2), auto-approving exactly the servers we
-  // know nothing about.
+  // Emitting permissionDecision:"allow" here would GRANT the call outright
+  // (FRICTION-LOG C2), auto-approving exactly the servers nobody has reviewed.
   assert.equal(out.hookSpecificOutput, undefined, 'the unknown path must never carry a decision');
 });
 

@@ -1,10 +1,6 @@
-// The read path, from the gate's side.
-//
-// Every call is on a hard budget. A PreToolUse hook that exceeds its timeout is
-// killed and the tool call proceeds anyway (FRICTION-LOG C1), so a slow gate
-// does not fail closed — it fails *silently*, which is worse than failing open
-// loudly. The budgets here are set well inside the hook timeout so the gate
-// always gets to say something.
+// The read path, from the gate's side. Every call is on a hard budget: a
+// PreToolUse hook that exceeds its timeout is killed and the tool call proceeds
+// anyway (FRICTION-LOG C1) — silently. Budgets stay well inside the hook timeout.
 
 import { CACHE, DEFAULT_API_BASE, GATE_BUDGET, ROUTES, parseVerdictHead, partitionBatchResponse, unknownHead } from './core/index.mjs';
 
@@ -23,10 +19,8 @@ async function withTimeout(url, init, ms) {
 }
 
 /**
- * One fingerprint. Returns `{head, from}` or throws.
- * A response that does not parse as a head is treated as no answer at all —
- * degrading to `unknown` (warn) rather than to `clean` (silent allow), because
- * the failure mode of a trust layer must never be "quietly says it is fine".
+ * One fingerprint. Returns `{head, from}` or throws. A response that does not
+ * parse as a head degrades to `unknown` (warn), never to `clean` (silent allow).
  */
 export async function fetchVerdict(fingerprint, opts = {}) {
   const url = `${apiBase()}${ROUTES.verdict(fingerprint)}`;
@@ -50,10 +44,9 @@ export async function fetchVerdictBatch(fingerprints, opts = {}) {
   if (!res.ok) throw new Error(`registry returned HTTP ${res.status}`);
   const json = await res.json();
   const rows = Array.isArray(json) ? json : (json.heads ?? json.results ?? []);
-  // Answered and unanswered are kept apart on purpose. Synthesising an `unknown`
-  // for a fingerprint the registry simply did not mention — and caching it —
-  // lets a broken batch endpoint suppress a flag for the whole negative TTL.
-  // See partitionBatchResponse.
+  // Answered and unanswered are kept apart: synthesising an `unknown` for a
+  // fingerprint the registry did not mention lets a broken batch endpoint suppress
+  // a flag for the whole negative TTL.
   return partitionBatchResponse(fingerprints, rows);
 }
 

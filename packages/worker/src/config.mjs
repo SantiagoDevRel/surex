@@ -20,10 +20,9 @@ export const ARKIV_RPC = process.env.ARKIV_RPC_URL || 'https://braga.hoodi.arkiv
 export const BRAGA_CHAIN_ID = 60138453102;
 
 /**
- * The writer address every consumer read filters on. Recorded here so the worker
- * can assert that the key it just loaded is in fact this wallet — writing the
- * registry from an address nobody reads is a silent no-op, and it would look
- * exactly like a working seed.
+ * The writer address every consumer read filters on, recorded so the worker can
+ * assert the key it loaded is this wallet. Writing from an address nobody reads is
+ * a silent no-op that looks exactly like a working seed.
  */
 export const EXPECTED_ARKIV_WRITER = (
   process.env.SUREX_WRITER_ADDRESS || '0xBD33E1855F68Ce2DF1979377f3bc9fCaCd0015e6'

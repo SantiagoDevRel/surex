@@ -11,9 +11,8 @@
 // WHICH BYTES GET REVIEWED, and why it is not simply "the repo".
 //
 // A submission names a repository at a commit. What a *user* runs is almost never
-// that: it is `npx -y <package>`, which fetches a tarball npm built from some
-// commit the maintainer chose. The two can differ — that gap is the whole reason
-// the `postmark-mcp` incident worked, and it is what Tier exists to describe. So:
+// that: it is `npx -y <package>`, a tarball npm built from some commit the maintainer
+// chose. The two can differ — that gap is what Tier exists to describe. So:
 //
 //   · if the repository publishes to npm, the REVIEW is of the npm tarball (the
 //     bytes that execute) and the commit is recorded as provenance beside it;
@@ -53,34 +52,25 @@ const WORK = flag('--work', join(tmpdir(), 'surex-ingest'));
 // The human log goes to stderr and always has. stdout is the machine channel.
 const log = (...a) => console.error(...a);
 
-// ---------------------------------------------------------------------------
-// progress — what the pipeline is doing, while it is doing it
-// ---------------------------------------------------------------------------
-//
-// A review is MINUTES. Without this, everything between "accepted" and a verdict
-// URL is a spinner, and a screen with nothing true to say invents something —
-// which is the exact class of lie this project exists to make impossible. So the
-// pipeline says where it is, one JSON object per line, on stdout:
+// A review takes MINUTES, so the pipeline says where it is, one JSON object per line,
+// on stdout:
 //
 //   {"surexProgress":1,"stage":"walrus","label":"…","done":6,"total":8,"detail":{…}}
 //
-// stdout now carries TWO kinds of line, and exactly one field keeps them apart:
-// the result line has `ok`, a progress line must NEVER have one. infra/dgx-ingest
-// finds the result by scanning stdout backwards for the last line that HAS `ok`,
-// so a progress line carrying one would be read as the pipeline's verdict and put
-// a verdict URL in front of a maintainer for a review that was still running.
-// `progress()` below cannot emit `ok`; stdout.mjs refuses any progress line that
-// does. Both halves, because one of them alone is a comment.
+// stdout carries TWO kinds of line and exactly one field keeps them apart: the result
+// line has `ok`, A PROGRESS LINE MUST NEVER HAVE ONE. infra/dgx-ingest finds the
+// result by scanning stdout backwards for the last line that HAS `ok`, so a progress
+// line carrying one puts a verdict URL in front of a maintainer for a review that is
+// still running. `progress()` cannot emit `ok`; stdout.mjs refuses any progress line
+// that does. Both halves, because one of them alone is a comment.
 
 /**
  * The canonical order. Shared with the reader — one list, so the two cannot drift.
  *
- * `starting` is RESERVED and this pipeline never emits it: it reads the tool list
- * out of the README (`toolSource: 'readme-only'` below) and does not run the
- * server. `scripts/review-known.mjs` is the pass that installs and starts one.
- * Announcing a stage that did not happen would be a fabricated fact on a progress
- * screen, so the slot stays empty rather than being filled with a plausible
- * sentence.
+ * `starting` is RESERVED and this pipeline never emits it: it reads the tool list out
+ * of the README (`toolSource: 'readme-only'` below) and never runs the server —
+ * `scripts/review-known.mjs` is the pass that does. Announcing a stage that did not
+ * happen would be a fabricated fact on a progress screen.
  */
 export const STAGES = ['resolving', 'licence', 'fetching', 'starting', 'reviewing', 'walrus', 'arkiv', 'done'];
 
@@ -88,21 +78,17 @@ export const STAGES = ['resolving', 'licence', 'fetching', 'starting', 'reviewin
  * @param {(line: string) => void} [write] injected so a test reads the lines
  *   instead of the ingest service.
  *
- * `done` is the stage's position in STAGES, held to never move backwards, and
- * `total` is the length of that list. Two consequences, both deliberate:
+ * `done` is the stage's position in STAGES, clamped to never move backwards, and
+ * `total` is that list's length. Two consequences, both deliberate:
  *
- *   · A SKIPPED stage jumps the number forward. Unreadable source goes straight
- *     from `fetching` to `walrus`, and that jump is the honest reading:
- *     those stages will not happen for this submission.
- *   · The stages are not emitted in list order everywhere. This pipeline
- *     downloads the npm tarball BEFORE the licence gate, because the record for a
- *     licence-refused package names the artifact it would have read. So `fetching`
- *     can arrive before `licence`, and the clamp is what stops the bar going
- *     backwards when it does. Do not reorder the emissions to make the numbers
- *     tidy — that would mean announcing a gate before it ran.
+ *   · A SKIPPED stage jumps the number forward — unreadable source goes straight from
+ *     `fetching` to `walrus`, and the jump is the honest reading.
+ *   · The stages are NOT emitted in list order. The npm tarball is downloaded before
+ *     the licence gate, so `fetching` can arrive before `licence` and the clamp is
+ *     what stops the bar going backwards. Do not reorder the emissions to tidy the
+ *     numbers — that would announce a gate before it ran.
  *
- * `done` is last in STAGES, so the terminal stage always reports `done === total`:
- * whatever route a run took, when it is finished it is finished.
+ * `done` is last in STAGES, so the terminal stage always reports `done === total`.
  */
 export function createProgress(write = (line) => process.stdout.write(line)) {
   let highest = 0;
@@ -110,9 +96,8 @@ export function createProgress(write = (line) => process.stdout.write(line)) {
     const at = STAGES.indexOf(stage);
     if (at === -1) throw new Error(`unknown stage: ${stage}`);
     highest = Math.max(highest, at + 1);
-    // Only facts that are ALREADY KNOWN travel here. An undefined or null value is
-    // dropped rather than published, because `blobId: null` on a screen is not an
-    // absent fact, it is a claim that there is no blob.
+    // Only facts that are ALREADY KNOWN travel here: `blobId: null` on a screen is
+    // not an absent fact, it is a claim that there is no blob.
     const known = Object.fromEntries(
       Object.entries(detail).filter(([, v]) => v !== undefined && v !== null && v !== ''),
     );
@@ -129,39 +114,25 @@ function done(payload, code = 0) {
 }
 const fail = (error, extra = {}) => done({ ok: false, error, ...extra }, 1);
 
-// ---------------------------------------------------------------------------
-// the source
-// ---------------------------------------------------------------------------
-
 const safe = (s) => String(s).replace(/[^a-z0-9._-]+/gi, '_');
 
 /**
  * A directory we can definitely write, for one repo at one commit.
  *
- * The obvious version — `rmSync(dir, { force: true })` then `mkdirSync` — looks
- * safe and is not. `force: true` suppresses "does not exist"; it does NOT
- * suppress EACCES. So a leftover directory this process cannot delete takes the
- * whole run down, and the failure surfaces to a submitter as
- * "could not fetch <their repo>", which reads as a problem with their code.
- *
- * That is not hypothetical: a maintainer's submission died on
- * `EACCES /tmp/surex-ingest/SantiagoDevRel__mcp-medellin-news__b043470733f0`
- * because an operator had run the same pipeline by hand under sudo hours
- * earlier, leaving a root-owned directory at the path the service needed. The
- * deterministic name is what made it collide, and the name is worth keeping —
- * it makes a half-finished checkout obvious to whoever looks.
- *
- * So: try the canonical path, prove it is writable, and on ANY failure fall back
- * to a unique one rather than refusing to work. A stale directory is somebody
- * else's mess; it is not a reason to reject a submission.
+ * `rmSync(dir, { force: true })` then `mkdirSync` is NOT enough: `force` suppresses
+ * "does not exist", not EACCES, so one leftover root-owned directory at the
+ * deterministic path takes the run down and surfaces to the submitter as "could not
+ * fetch <their repo>". Try the canonical path, prove it is writable, and on ANY
+ * failure fall back to a unique one — a stale directory is not a reason to reject a
+ * submission.
  */
 function freshDir(name) {
   const canonical = join(WORK, name);
   try {
     rmSync(canonical, { recursive: true, force: true });
     mkdirSync(canonical, { recursive: true });
-    // `mkdirSync` on an existing directory we cannot write succeeds silently,
-    // so writability is checked rather than assumed.
+    // `mkdirSync` on an existing directory we cannot write succeeds silently, so
+    // writability is checked rather than assumed.
     accessSync(canonical, fsConstants.W_OK);
     return canonical;
   } catch (err) {
@@ -220,10 +191,6 @@ async function fetchNpmTarball(name, meta) {
   return { dir: existsSync(inner) ? inner : dir, integrityCheck: check };
 }
 
-// ---------------------------------------------------------------------------
-// main
-// ---------------------------------------------------------------------------
-
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 if (isMain) await main();
 
@@ -272,13 +239,11 @@ async function main() {
   const canonical = canonicalise(installConfig);
   const fingerprint = fingerprintOf(canonical);
 
-  // The fingerprint is the id the verdict will be published under, so it is said
-  // here rather than at the end — a watcher can open /r/<fp> before the review has
-  // finished and see the entry appear under the name they were already given.
+  // The fingerprint is the id the verdict will be published under, said here rather
+  // than at the end so a watcher can open /r/<fp> before the review finishes.
   //
-  // The TIER is deliberately not on this line. It depends on which artifact is
-  // actually read and whether its digest verifies, and neither is known yet;
-  // announcing one here would mean revising it two stages later.
+  // The TIER is deliberately NOT on this line: it depends on which artifact is read
+  // and whether its digest verifies, so announcing one here means revising it later.
   progress(
     'resolving',
     onNpm
@@ -307,9 +272,8 @@ async function main() {
       });
     } catch (err) {
       log(`  ! npm tarball unusable (${err.message}) — reviewing the repository at the submitted commit instead`);
-      // The fallback is stated, not hidden. A verdict about the repository when the
-      // user installs from npm is a different claim, and the screen says so while
-      // it is happening rather than only in the record afterwards.
+      // The fallback is stated, not hidden: a verdict about the repository when the
+      // user installs from npm is a different claim.
       progress('fetching', 'The npm tarball could not be read — reading the repository at the submitted commit', {
         artifact: reviewedArtifact,
       });
@@ -320,13 +284,11 @@ async function main() {
   }
 
   /**
-   * What this submission actually pinned, now that the artifact is known.
-   *
-   * This used to be `tierOf(canonical)`, computed before the fetch, and it always
-   * returned `C` — "nothing was checked" — on a submission that named a
-   * 40-character commit sha. Something was checked. `submissionPinning` says what,
-   * and hands back the digest that earns the tier, or none where recording one
-   * would put a git sha where the gate expects an npm integrity.
+   * What this submission actually pinned, now that the artifact is known. NOT
+   * `tierOf(canonical)`, which is computed before the fetch and answers `C` —
+   * "nothing was checked" — even for a 40-character commit sha. `submissionPinning`
+   * hands back the digest that earns the tier, or none where recording one would put
+   * a git sha where the gate expects an npm integrity.
    */
   const pinning = submissionPinning({
     onNpm,
@@ -343,27 +305,18 @@ async function main() {
   });
 
   /**
-   * 4. Read the licence. RECORD it — do not refuse on it.
+   * 4. Read the licence. RECORD it — do NOT refuse on it.
    *
-   * The gate used to stop here: an unmatched or absent licence published
-   * `unreviewable / licence` and the model never saw the code. That rule exists
-   * to stop us REDISTRIBUTING source nobody licensed us to redistribute, and it
-   * is the right rule for a path that stores source.
+   * The licence rule exists to stop us REDISTRIBUTING source nobody licensed us to
+   * redistribute, and this path stores no source: `publishOutcome` writes one blob and
+   * it is the REVIEW BODY, our own words about public code. Refusing here would deny
+   * a maintainer a review over a LICENSE file.
    *
-   * This path does not store source. `publishOutcome` writes one blob and it is
-   * the REVIEW BODY — our own words about the code, with file and line citations
-   * to substantiate a finding. The repository is public and reading it is not
-   * what a licence restricts. So the gate was refusing to review on the strength
-   * of a concern this pipeline does not create, and the cost was real: a
-   * maintainer submitting a perfectly good server got told nobody could review
-   * it, for a LICENSE file.
+   * It is still established and published as a fact on the entry (`none` when there
+   * is none), because "reviewed, licence unknown" is information and silence is not.
    *
-   * The licence is still established and still published — as a fact on the
-   * entry, `none` when there is none — because "we reviewed this and its licence
-   * is unknown" is information, and silence is not.
-   *
-   * NOTE the scope: `scripts/review-known.mjs` downloads and extracts npm
-   * tarballs and DOES hold third-party bytes. Its gate stays.
+   * SCOPE: `scripts/review-known.mjs` downloads and extracts npm tarballs and DOES
+   * hold third-party bytes. Its gate stays.
    */
   progress('licence', 'Reading the licence', { artifact: reviewedArtifact });
   const gate = await licenceGate(
@@ -375,17 +328,12 @@ async function main() {
     { fetchRepoFiles: true },
   );
   /**
-   * What we will say the licence IS. Three distinct answers, kept apart because
-   * they mean different things and collapsing them is how a record starts lying:
+   * What we will say the licence IS. Three answers, kept apart because collapsing
+   * them is how a record starts lying:
    *
    *   a recognised SPDX id   → that id
    *   read it, found nothing → `none`
    *   could not read it      → `unknown` (a request failed; not a claim)
-   *
-   * `undetermined` no longer aborts. It used to, on the sound principle that we
-   * must not claim ineligibility off a failed request — but nothing is being
-   * claimed ineligible any more, so the honest move is to record that we could
-   * not tell and carry on.
    */
   const licence = gate.undetermined ? 'unknown' : (gate.spdx ?? 'none');
   progress(
@@ -420,14 +368,10 @@ async function main() {
   };
   const selection = selectForReview(files);
 
-  // Named, not implied. The model and the prompt version are stamped on the
-  // verdict forever, so whoever is watching sees the same two strings while the
-  // reading is happening — and they are read from the same config the reviewer
-  // itself uses, so the screen cannot drift from what actually ran.
-  //
-  // `run` is deliberately absent. reviewServer does two paraphrased readings, and
-  // four when they disagree, but it does not report which one is in flight — and
-  // an invented run number on a progress screen is an invented fact.
+  // The model and prompt version are read from the same config the reviewer uses, so
+  // the screen cannot drift from what actually ran. `run` is deliberately absent:
+  // reviewServer does not report which of its readings is in flight, and an invented
+  // run number on a progress screen is an invented fact.
   progress('reviewing', `${config.modelId} is reading ${selection.kept.length} file(s)`, {
     model: config.modelId,
     promptVersion: PROMPT_VERSION,
@@ -439,12 +383,9 @@ async function main() {
     { config, limits: REVIEW_LIMITS, allowCache: false, writeCache: false },
   );
 
-  // The RAW verdict does not go on this line, and that is not squeamishness. A flag
-  // against a submitted third-party project is HELD a few lines below — published as
-  // `unreviewable / withheld` with no findings, because a maintainer consented to a
-  // review, not to an unaudited model publishing an accusation about them. Leaking
-  // `flagged` through a progress line would publish exactly what that rule withholds,
-  // through a door nobody was watching. What is published is what is said.
+  // The RAW verdict must never go on a progress line. A flag against a submitted
+  // third-party project is HELD below and published as `unreviewable / withheld`;
+  // leaking `flagged` through here publishes exactly what that rule withholds.
   progress('reviewing', `Read ${result.agreementRuns ?? 0} time(s) — merging the readings`, {
     model: result.modelId ?? config.modelId,
     promptVersion: result.promptVersion ?? PROMPT_VERSION,
@@ -463,36 +404,28 @@ async function main() {
   }
 
   /**
-   * A flag against a THIRD PARTY is held. A flag against our own code is not.
+   * A flag against a THIRD PARTY is held; a flag against our own code is not.
    *
-   * AGENTS.md §4 forbids publicly flagging a real, named third-party project on
-   * the strength of an unaudited model verdict, and a maintainer submitting a
-   * repository consented to a review, not to an accusation. That rule stands, and
-   * it is enforced twice: `planPublication` will not PLAN a flag that the write
+   * AGENTS.md §4 forbids publicly flagging a real, named third-party project on an
+   * unaudited model verdict — a maintainer consented to a review, not an accusation —
+   * and it is enforced twice: `planPublication` will not PLAN a flag the write
    * boundary would refuse, and `buildVerdictHead` refuses one regardless.
    *
-   * It has never applied to code we own. `review-and-publish.mjs` publishes real
-   * flags against our own fixtures for exactly this reason: we are the subject, so
-   * there is nobody to protect from us.
+   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags may publish, set by
+   * the OPERATOR in the environment of the box holding the wallet — a submitter
+   * chooses a repository, never whose repositories count as ours.
    *
-   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags publish. It is set
-   * by the OPERATOR, in the environment of the box that holds the wallet — a
-   * submitter chooses a repository, never whose repositories count as ours. And
-   * the owner is not a claim in the submission: the bytes were just fetched from
-   * `github.com/<owner>/…`, which nobody else can publish under.
+   * It is ONE of two locks and never both. The other is the fingerprint allowlist the
+   * write boundary reads, curated by a human off the request path
+   * (`scripts/allow-self-authored.mjs`), and this pipeline must NOT add to it: `owner`
+   * is not proof of authorship, because GitHub serves every commit in a repository's
+   * fork network from the upstream namespace, so anyone who can push to a fork of one
+   * of our public repos picks the fingerprint that would be flagged. See the note in
+   * packages/worker/src/entities.mjs.
    *
-   * It is ONE of two locks and never both. The other is the fingerprint allowlist
-   * the write boundary reads, which a human curates off the request path
-   * (`scripts/allow-self-authored.mjs`). The pipeline deliberately does NOT add to
-   * it: `owner` is not proof of authorship, because GitHub serves every commit in
-   * a repository's fork network from the upstream namespace — anyone who can push
-   * to a fork of one of our public repos gets a sha that resolves under our owner,
-   * and with it the choice of which fingerprint would be flagged. See the long
-   * note in packages/worker/src/entities.mjs.
-   *
-   * So a self-owned flag publishes only when an operator has already vouched for
-   * that fingerprint. Until then it is WITHHELD — the safe direction, and an
-   * honest state rather than a crash.
+   * So a self-owned flag publishes only once an operator has vouched for that
+   * fingerprint. Until then it is WITHHELD — the safe direction, and an honest state
+   * rather than a crash.
    */
   const selfOwned = String(process.env.SUREX_SELF_OWNED ?? 'SantiagoDevRel')
     .split(',')
@@ -501,10 +434,9 @@ async function main() {
   const ours = selfOwned.includes(String(owner).toLowerCase());
 
   if (verdict === 'flagged' && ours && !isSelfAuthored(fingerprint)) {
-    // Said out loud, because the difference between "we protected a third party"
-    // and "an operator has not vouched for our own server yet" is invisible in the
-    // published entry — both are `unreviewable / withheld` — and only one of them
-    // is something to act on.
+    // Said out loud: "we protected a third party" and "an operator has not vouched for
+    // our own server yet" both publish as `unreviewable / withheld`, and only one of
+    // them is something to act on.
     log(`  ! ${fingerprint} is under a self-owned repo but is not on the self-authored`);
     log('    allowlist, so the flag will be withheld. To publish it, vouch for the');
     log(`    fingerprint deliberately: node scripts/allow-self-authored.mjs ${fingerprint}`);
@@ -519,18 +451,13 @@ async function main() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// writing it down
-// ---------------------------------------------------------------------------
 
 async function publishOutcome(o) {
   /**
-   * One decision, taken once, in a module with a test that walks every verdict
-   * and asserts the write boundary accepts the result. Everything below — the
-   * review record, the blob body, the head — is rendered FROM this plan rather
-   * than each re-deciding from `o.verdict` on its own. That divergence is what
-   * killed two live submissions: the state was computed in one place and the head
-   * was written from a second expression that had drifted away from it.
+   * One decision, taken once, in a module whose test walks every verdict and asserts
+   * the write boundary accepts the result. Everything below — the review record, the
+   * blob body, the head — is rendered FROM this plan and must never re-decide from
+   * `o.verdict` on its own; that divergence has killed live submissions.
    */
   const plan = planPublication({
     verdict: o.verdict,
@@ -561,30 +488,15 @@ async function publishOutcome(o) {
     findingCount: plan.findings.length,
     verdictUrl: `${WEB}/r/${o.fingerprint}`,
     /**
-     * The maintainer's half of a withheld result, and the reason withholding is
-     * not the same as hiding. It never reaches the chain, the blob or the ENS
-     * record — it travels back down the submission channel to the person who
-     * submitted the repository and asked to be told about their own code.
-     */
-    /**
-     * That a result was held, and NOT what it was.
+     * That a result was held, and NEVER what it was. The findings must not ride here:
+     * a submission is authenticated by World ID, which proves a PERSON and not a
+     * maintainer, and `GET /v1/submissions/:id` is public and unauthenticated — the
+     * job id is a bearer token for whatever it returns. Together those mean anyone
+     * with a World ID could submit anyone's repository and read back an unaudited,
+     * file-and-line accusation about it through a side door.
      *
-     * The findings used to ride here, on the reasoning that this channel goes back
-     * to the maintainer who submitted the repository. Two things are wrong with
-     * that. The submission is authenticated by World ID, which proves a PERSON and
-     * not a maintainer — `POST /v1/submissions` says so itself, the repo-ownership
-     * proof is listed as not built — so the submitter may be anyone. And the
-     * channel is `GET /v1/submissions/:id`, documented as public and
-     * unauthenticated: the job id is a bearer token for whatever it returns.
-     *
-     * Put together, shipping the findings here means anyone with a World ID can
-     * submit anyone's repository and read back an unaudited, file-and-line
-     * accusation about it. That is the thing the head withholds, handed over
-     * through a side door.
-     *
-     * So the status channel reports the SHAPE of the outcome — a review ran, its
-     * result is held, here is why — and the DGX keeps the detail in its own logs
-     * for an operator who can already read them.
+     * So this channel reports the SHAPE of the outcome — a review ran, its result is
+     * held, here is why — and the detail stays in the DGX's own logs.
      */
     withheld: plan.withheld
       ? {
@@ -622,14 +534,11 @@ async function publishOutcome(o) {
     await import('../packages/worker/index.mjs');
 
   /**
-   * The verdict as PUBLISHED. Not the raw one.
-   *
-   * This was `o.result?.verdict`, and the consequence was that a third party whose
-   * review came back flagged got a head saying `unreviewable / withheld` and, two
-   * entities away, a review record annotated `verdict=flagged severity=3` — plus a
-   * certified blob saying the same. The head withheld the accusation and the
-   * record published it. Anyone querying `entityType=review` read straight past
-   * the rule. `withheld` has to mean withheld on every entity the run writes.
+   * The verdict as PUBLISHED, never the raw one. `o.result?.verdict` here gives a
+   * third party a head saying `unreviewable / withheld` and, two entities away, a
+   * review record annotated `verdict=flagged severity=3` — so anyone querying
+   * `entityType=review` reads straight past the rule. `withheld` has to mean withheld
+   * on every entity the run writes.
    */
   const publishedVerdict = plan.state === 'clean' ? 'clean' : plan.state === 'flagged' ? 'flagged' : 'unreviewable';
 
@@ -643,20 +552,15 @@ async function publishOutcome(o) {
     publishedState: plan.state,
     reason: plan.reason ?? null,
     severity: plan.severity,
-    // A withheld result publishes NO findings and NO severity. The state says a
-    // review ran and its result is held; shipping the findings inside it — or the
-    // number that summarises them — would be publishing the accusation while
-    // claiming not to.
+    // A withheld result publishes NO findings and NO severity — shipping either would
+    // be publishing the accusation while claiming not to.
     findings: plan.findings,
-    // Said plainly, because a reader of this blob deserves to know that the
-    // absence above is a decision and not an empty review.
+    // So a reader knows the absence above is a decision, not an empty review.
     withheld: plan.withheld
       ? {
           because: plan.withheld.because,
-          // Says only what is true. The previous wording claimed "the maintainer who
-          // submitted it was given the result in full" — a delivery this system
-          // cannot perform (there is no repo-ownership proof, so it cannot even
-          // establish who the maintainer is) published as a fact on chain.
+          // Only what is true: this system has no repo-ownership proof, so it cannot
+          // claim the maintainer was given the result in full.
           statement:
             'A review ran to completion. Its result is not published: SureX publishes findings only about ' +
             'servers it wrote itself, and this repository is not ours.',
@@ -664,9 +568,9 @@ async function publishOutcome(o) {
       : null,
     concern: plan.concern ?? null,
     assessment: plan.assessment ?? null,
-    // From the PLAN, not from the raw result. It is nominally the author's own
-    // claim, and in practice the model writes the conclusion into it — so on a
-    // withheld run it was carrying the accusation into the public blob.
+    // From the PLAN, never the raw result: nominally the author's own claim, but in
+    // practice the model writes its conclusion into it, so on a withheld run the raw
+    // one carries the accusation into the public blob.
     statedIntentSummary: plan.statedIntentSummary ?? null,
     capabilities: o.result?.capabilities ?? null,
     sourceCoverage: o.result?.run?.sourceCoverage ?? null,
@@ -674,9 +578,8 @@ async function publishOutcome(o) {
     // What made this entry its tier, so the tier is never an assertion on its own.
     tier: o.tier,
     tierBasis: o.pinning?.basis ?? null,
-    // An SPDX id, or `none` when we read and found nothing, or `unknown` when a
-    // request failed. Published either way: "reviewed, licence none" is a fact a
-    // reader can act on, and it used to be the reason there was no record at all.
+    // An SPDX id, `none` when we read and found nothing, or `unknown` when a request
+    // failed. Published either way — "reviewed, licence none" is a fact.
     licence: o.licence ?? null,
     modelId: o.result?.modelId ?? null,
     promptVersion: o.result?.promptVersion ?? null,
@@ -692,27 +595,17 @@ async function publishOutcome(o) {
 
   const bytes = recordBytes(body);
 
-  // The content hash is OURS — computed from the bytes we are about to send, before
-  // anyone else touches them. It is the one field a publisher cannot influence, and
-  // it is what binds this record to its Arkiv entity, so it is said before the write
-  // rather than reported back afterwards.
+  // The content hash is OURS, computed from the bytes before anyone else touches
+  // them: the one field a publisher cannot influence, and what binds this record to
+  // its Arkiv entity. Said before the write, not reported back after it.
   const contentSha256 = sha256Hex(bytes);
   progress('walrus', `Writing the review blob (${bytes.length} B)`, { contentSha256 });
 
   /**
-   * Writing a blob is a distributed write, and it can fail without anything being
-   * wrong with the review.
-   *
-   * Measured on the first real submission: the review completed, reached a
-   * verdict, and then `NotEnoughBlobConfirmationsError: Too many failures while
-   * writing blob … to nodes` — the storage nodes did not confirm. That is a
-   * property of the network on the day, not of the code being reviewed, and it
-   * arrived as an uncaught exception with a stack trace, which tells whoever is
-   * watching nothing about which half failed.
-   *
-   * So: retry, and if it still will not take, fail with a sentence that says the
-   * review succeeded and the STORAGE did not. Those are different problems and
-   * only one of them is worth re-reviewing for.
+   * A blob write is a distributed write and fails without anything being wrong with
+   * the review — `NotEnoughBlobConfirmationsError` is a property of the network on the
+   * day. Retry, and if it still will not take, fail with a sentence saying the review
+   * succeeded and the STORAGE did not; only one of those is worth re-reviewing for.
    */
   let pointer = null;
   let lastError = null;
@@ -723,8 +616,8 @@ async function publishOutcome(o) {
     } catch (err) {
       lastError = err;
       log(`  walrus attempt ${attempt}/3 failed: ${err?.name ?? 'error'}`);
-      // A retry is the honest reason a submission sits on this stage for half a
-      // minute. Silence here reads as a hang, and a hang is what people refresh.
+      // A retry is the honest reason a submission sits here for half a minute;
+      // silence reads as a hang, and a hang is what people refresh.
       if (attempt < 3) {
         progress('walrus', `The storage nodes did not confirm — retrying (${attempt + 1} of 3)`, {
           contentSha256,
@@ -744,9 +637,8 @@ async function publishOutcome(o) {
   const evidence = { ...pointer, contentSha256 };
   log(`  walrus ${pointer.blobId}`);
   // `registeredBy` travels with the blob id because custody is part of the fact:
-  // `wallet` means our key registered it, `publisher` means a public publisher's
-  // did and the Sui object is theirs. Stated on both paths so it is read rather
-  // than inferred from which fields happen to be present.
+  // `wallet` means our key registered it, `publisher` means a public publisher's did
+  // and the Sui object is theirs.
   progress('walrus', `Blob ${pointer.blobId} certified`, {
     blobId: pointer.blobId,
     contentSha256,
@@ -767,25 +659,21 @@ async function publishOutcome(o) {
     buildRegistryEntry({ fingerprint: o.fingerprint, name: o.name, tier: o.tier, blob: evidence }),
   ]);
   const reviewKey = created[0].key;
-  // entityKey and txHash always describe the SAME write. Pairing the review
-  // record's key with the head's transaction would send a reader to an explorer
-  // page that does not contain the entity they were shown.
+  // entityKey and txHash must always describe the SAME write: pairing this key with
+  // the head's transaction sends a reader to an explorer page without their entity.
   progress('arkiv', 'Review record indexed', { entityKey: reviewKey, txHash: txHashes[0] });
 
   /**
    * The head, from the plan — and never a reason for the run to die.
    *
-   * `latestReviewKey` now travels on EVERY state, not only on `clean`. It was
-   * conditional, which left a withheld or unreviewable entry pointing at nothing
-   * while its review record sat on chain two entities away: the one link that
-   * proves a review actually ran was the link being withheld. The guard's rule is
-   * that `clean` REQUIRES a review key, not that the others may not have one.
+   * `latestReviewKey` travels on EVERY state, not only `clean`: the guard's rule is
+   * that `clean` REQUIRES a review key, not that the others may not have one, and a
+   * conditional one leaves a withheld entry pointing at nothing while the record
+   * proving a review ran sits on chain two entities away.
    *
-   * Provenance is unconditional for the same reason. `reviewedCommit`, `modelId`
-   * and `promptVersion` are what let a maintainer reproduce the reading, and the
-   * live `@surex/mal-*` heads written without them render "commit —" in a block
-   * message. The guard demands them for an accusing state; this pipeline supplies
-   * them for all of them.
+   * Provenance is unconditional for the same reason: `reviewedCommit`, `modelId` and
+   * `promptVersion` are what let a maintainer reproduce the reading, and a head
+   * written without them renders "commit —" in its block message.
    */
   const headFields = (p) => ({
     fingerprint: o.fingerprint,
@@ -804,9 +692,9 @@ async function publishOutcome(o) {
     reviewedAt: new Date().toISOString(),
     capabilities: o.result?.capabilities,
     topFinding: p.topFinding,
-    // rv-7: what KIND of gap this is, and one sentence about it. The head is the
-    // only entity the gate and `/r` read without a second fetch, so a verdict whose
-    // explanation lives only in the Walrus blob is a verdict nobody reads.
+    // What KIND of gap this is, and one sentence about it. The head is the only entity
+    // the gate and `/r` read without a second fetch, so a verdict whose explanation
+    // lives only in the Walrus blob is a verdict nobody reads.
     concern: p.concern,
     assessment: p.assessment,
     findingCount: p.findingCount,
@@ -820,23 +708,19 @@ async function publishOutcome(o) {
     head = await arkiv.createMany([buildVerdictHead(headFields(plan))]);
   } catch (err) {
     /**
-     * The boundary refused, or the write did not land. Either way the review
-     * record and the certified blob are ALREADY on chain, so exiting here is what
-     * produced the failure this whole change exists to remove: an entry with no
-     * head, invisible to the listing query, and a maintainer watching a stage
-     * counter stop at 7 of 8.
-     *
-     * So fall back to the one shape that is writable by construction — an honest
-     * `unreviewable / withheld` — and say loudly why. Publishing less than we
-     * know is a decision the registry is allowed to make. Publishing nothing at
-     * all is just a lost submission.
+     * The boundary refused, or the write did not land. Either way the review record
+     * and the certified blob are ALREADY on chain, so exiting here leaves an entry
+     * with no head, invisible to the listing query. Fall back to the one shape that
+     * is writable by construction — an honest `unreviewable / withheld` — and say
+     * loudly why: publishing less than we know is allowed, publishing nothing is a
+     * lost submission.
      */
     log(`  ! the planned head was refused (${err?.message ?? err}) — falling back to a withheld entry`);
     published = fallbackPlan(String(err?.message ?? err).slice(0, 300));
     head = await arkiv.createMany([buildVerdictHead(headFields(published))]);
   }
-  // The head is the entity the gate reads before a tool call, so it is the last
-  // thing said before the verdict URL: from here the entry answers.
+  // The head is what the gate reads before a tool call, so it is the last thing said
+  // before the verdict URL: from here the entry answers.
   progress('arkiv', 'Verdict head indexed', { entityKey: head.created[0]?.key, txHash: head.txHashes[0] });
 
   progress('done', `Published as ${published.state}${published.reason ? ` (${published.reason})` : ''}`, {

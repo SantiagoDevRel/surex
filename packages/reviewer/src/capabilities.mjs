@@ -1,20 +1,11 @@
-// The deterministic capability scan. This is NOT the model.
-//
-// Tech-spec §6: "The capability surface is not model output. […] it is the one
-// part of a verdict that cannot be talked out of its conclusion by text in the
-// file it's reading. Keep it deterministic, keep it separate, and show it on
-// `clean` verdicts too."
-//
-// Everything in this file is import matching and call-site matching over source
-// text. No network, no model, no configuration that the reviewed code can
-// influence. Same bytes in, same answer out, every time — which is what makes it
-// the part of a verdict a judge can re-run themselves.
+// The deterministic capability scan. NOT the model: import matching and call-site
+// matching over source text, with no network and no configuration the reviewed code
+// can influence, so the same bytes always give the same answer and a judge can
+// re-run it. Shown on `clean` verdicts too.
 //
 // Five categories, fixed by the contract: network, filesystem, exec, env,
 // credentials. Each answers `{present, evidence}` where every evidence string is
-// a real `path:line label` taken from the input we were handed.
-//
-// What it cannot see is in README.md, and that list is part of the product.
+// a real `path:line label`. What it cannot see is in README.md.
 
 export const CATEGORIES = Object.freeze(['network', 'filesystem', 'exec', 'env', 'credentials']);
 
@@ -24,10 +15,7 @@ export const MAX_EVIDENCE_PER_CATEGORY = 12;
 /** A line longer than this is minified or a lockfile; matching it is noise. */
 const MAX_LINE_LENGTH = 1000;
 
-// ---------------------------------------------------------------------------
-// module specifiers → capability
-// ---------------------------------------------------------------------------
-
+/** Module specifier → capability. */
 const MODULES = Object.freeze({
   network: [
     'http', 'https', 'http2', 'net', 'tls', 'dgram',
@@ -60,50 +48,27 @@ const MODULE_LOOKUP = (() => {
   return map;
 })();
 
-// ---------------------------------------------------------------------------
-// call sites
-// ---------------------------------------------------------------------------
-
 /**
- * Each rule is `{re, label}`. Labels are what lands in the evidence string, so
- * they read as the thing that was found: `src/api.ts:12 fetch()`.
- *
- * `js` rules run on .js/.mjs/.cjs/.ts/.tsx/.jsx; `py` rules on .py; `any` rules
- * on everything, because a credential path is a credential path in any language.
+ * Each rule is `{re, label}`; the label lands in the evidence string, so it reads
+ * as the thing found: `src/api.ts:12 fetch()`. `js` rules run on
+ * .js/.mjs/.cjs/.ts/.tsx/.jsx, `py` rules on .py, `any` rules on everything.
  */
 const CALL_RULES = Object.freeze({
   js: [
-    // network
     { category: 'network', re: /(?<![.\w$])fetch\s*\(/, label: 'fetch()' },
     /**
-     * A REFERENCE to fetch, not a call through it.
-     *
-     * The call-site pattern above needs the literal token `fetch(`, so anything
-     * that takes the function and calls it under another name is invisible to it:
-     *
-     *   const send = globalThis.fetch;   await send(url, { ... });
-     *   function report(e, { fetchImpl = globalThis.fetch } = {}) { fetchImpl(...) }
-     *
-     * Found by our own `ambiguous-telemetry` fixture, whose entire subject is an
-     * undeclared outbound POST and which the scanner reported as `network:
-     * absent`. That is the one thing the deterministic lane exists to make
-     * impossible — the model can be argued with, this cannot — so an alias must
-     * not be a way around it.
-     *
-     * Taking a reference to fetch IS the capability, whether or not the call is
-     * visible, so the reference is the evidence. This will also match a polyfill
-     * guard like `if (!globalThis.fetch)`, and that is the right trade: the
-     * capability surface is shown to a developer, never used to block, and a
-     * category present with a real line beats a category silently absent.
+     * A REFERENCE to fetch, not a call through it. The pattern above needs the
+     * literal token `fetch(`, so `const send = globalThis.fetch` is invisible to
+     * it — and taking the reference IS the capability. Deliberately also matches a
+     * polyfill guard like `if (!globalThis.fetch)`: this surface is shown, never
+     * used to block, so over-reporting beats a category silently absent.
      */
     { category: 'network', re: /(?:globalThis|global|window|self)\s*\.\s*fetch\b(?!\s*\()/, label: 'fetch reference' },
     /**
-     * The same alias, destructured: `const { fetch: send } = globalThis`.
-     *
-     * The right-hand side is pinned to a global so this does not fire on every
-     * object with a `fetch` method — `const { fetch } = myHttpClient` is somebody's
-     * API, not evidence of the platform primitive. Pulling `fetch` specifically
-     * off `globalThis` is.
+     * The same alias, destructured: `const { fetch: send } = globalThis`. The
+     * right-hand side is pinned to a global so this does not fire on every object
+     * with a `fetch` method — `const { fetch } = myHttpClient` is somebody's API,
+     * not evidence of the platform primitive.
      */
     { category: 'network', re: /\{[^}]*\bfetch\b[^}]*\}\s*=\s*(?:globalThis|global|window|self)\b/, label: 'fetch reference' },
     { category: 'network', re: /new\s+WebSocket\s*\(/, label: 'new WebSocket()' },
@@ -132,7 +97,6 @@ const CALL_RULES = Object.freeze({
     { category: 'exec', re: /\bvm\.run\w*\s*\(/, label: null },
     { category: 'exec', re: /\bexeca\s*\(|\bexeca\.\w+\s*\(/, label: 'execa()' },
 
-    // env
     { category: 'env', re: /\bprocess\.env\b/, label: 'process.env' },
     { category: 'env', re: /\bimport\.meta\.env\b/, label: 'import.meta.env' },
     { category: 'env', re: /\bDeno\.env\b/, label: 'Deno.env' },
@@ -160,8 +124,7 @@ const CALL_RULES = Object.freeze({
   ],
 
   any: [
-    // Credential material. A path or a secret-shaped env name in the source is
-    // the evidence — this scan reports reach, not intent.
+    // A path or secret-shaped name in the source is the evidence: reach, not intent.
     {
       category: 'credentials',
       re: /(?:\.ssh[/\\]|\bid_rsa\b|\bid_ed25519\b|\bid_ecdsa\b|\bid_dsa\b|\bauthorized_keys\b|\bknown_hosts\b)/,
@@ -192,19 +155,14 @@ function languageOf(path) {
   return 'other';
 }
 
-// ---------------------------------------------------------------------------
-// comment removal, line numbers preserved
-// ---------------------------------------------------------------------------
-
 /**
  * Blank out comments while keeping every newline, so a match's line number is
  * still the line number in the file the reader will open.
  *
  * A capability mentioned only in a comment is not a capability of the code, so
- * comments are excluded here on purpose. They are *not* excluded from the
- * injection scan in `prompt.mjs` — a comment is where planted instructions live.
- * String literals are kept: a tool description is a string, and a credential
- * path in a string is exactly what we are looking for.
+ * comments are excluded here — but NOT from the injection scan in `prompt.mjs`,
+ * where a comment is exactly where planted instructions live. String literals are
+ * kept: a credential path in a string is what we are looking for.
  */
 export function stripComments(text, language) {
   if (language === 'py') {
@@ -264,10 +222,6 @@ export function stripComments(text, language) {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// imports
-// ---------------------------------------------------------------------------
-
 function importSpecifiers(line, language) {
   const specs = [];
   if (language === 'py') {
@@ -289,10 +243,6 @@ function importSpecifiers(line, language) {
   return specs;
 }
 
-// ---------------------------------------------------------------------------
-// the scan
-// ---------------------------------------------------------------------------
-
 /**
  * @typedef {Object} Site
  * @property {string} category
@@ -302,8 +252,7 @@ function importSpecifiers(line, language) {
  */
 
 /**
- * Scan one file. Exported so a single file can be checked in isolation, and so
- * the test suite can assert an exact `path:line`.
+ * Scan one file.
  *
  * @returns {Site[]}
  */
@@ -329,8 +278,8 @@ export function scanFile(path, text) {
     for (const rule of rules) {
       const m = line.match(rule.re);
       if (!m) continue;
-      // `label: null` means "use what was matched", so `requests.get(` reads as
-      // `requests.get()` rather than as the bare capture group `get()`.
+      // `label: null` means "use what was matched": `requests.get(` reads as
+      // `requests.get()`, not as the bare capture group `get()`.
       const label = rule.label ?? `${m[0].replace(/\s*\($/, '').trim()}()`;
       push(sites, seen, { category: rule.category, path, line: lineNo, label });
     }
@@ -375,8 +324,7 @@ export function scanFiles(files) {
     capabilities[category] = {
       present: matches.length > 0,
       evidence: matches.slice(0, MAX_EVIDENCE_PER_CATEGORY).map(formatEvidence),
-      // Reported because truncating evidence silently would understate the
-      // surface. `evidence.length < evidenceTotal` means there is more.
+      // `evidence.length < evidenceTotal` means the list was truncated.
       evidenceTotal: matches.length,
     };
   }

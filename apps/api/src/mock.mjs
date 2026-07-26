@@ -1,15 +1,12 @@
 // Mock mode. SUREX_MOCK=1 → every route answers from fixtures with NO Arkiv
-// connection at all, so the gate, the web app and the reviewer can each be built
-// and demoed standalone. This is the thing that stops four lanes queueing behind
-// one chain.
+// connection at all.
 //
 // THE ONE RULE: every response carries `illustrative: true`, and that flag is
-// never stripped anywhere. Fixture data rendered as real is exactly the failure
-// this whole product objects to (AGENTS.md §4).
+// never stripped anywhere — fixture data rendered as real is the failure this
+// product objects to (AGENTS.md §4).
 //
 // Fixtures are imported statically, not globbed off disk: a static import is
-// traced by Vercel's bundler, and a readdir in a serverless function is how you
-// discover at demo time that the files were not deployed.
+// traced by Vercel's bundler, a readdir in a serverless function finds nothing.
 
 import { unknownHead, isFingerprint } from '@surex/core';
 import { withLinks } from './links.mjs';
@@ -31,7 +28,7 @@ export const FIXTURES = Object.freeze([
   unknownMiss,
 ]);
 
-/** The fingerprint that is deliberately absent. The gate lane's miss-path input. */
+/** The fingerprint that is deliberately absent — the gate lane's miss-path input. */
 export const MISS_FINGERPRINT = unknownMiss.fingerprint;
 
 /** Stamp the flag. Applied on the way out of every mock read, without exception. */

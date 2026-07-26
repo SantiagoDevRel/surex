@@ -5,9 +5,8 @@ import {
   scanFile, scanFiles, scanCapabilities, formatEvidence, stripComments, CATEGORIES,
 } from '../src/capabilities.mjs';
 
-// A sample with a known line for every category, so an assertion can name the
-// exact `path:line` a reader would open. Line numbers are load-bearing here:
-// a finding with a wrong line is worse than no finding.
+// A sample with a known line for every category, so an assertion can name the exact
+// `path:line` a reader would open — a finding with a wrong line is worse than none.
 const SAMPLE = `import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
@@ -52,8 +51,7 @@ test('every evidence line points at a line that exists and contains the thing', 
   }
 });
 
-// The negative case. A file that only computes must report every category absent
-// — a scan that finds something everywhere is a scan nobody can act on.
+// The negative case: a scan that finds something everywhere is one nobody acts on.
 const INERT = `export function add(a, b) {
   return a + b;
 }
@@ -78,8 +76,7 @@ test('an inert file reports every capability absent, with no evidence', () => {
 });
 
 test('RE.exec() is not process execution', () => {
-  // `exec` as a property access is a regex, not a subprocess. Getting this wrong
-  // would mark most of npm as spawning processes.
+  // Getting this wrong marks most of npm as spawning processes.
   const sites = scanFile('src/util.ts', 'const m = RE.exec(s);\nconst n = str.replace(/a/g, "b");\n');
   assert.deepEqual(sites.filter((s) => s.category === 'exec'), []);
 });
@@ -146,17 +143,12 @@ test('scanFiles records what it skipped instead of pretending it scanned it', ()
   assert.deepEqual(meta.filesSkipped.map((s) => s.path).sort(), ['bin/blob', 'src/c.ts']);
 });
 
-// ---------------------------------------------------------------------------
-// aliased fetch — the deterministic lane must not be walkable around
-// ---------------------------------------------------------------------------
-
 test('a fetch held under another name is still network', () => {
-  // Found by our own `ambiguous-telemetry` fixture, whose entire subject is an
-  // undeclared outbound POST and which this scanner reported as `network:
-  // absent`. The call-site rule needs the literal token `fetch(`, so anything
-  // that takes the function and calls it under another name was invisible — and
-  // this is the lane that exists BECAUSE the model can be argued with and a
-  // regex cannot. An alias must not be a way around it.
+  // The call-site rule needs the literal token `fetch(`, so a function taken and
+  // called under another name is invisible to it. This is the lane that exists
+  // BECAUSE the model can be argued with and a regex cannot — an alias must not be a
+  // way around it. Caught by the `ambiguous-telemetry` fixture: an undeclared
+  // outbound POST that the scanner reported as `network: absent`.
   const evasions = {
     'const held':      'const send = globalThis.fetch;\nawait send(url, {});',
     'param default':   'export async function report(e, { f = globalThis.fetch } = {}) { await f(url); }',
@@ -172,9 +164,8 @@ test('a fetch held under another name is still network', () => {
 });
 
 test('the alias rule does not fire on an unrelated .fetch method', () => {
-  // `db.fetch(q)` and `cache.fetch(k)` are ordinary method names and have nothing
-  // to do with the network. A capability surface that cries network on every ORM
-  // is a surface developers learn to ignore.
+  // `db.fetch(q)` and `cache.fetch(k)` are ordinary method names. A capability
+  // surface that cries network on every ORM is one developers learn to ignore.
   for (const src of [
     'await db.fetch(query);',
     'await cache.fetch(key);',
@@ -199,8 +190,8 @@ test('a plain fetch() call is still reported as a call, not as a reference', () 
 
 test('destructuring fetch off a NON-global object is not network', () => {
   // `const { fetch } = myHttpClient` is somebody's API surface, not the platform
-  // primitive. Pinning the right-hand side to a global is what keeps the alias
-  // rule from firing on every wrapper in the ecosystem.
+  // primitive. Pinning the right-hand side to a global keeps the alias rule from
+  // firing on every wrapper in the ecosystem.
   for (const src of [
     'const { fetch } = myHttpClient;',
     'const { fetch: go } = deps;',

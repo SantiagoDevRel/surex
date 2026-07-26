@@ -1,27 +1,20 @@
 #!/usr/bin/env node
 // The writer. A bearer-gated queue that runs the SureX ingest pipeline on the DGX.
-//
-// apps/api on Vercel deliberately holds no wallet — packages/worker/src/config.mjs
-// says it plainly: the read side cannot write, and that split is the only reason a
-// compromised API cannot rewrite the registry. So the process that signs has to live
-// somewhere else, and it lives here, on the same home box that already runs the
-// reviewer behind a Cloudflare tunnel.
+// apps/api on Vercel holds no wallet — the read side cannot write, and that split is
+// the only reason a compromised API cannot rewrite the registry — so the process that
+// signs lives here instead.
 //
 //   listen   127.0.0.1:11600        (the tunnel is the only thing that talks to it)
 //   runs     node scripts/ingest-submission.mjs --repo … --commit … [--release …] --json
 //   auth     Authorization: Bearer <SUREX_INGEST_TOKEN>, compared timing-safely
 //
-// Three properties this service exists to guarantee, and each one is a failure it is
-// built to make impossible:
+// Three properties it exists to guarantee:
 //
-//   1. The request returns in milliseconds. A review is MINUTES. An HTTP handler that
-//      waits for one is a handler that times out at every hop between here and Vercel,
-//      and a caller that retries a pipeline already halfway through signing.
-//   2. One job at a time, FIFO. The box has one GPU and one wallet; two concurrent
-//      reviews fight for the model and two concurrent pipelines sign two transaction
-//      sets at once.
-//   3. A job survives `systemctl restart`. A job lost to a restart is a submission the
-//      maintainer was told was accepted and that nobody will ever run.
+//   1. The request returns in milliseconds. A review is MINUTES, and a handler that
+//      waits for one times out at every hop and gets retried mid-signing.
+//   2. One job at a time, FIFO. One GPU and one wallet: two concurrent pipelines
+//      sign two transaction sets at once.
+//   3. A job survives `systemctl restart`.
 //
 // Node stdlib only, same as infra/dgx-reviewer/proxy.mjs.
 
@@ -31,9 +24,8 @@ import { timingSafeEqual, createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-// Reading the child's stdout is two pure functions and one invariant — the result
-// line carries `ok`, a progress line never does. They live in their own file so a
-// test can hold both halves to that rule; this one starts a server on import.
+// One invariant, held in its own file so a test can reach it without starting this
+// server: the result line carries `ok`, a progress line never does.
 import { drainLines, parseProgressLine, resultFrom } from './stdout.mjs';
 
 // ── configuration ────────────────────────────────────────────────────────────
@@ -45,15 +37,14 @@ const TOKEN = process.env.SUREX_INGEST_TOKEN ?? '';
 const REPO_DIR = process.env.SUREX_INGEST_REPO_DIR || '/home/santiagodevrel/surex';
 
 /**
- * The command, WITHOUT the per-job flags — those are appended and never interpolated
- * into a string, because there is no shell anywhere in this file.
+ * The command, WITHOUT the per-job flags — those are appended as argv and never
+ * interpolated into a string; there is no shell anywhere in this file. Two forms:
  *
- * Two accepted forms:
  *   `node scripts/ingest-submission.mjs`          whitespace-separated
  *   `["node","-e","console.log('…')"]`            JSON argv, for anything with spaces
  *
- * It is configurable so the service can be exercised end to end against a stub that
- * does not touch the GPU or the wallet — see the README's verification section.
+ * Configurable so the service can be exercised against a stub that touches neither
+ * the GPU nor the wallet.
  */
 const RAW_CMD = process.env.SUREX_INGEST_CMD || 'node scripts/ingest-submission.mjs';
 
@@ -104,8 +95,8 @@ try {
   process.exit(1);
 }
 
-// A job that cannot be persisted is precisely the failure this service exists to
-// prevent, so an unwritable state directory is a refusal to start, not a warning.
+// A job that cannot be persisted is the failure this service exists to prevent, so
+// an unwritable state directory refuses to start rather than warning.
 try {
   mkdirSync(dirname(STATE_FILE), { recursive: true });
 } catch (err) {
@@ -128,10 +119,10 @@ function authorised(req) {
 
 // ── validation ───────────────────────────────────────────────────────────────
 //
-// Every pattern starts with an alphanumeric. That is not cosmetic: it is what stops
-// a value that begins with `-` from arriving at the child as a FLAG, and what makes
-// `..` unrepresentable in either half of a repo name. There is no shell in this file,
-// so argument injection is the whole of the attack surface and this closes it.
+// Every pattern starts with an alphanumeric: that is what stops a value beginning
+// with `-` from reaching the child as a FLAG, and makes `..` unrepresentable in
+// either half of a repo name. With no shell in this file, argument injection is the
+// whole of the attack surface.
 
 const REPO_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/i;
@@ -167,10 +158,9 @@ function validate(body) {
 // ── redaction ────────────────────────────────────────────────────────────────
 
 /**
- * The stderr tail is stored and returned, so it is scrubbed of anything shaped like a
- * key first. A bare 64-hex string goes too: a raw private key looks exactly like a
- * sha256, and between losing a hash from a crash dump and leaking a wallet there is
- * no contest. The pipeline's own result JSON is NOT passed through here — its
+ * The stderr tail is stored and returned, so anything shaped like a key is scrubbed
+ * first. A bare 64-hex string goes too: a raw private key looks exactly like a
+ * sha256. The pipeline's own result JSON is NOT passed through here — its
  * fingerprint and blob id are the answer, not a leak.
  */
 function scrub(text) {
@@ -210,8 +200,8 @@ function persist() {
   }
   const payload = JSON.stringify({ version: 1, savedAt: now(), jobs: keep });
   try {
-    // tmp + rename, so a crash mid-write cannot leave a truncated file that would
-    // lose every job at the next boot.
+    // tmp + rename: a crash mid-write must not leave a truncated file that loses
+    // every job at the next boot.
     const tmp = `${STATE_FILE}.tmp`;
     writeFileSync(tmp, payload, { mode: 0o600 });
     renameSync(tmp, STATE_FILE);
@@ -238,9 +228,9 @@ function restore() {
   for (const j of parsed?.jobs ?? []) {
     if (!j?.id) continue;
     if (j.status === 'running') {
-      // The child died with the process. It is NOT re-run: the pipeline may already
-      // have written a blob or signed an Arkiv transaction, and a silent second run
-      // would double-write the registry. Failing it loudly leaves a human to look.
+      // The child died with the process, and is NOT re-run: it may already have
+      // written a blob or signed an Arkiv transaction, so a silent second run would
+      // double-write the registry.
       j.status = 'failed';
       j.finishedAt = now();
       j.error =
@@ -261,8 +251,8 @@ function restore() {
 // ── the queue ────────────────────────────────────────────────────────────────
 
 function pump() {
-  // Never start a pipeline we are about to kill: it would sign into a process with
-  // seconds to live, which is the one thing worse than not starting it at all.
+  // Never start a pipeline we are about to kill — it would sign into a process with
+  // seconds to live.
   if (shuttingDown) return;
   if (activeId) return;
   const id = queue.shift();
@@ -287,8 +277,7 @@ function run(job) {
     '--json',
   ];
 
-  // The child needs the wallet and reviewer env; it does not need the front door's
-  // bearer, so that one is withheld.
+  // The child needs the wallet and reviewer env, never the front door's bearer.
   const childEnv = { ...process.env };
   delete childEnv.SUREX_INGEST_TOKEN;
 
@@ -308,11 +297,9 @@ function run(job) {
   let out = '';
   let err = '';
   /**
-   * What is left of a line that arrived cut in half. It is separate from `out` on
-   * purpose: `out` is a capped TAIL kept for resultFrom() at the end, and a review
-   * long enough to overflow 256 KB would lose its early stages if progress were
-   * read from it. Progress is read off the stream as it arrives, so every stage is
-   * seen exactly once no matter how chatty the pipeline gets.
+   * What is left of a line that arrived cut in half. Separate from `out`, which is a
+   * capped TAIL kept for resultFrom(): a review long enough to overflow 256 KB would
+   * lose its early stages if progress were read from there instead of off the stream.
    */
   let carry = '';
   child.stdout.on('data', (b) => {
@@ -356,20 +343,11 @@ function run(job) {
 }
 
 /**
- * Keep the LATEST progress line on the job, and persist only when the STAGE changes.
- *
- * Why not on every line: a stage speaks more than once as its facts land — `walrus`
- * says it is writing, then says which blob it wrote — and persist() is a full
- * serialise of every job the service is holding plus a write and a rename of the
- * state file. Per line that is dozens of rewrites of the same file for information
- * that is superseded milliseconds later, on the same disk the wallet and the model
- * are using.
- *
- * And stage granularity loses nothing that survives a restart anyway. restore()
- * marks a job that was `running` as FAILED rather than re-running it, so the
- * persisted progress is only ever read as "how far it had got before the box went
- * down" — and the stage is exactly that answer. The finer detail is served live
- * from memory, which is where every reader of it actually looks.
+ * Keep the LATEST progress line on the job, and persist only when the STAGE changes:
+ * a stage speaks more than once as its facts land, and persist() serialises every
+ * job plus a write and a rename of the state file. Stage granularity loses nothing —
+ * restore() FAILS a running job rather than resuming it, so persisted progress is
+ * only ever read as "how far it had got"; the finer detail is served from memory.
  *
  * A job that is no longer running is left alone: a straggling `data` event after
  * finish() must not reopen a terminal job or trigger a write for it.
@@ -386,17 +364,15 @@ function noteProgress(job, progress) {
 
 function finish(job, { stdout = '', stderr = '', code = null, signal = null, error = null } = {}) {
   /**
-   * First writer wins, and everything after it is dropped. Two paths reach here for
-   * the same job and both were caught in local verification:
+   * First writer wins; everything after it is dropped. Two paths reach here for the
+   * same job:
    *
-   *   - a failed spawn emits BOTH `error` and `close`. Without this guard the close
-   *     handler overwrote `pipeline failed to run: ENOENT` with a bare exit code, and
-   *     — far worse — ran the tail of this function twice, clearing `activeId` a
-   *     second time and letting pump() start a SECOND pipeline alongside the first.
-   *     Concurrency 1 is the whole point of the queue; it does not survive that.
+   *   - a failed spawn emits BOTH `error` and `close`. Running the tail of this
+   *     function twice clears `activeId` twice and lets pump() start a SECOND
+   *     pipeline alongside the first, which concurrency 1 does not survive.
    *   - on shutdown the job is already marked interrupted, and the child's SIGTERM
-   *     close event would relabel it as an ordinary exit 143, losing the "this may
-   *     have partially written" warning that is the reason to look at the registry.
+   *     close would relabel it as an ordinary exit 143, losing the "may have
+   *     partially written" warning.
    */
   if (job.status !== 'running') return;
 
@@ -416,7 +392,7 @@ function finish(job, { stdout = '', stderr = '', code = null, signal = null, err
     job.status = 'failed';
     job.error = String(result.error ?? 'the pipeline reported a failure without a reason');
   } else if (code === 0) {
-    // Exit 0 and no parseable result is NOT a success. Reporting it as one would put a
+    // Exit 0 and no parseable result is NOT a success: reporting it as one puts a
     // verdict URL in front of a maintainer for a review that never happened.
     job.status = 'failed';
     job.error = 'the pipeline exited 0 but printed no JSON result';
@@ -478,16 +454,13 @@ function publicJob(job) {
     startedAt: job.startedAt ?? null,
     finishedAt: job.finishedAt ?? null,
   };
-  // Where the pipeline has got to, in its own words. Served for terminal jobs too:
-  // on a failure the last stage it reached is the difference between "the review
-  // never ran" and "the review ran and the storage did not", which is the only
-  // part of a failure worth re-submitting for.
+  // Served for terminal jobs too: on a failure the last stage reached separates "the
+  // review never ran" from "the review ran and the storage did not".
   if (job.progress) view.progress = job.progress;
   if (job.status === 'queued') {
     const at = queue.indexOf(job.id);
-    // Position among the jobs still WAITING — the one currently running is not counted,
-    // so `1` means "next". Honest, and the reason a caller stops polling every second:
-    // a review is minutes and being fourth in line means it has not even started.
+    // Position among the jobs still WAITING — the running one is not counted, so `1`
+    // means "next".
     view.queuePosition = at === -1 ? null : at + 1;
   }
   if (job.status === 'done') view.result = job.result;
@@ -503,8 +476,8 @@ function publicJob(job) {
 async function handle(req, res) {
   const path = (req.url ?? '/').split('?')[0].replace(/\/+$/, '') || '/';
 
-  // Unauthenticated liveness, deliberately uninformative: it says the front door is up
-  // and nothing about what is behind it.
+  // Unauthenticated liveness, deliberately uninformative: the front door is up, and
+  // nothing about what is behind it.
   if (path === '/healthz') return send(res, 200, { ok: true });
 
   if (!authorised(req)) {
@@ -556,8 +529,7 @@ async function enqueue(req, res) {
   const { repo, commit, release, submissionId } = checked.value;
 
   // A repeat of a job already waiting or running gets that job back rather than a
-  // second one. Two runs of the same commit would sign the same writes twice, and the
-  // caller wanted a review of that commit — it is getting one.
+  // second one: two runs of the same commit would sign the same writes twice.
   for (const j of jobs.values()) {
     if ((j.status === 'queued' || j.status === 'running') && j.repo === repo && j.commit === commit) {
       log(`202 POST /v1/ingest (deduped onto ${j.id})`);
@@ -595,8 +567,7 @@ async function enqueue(req, res) {
 }
 
 const server = createServer((req, res) => {
-  // A throw in a handler used to take the reviewer proxy's process down. One malformed
-  // request must not stop the queue here either.
+  // One malformed request must not take the process down and stop the queue.
   Promise.resolve()
     .then(() => handle(req, res))
     .catch((err) => {
@@ -632,9 +603,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 restore();
 server.listen(PORT, '127.0.0.1', () => {
-  // The BOUND port, not the configured one. They differ whenever `PORT` is 0 —
-  // which is how the service is exercised against a stub without picking a port
-  // that something else on the box might already hold.
+  // The BOUND port, not the configured one: they differ whenever `PORT` is 0, which
+  // is how the service is exercised against a stub without claiming a fixed port.
   log(`surex ingest on 127.0.0.1:${server.address()?.port ?? PORT}`);
   log(`repo dir ${REPO_DIR} · state ${STATE_FILE} · timeout ${TIMEOUT_MS}ms · concurrency 1`);
   pump();

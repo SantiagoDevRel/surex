@@ -1,9 +1,7 @@
-// Content hygiene checks over this site's MDX pages.
-//
-// Currently one rule: the registry changes continuously, so a hardcoded count
-// of it in prose is a fabrication the moment the registry disagrees. Every
-// number the site quotes about the registry must come from /v1/stats at read
-// time instead.
+// Content hygiene checks over this site's MDX pages. Currently one rule (AGENTS.md
+// §2 and §4): the registry is written to continuously, so a hardcoded count of it in
+// prose is a fabrication the moment the registry disagrees. Every number the site
+// quotes about the registry must come from /v1/stats at read time.
 //
 //   node --test apps/docs/test/*.test.mjs
 
@@ -28,9 +26,6 @@ function walk(dir) {
 
 const pages = walk(CONTENT);
 
-// AGENTS.md §2 and §4: a count on a page is a fabrication the moment the registry
-// disagrees, and the registry is written to continuously. Every number the site
-// quotes about the registry must come from /v1/stats at read time.
 test('no registry counts are hardcoded in prose', () => {
   // Deliberately narrow. Numbers are fine — "capped at 12 entries per capability"
   // is a property of the code and does not drift. What may not appear is a count
@@ -40,9 +35,8 @@ test('no registry counts are hardcoded in prose', () => {
     /\b[\d,]+\s+(?:entries|verdicts|reviews)\s+(?:on chain|in the registry|published|reviewed)\b/i,
     /\b[\d,]+\s+(?:flagged|clean|unreviewable|unknown)\s+(?:servers?|entries)\b/i,
   ];
-  // The guard is tested before it is trusted. A pattern that matches nothing
-  // passes every page silently, which is the failure mode of every rule like
-  // this one.
+  // The guard is tested before it is trusted: a pattern that matches nothing passes
+  // every page silently.
   const MUST_CATCH = [
     'The registry holds 51 entries — 50 real servers plus our fixture.',
     'the registry currently has 1,204 entries',

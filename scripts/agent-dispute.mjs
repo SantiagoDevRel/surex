@@ -7,22 +7,18 @@
 //   · with a wallet a human registered in AgentBook   → 202 accepted, standing granted
 //   · with a wallet nobody registered                 → 403 agent_not_human_backed
 //
-// ─── why this does not call `agentkit.fetch` ─────────────────────────────────
+// 🐛 Do NOT rewrite this on top of `agentkit.fetch`: it silently does nothing against
+// current `@x402/hono`. It reads the challenge from the response BODY
+// (`.extensions.agentkit`), but x402 2.19 returns body `{}` and puts the challenge in
+// a base64 `payment-required` HEADER — so it bails through a bare `return response`
+// with no signature, no retry, no thrown error and not one `onEvent`, which from
+// outside looks exactly like the server rejecting a legitimate agent. Read the
+// challenge, call `agentkit.createHeader(challenge)`, retry by hand; `createHeader`
+// itself is fine. (FRICTION-LOG W1, reproduced.)
 //
-// 🐛 `agentkit.fetch` silently does nothing against current `@x402/hono`. It reads
-// the challenge from the response BODY (`.extensions.agentkit`); x402 2.19 returns
-// body `{}` and puts the challenge in a base64 `payment-required` HEADER. The
-// extension resolves `undefined` and the client bails through a bare
-// `return response` — no signature, no retry, no thrown error, and not one
-// `onEvent`. From the outside it is indistinguishable from the server rejecting a
-// legitimate human-backed agent. (FRICTION-LOG W1, reproduced.)
-//
-// So: read the challenge, call `agentkit.createHeader(challenge)`, retry by hand.
-// `createHeader` itself is fine — it is only the fetch wrapper that is broken.
-//
-// SureX serves the challenge in the body of its 401, not through @x402/hono at all,
-// because this is IDENTITY and not payment: nothing is priced and nothing is
-// charged. x402 payment flows are deliberately out of scope (AGENTS.md §5).
+// SureX serves the challenge in the body of its 401 rather than through @x402/hono
+// because this is IDENTITY, not payment — x402 payment flows are out of scope
+// (AGENTS.md §5).
 
 import { createAgentkitClient } from '@worldcoin/agentkit';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -64,8 +60,6 @@ const agentkit = createAgentkitClient({
   onEvent: (event) => console.log(`  [agentkit event] ${event.type}${event.reason ? `: ${event.reason}` : ''}`),
 });
 
-/* ─────────────────────────────────────────────────────── what we are contesting ─*/
-
 const fingerprint = flag('fp', process.env.SUREX_DISPUTE_FP);
 const evidence = flag(
   'evidence',
@@ -92,8 +86,6 @@ const post = (headers = {}) =>
     body: JSON.stringify(body),
   });
 
-/* ── 1. unsigned, to collect the challenge ─────────────────────────────────── */
-
 console.log('▸ 1. POST with no signature — expected 401 carrying a challenge');
 let res = await post();
 let payload = await res.json().catch(() => null);
@@ -117,20 +109,16 @@ if (!challenge) {
   process.exit(1);
 }
 
-/* ── 2. sign it, binding the signature to THIS rebuttal ────────────────────── */
-
 console.log('\n▸ 2. Sign the challenge with createHeader() — NOT agentkit.fetch (see the header of this file)');
 const requestId = disputeSignal({ verdictKey: fingerprint, evidenceHash: evidenceHashOf(body) });
 const header = await agentkit.createHeader({
   ...challenge,
-  // Binds the signature to this exact rebuttal. The AgentKit SIWE message covers
-  // domain, uri, nonce and time — not the evidence — so without this a captured
-  // header could file a different dispute for the life of the nonce.
+  // Binds the signature to THIS rebuttal: the AgentKit SIWE message covers domain,
+  // uri, nonce and time but not the evidence, so without it a captured header could
+  // file a different dispute for the life of the nonce.
   info: { ...challenge.info, requestId },
 });
 console.log(`     signed. requestId ${requestId.slice(0, 16)}…  header ${header.length} chars`);
-
-/* ── 3. retry, by hand ────────────────────────────────────────────────────── */
 
 console.log('\n▸ 3. Retry with the agentkit header');
 res = await post({ agentkit: header });

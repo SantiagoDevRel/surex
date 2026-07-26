@@ -1,20 +1,14 @@
 // Content identity for a locally-run MCP server.
 //
-// `node ./server.js` is the one config shape where the install instruction says
-// nothing useful: the absolute path is machine-specific and cannot go in a
-// fingerprint, and the basename alone is shared by every locally-run MCP server
-// in existence. Hashing on the basename would not be a miss — it would be a
-// COLLISION, and the gate would hand one local server's verdict to a different
-// one. A wrong verdict is the worst thing this product can produce.
+// `node ./server.js` gives nothing fingerprintable: the absolute path is
+// machine-specific and the basename is shared by every locally-run MCP server on
+// earth, so hashing either is a COLLISION — one local server's verdict handed to
+// another. The entry file's CONTENT is used instead, which reproduces on any
+// machine holding the same file.
 //
-// So a local script is identified by the content of its entry file. That is
-// reproducible on any machine holding the same file, which is also what lets a
-// local server have a registry entry at all.
-//
-// The honest limitation, stated on the verdict: this hashes the ENTRY FILE, not
-// the module graph behind it. A local server whose entry is unchanged but whose
-// imports were edited keeps its fingerprint. Local servers are therefore always
-// Tier C, and the tier sentence says nothing was checked.
+// The limitation, stated on the verdict: this hashes the ENTRY FILE, not the
+// module graph behind it, so a local server whose imports changed keeps its
+// fingerprint. Local servers are therefore always Tier C.
 
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
@@ -24,9 +18,9 @@ import { isAbsolute, resolve } from 'node:path';
 const MAX_ENTRY_BYTES = 4 * 1024 * 1024;
 
 /**
- * sha256 of a local entry file, or null when it cannot be read.
- * Null is a safe answer: the canonical form stays LOCAL_UNRESOLVED and the gate
- * warns instead of resolving to somebody else's entry.
+ * sha256 of a local entry file, or null when it cannot be read — null keeps the
+ * canonical form at LOCAL_UNRESOLVED, so the gate warns rather than resolving to
+ * somebody else's entry.
  *
  * @param {string} spec  the path as written in the config
  * @param {string} cwd   the working directory a relative path resolves against

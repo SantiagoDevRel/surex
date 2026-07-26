@@ -1,13 +1,11 @@
 // The bytes a verdict points at must contain the verdict's evidence.
 //
-// `recordBytes` used `JSON.stringify(body, Object.keys(body).sort())`, which reads
-// as a key ordering and is actually a RECURSIVE PROPERTY ALLOWLIST. Every nested
-// object kept only the properties whose names also appeared at the top level, so a
-// published finding arrived at the content-addressed store as `{"severity": 2}` —
-// no file, no line, no category, no description — and the blob ID committed to
-// that. Measured on a live blob: 14 findings, every one of them a bare severity.
+// `JSON.stringify(body, Object.keys(body).sort())` reads as a key ordering and is
+// actually a RECURSIVE PROPERTY ALLOWLIST: every nested object keeps only the
+// properties whose names also appear at the top level, so a finding reaches the
+// content-addressed store as a bare `{"severity": 2}` and the blob ID commits to it.
 //
-// These assertions are shaped so the old implementation fails all of them.
+// These assertions are shaped so that implementation fails all of them.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,8 +48,8 @@ test('nested objects keep every key, however deep', () => {
 });
 
 test('a nested key that does NOT appear at the top level still survives', () => {
-  // This is the exact discriminator: under the old replacer, only nested keys that
-  // collided with a top-level key came through.
+  // The discriminator: an array replacer lets through only nested keys that collide
+  // with a top-level key.
   const back = roundTrip({ top: 1, nested: { onlyHere: 'kept', top: 2 } });
   assert.equal(back.nested.onlyHere, 'kept');
   assert.equal(back.nested.top, 2);

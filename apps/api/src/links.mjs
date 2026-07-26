@@ -1,8 +1,5 @@
-// Where a record can be looked at by a human.
-//
-// AGENTS.md §7 (Sui/Walrus): "Record blobId, suiObjectId, and both tx digests on
-// every record, and link them to an explorer." This file is the one place that
-// turns those recorded identifiers into URLs, so no route hand-rolls a path.
+// Explorer URLs for a record. The one place recorded identifiers (blobId,
+// suiObjectId, both tx digests) become links, so no route hand-rolls a path.
 //
 // Bases are read from env at CALL time, not at import time — a test that sets an
 // env var after importing must still see it.
@@ -10,9 +7,8 @@
 import { DEFAULT_AGGREGATORS } from '@surex/core';
 
 /**
- * Verified live on 2026-07-25 (HTTP 200 against a real Braga entity key):
- *   https://explorer.braga.hoodi.arkiv.network/entity/<entityKey>
- * `/entities/<key>` and `/storage/entity/<key>` both 404 — do not guess the path.
+ * The path is `/entity/<entityKey>` (checked live 2026-07-25). `/entities/<key>`
+ * and `/storage/entity/<key>` both 404 — do not guess the path.
  */
 export const DEFAULT_ARKIV_EXPLORER = 'https://explorer.braga.hoodi.arkiv.network';
 
@@ -37,10 +33,7 @@ export function arkivEntityUrl(entityKey, env = process.env) {
 /**
  * Links for one Walrus record. Anything the record does not carry is omitted
  * rather than guessed — a dead link that looks alive is worse than no link.
- *
- * Accepts either the contract's `evidence` shape ({blobId, …}) or the tech-spec
- * `blob` shape ({id, …}), because the worker writes one and the gate reads the
- * other and both end up here.
+ * Accepts either the `evidence` shape ({blobId, …}) or the `blob` shape ({id, …}).
  */
 export function recordLinks(pointer, env = process.env) {
   if (!pointer || typeof pointer !== 'object') return null;

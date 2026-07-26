@@ -1,10 +1,8 @@
 // The write boundary: who may be publicly flagged, and with what provenance.
 //
-// A code review found that the "only our own fixtures get flagged" rule lived in
-// the publishing scripts, not in the worker — so any new script that called
-// `buildVerdictHead` skipped it, and two were added in a single session. Worse,
-// the script-level check tested the server's NAME against
-// `/fixture|mal-|ambiguous-|honest-/`, and a name is whatever the caller types.
+// The rule — "only our own fixtures get flagged" — belongs in the worker, not in a
+// publishing script a new caller can skip, and it matches on FINGERPRINTS, because
+// a name is whatever the caller types.
 //
 // These tests are the rule. Each one fails if its guard is removed.
 
@@ -79,17 +77,12 @@ test('an EMPTY allowlist flags nothing — a lost file cannot open the gate', ()
   );
 });
 
-// ---------------------------------------------------------------------------
-// provenance
-// ---------------------------------------------------------------------------
-
 test('a flag without provenance is refused', () => {
   setSelfAuthored([OURS]);
   const base = { fingerprint: OURS, state: 'flagged', tier: 'C', severity: 4, name: '@surex/mal-x' };
 
-  // This is the exact shape the live `@surex/mal-*` heads were written with:
-  // model and prompt, but nothing saying WHICH bytes were read. The block message
-  // rendered "commit —".
+  // Model and prompt but nothing saying WHICH bytes were read — the shape that
+  // renders "commit —" in a block message.
   assert.throws(
     () => buildVerdictHead({ ...base, modelId: 'm', promptVersion: 'rv-4' }),
     /without provenance/i,

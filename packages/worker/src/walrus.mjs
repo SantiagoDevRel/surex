@@ -1,60 +1,46 @@
 // The Walrus writer. Record bodies in, evidence pointers out.
 //
-// Everything here follows probes/walrus-write.mjs, which is a proven write on
-// testnet. The patterns that are NOT negotiable, each because it was measured:
+// Not negotiable, each because it was measured:
 //
-//  · Step the flow by hand — encode → register → upload → certify. The
-//    convenience wrapper `executeCertify()` DISCARDS the certify digest, and a
-//    record whose provenance is half-recorded is not provenance (FRICTION-LOG S4).
-//  · Read the epoch ceiling off chain. Testnet max is 53, not the 183 in every
-//    doc; `epochs=183` comes back as HTTP 500 wrapping a raw EInvalidEpochsAhead
-//    Move abort (S2).
-//  · Read package / object / exchange IDs at runtime. Testnet has been redeployed
-//    before, so a hardcoded ID is a time bomb (§5).
-//  · Blobs are owned + permanent (`deletable: false`). The registry's evidence
-//    must not be quietly removable — including by us.
-//  · `contentSha256` on EVERY record. A Walrus blob ID is not sha256(bytes) (it is
-//    a commitment over the erasure-coded sliver structure), so the digest that
-//    binds served bytes to the Arkiv record is a separate field we compute here.
-//    packages/core/src/blob.mjs verifyEvidenceBytes() is the consumer.
+//  · Step the flow by hand — encode → register → upload → certify. The convenience
+//    wrapper `executeCertify()` DISCARDS the certify digest (FRICTION-LOG S4).
+//  · Read the epoch ceiling off chain. Testnet max is 53, not the 183 in every doc;
+//    `epochs=183` comes back as HTTP 500 wrapping a raw EInvalidEpochsAhead Move
+//    abort (S2).
+//  · Read package / object / exchange IDs at runtime — testnet has been redeployed
+//    before, so a hardcoded ID is a time bomb.
+//  · Blobs are owned + permanent (`deletable: false`). The registry's evidence must
+//    not be quietly removable, including by us.
+//  · `contentSha256` on EVERY record. A Walrus blob ID is not sha256(bytes) — it is
+//    a commitment over the erasure-coded sliver structure — so the digest binding
+//    served bytes to the Arkiv record is a separate field computed here, consumed by
+//    verifyEvidenceBytes() in packages/core/src/blob.mjs.
 //  · `nShards` on every record too. Blob IDs are deterministic over content AND
-//    network configuration; without the shard count a future mismatch is
-//    unexplainable rather than merely explained.
+//    network configuration; without the shard count a mismatch is unexplainable.
 //
-// Cost, measured: one standalone blob = TWO Sui transactions, and cost is per
-// blob rather than per byte. `alreadyCertified` dedup is PUBLISHER behaviour, not
-// protocol — this SDK re-registers, re-certifies and RE-CHARGES for bytes already
-// certified (S3), so a re-run is not free and the seed checkpoints instead.
+// Cost: one standalone blob = TWO Sui transactions, priced per blob rather than per
+// byte. `alreadyCertified` dedup is PUBLISHER behaviour, not protocol — this SDK
+// re-registers, re-certifies and RE-CHARGES for bytes already certified (S3), so a
+// re-run is not free and the seed checkpoints instead.
 //
-// ── PUBLISHER MODE (SUREX_WALRUS_PUBLISHER) ─────────────────────────────────
-// The SDK write path is not portable across uplinks. It uploads slivers directly
-// to all 101 committee members in parallel, and a residential connection does not
-// complete that: the same code, same wallet, minutes apart, succeeds in 32 s from
-// a European business line and fails 4/4 with NotEnoughBlobConfirmationsError from
-// the DGX (FRICTION-LOG S11 — balance, Node version, IPv6 and file descriptors
-// were each ruled out with their own test; do not re-derive it). The HTTP
-// publisher works from the same machine at the same moment.
+// PUBLISHER MODE (SUREX_WALRUS_PUBLISHER). The SDK uploads slivers directly to all
+// 101 committee members in parallel, which a residential uplink does not complete —
+// 4/4 NotEnoughBlobConfirmationsError from the DGX where the HTTP publisher succeeds
+// at the same moment (S11: balance, Node version, IPv6 and file descriptors were
+// each ruled out; do not re-derive it). Set the variable and the record goes over
+// HTTP. Three things change about what a record may CLAIM:
 //
-// So: when SUREX_WALRUS_PUBLISHER is set the record goes over HTTP, and when it
-// is not the SDK path runs exactly as before. Three things this mode must be
-// honest about, because it changes what a record may CLAIM:
+//  · The PUBLISHER's wallet registers the blob, so `suiObjectId` and any digest are
+//    theirs. `registeredBy: 'wallet' | 'publisher'` is set EXPLICITLY on both paths
+//    — a reader must never infer custody from a missing field.
+//  · No register/certify digests on a fresh write; on a repeat, a certification
+//    event digest but no `suiObjectId`, size or encoding type. Thinner provenance is
+//    recorded as thinner, never padded out with a value we were not told.
+//  · The publisher DOES dedupe identical bytes for free, which the SDK does not.
 //
-//  · The PUBLISHER's wallet registers the blob. `suiObjectId` and any digest are
-//    theirs, so "our wallet registered this" stops being true. Every pointer now
-//    carries `registeredBy: 'wallet' | 'publisher'` EXPLICITLY, on both paths —
-//    a reader must never infer custody from a missing field.
-//  · The publisher returns NO register/certify digests on a fresh write, and on a
-//    repeat it returns a certification event digest but no `suiObjectId`, no size
-//    and no encoding type. Thinner provenance is recorded as thinner, never
-//    padded out with a value we were not told.
-//  · The publisher DOES dedupe identical bytes for free, which the SDK does not
-//    (S3 has this backwards from what you would expect of a paid vs free path).
-//
-// The property the gate actually relies on — fetch the bytes back and recompute
-// the blob ID — is unaffected by who paid. Because a third party is now in the
-// middle of the write, this mode VERIFIES that property at write time by default
-// rather than assuming it: publish, read back from the aggregator, compare
-// digests, and refuse the pointer if they differ.
+// A third party is now in the middle of the write, so this mode re-fetches the bytes
+// from the aggregator and compares digests at write time by default, refusing the
+// pointer if they differ.
 
 import { createHash } from 'node:crypto';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
@@ -65,10 +51,7 @@ import { SUI_FULLNODE, EXPECTED_SUI_ADDRESS, loadSuiSecret } from './config.mjs'
 
 export const DEFAULT_AGGREGATOR = 'https://aggregator.walrus-testnet.walrus.space';
 
-/**
- * Both measured returning HTTP 200 from the DGX on 2026-07-25 — 14.5 s and 8.4 s
- * for the same bytes (S11). Order is failover order.
- */
+/** Tried in order — this is the failover order. */
 export const DEFAULT_PUBLISHERS = Object.freeze([
   'https://publisher.walrus-testnet.walrus.space',
   'https://walrus-testnet-publisher.nodes.guru',
@@ -78,11 +61,8 @@ export const DEFAULT_PUBLISHERS = Object.freeze([
  * Resolve publisher mode from the environment.
  *
  * `SUREX_WALRUS_PUBLISHER` unset or empty → [] → the SDK path, unchanged.
- * A truthy flag (`1` / `true` / `default`) → the two verified public publishers.
+ * A truthy flag (`1` / `true` / `default`) → the two default public publishers.
  * Otherwise a comma-separated list of base URLs, tried in order.
- *
- * Returning a LIST rather than a boolean is deliberate: one publisher is a single
- * point of failure for the only write path a residential box has.
  */
 export function publishersFrom(env = process.env) {
   const raw = String(env.SUREX_WALRUS_PUBLISHER ?? '').trim();
@@ -95,23 +75,17 @@ export function publishersFrom(env = process.env) {
 }
 
 /**
- * Normalise a publisher's PUT response into the fields a pointer may claim.
- *
- * Both shapes are VERIFIED against the live testnet publisher (2026-07-25), and
- * they are not symmetric — which is the whole reason this is a named, tested
- * function rather than three lines inline:
+ * Normalise a publisher's PUT response into the fields a pointer may claim. The two
+ * wire shapes are not symmetric:
  *
  *   newlyCreated     → { blobObject: { id, blobId, size, encodingType,
  *                        registeredEpoch, certifiedEpoch, deletable, storage } }
  *   alreadyCertified → { blobId, event: { txDigest, eventSeq }, endEpoch }
  *
- * `alreadyCertified` carries NO object id, NO size and NO encoding type. Each is
- * therefore null rather than guessed, and `outcome` is recorded so a reader knows
- * WHY they are null instead of suspecting a bug.
- *
- * Note also that `newlyCreated.blobObject.certifiedEpoch` comes back **null** even
- * though the publisher certified the blob before answering — so it is passed
- * through as null and no surface may render a certified epoch from a publisher
+ * `alreadyCertified` carries NO object id, NO size and NO encoding type — each is
+ * null rather than guessed, and `outcome` records WHY. `newlyCreated.blobObject
+ * .certifiedEpoch` also comes back **null** even though the publisher certified
+ * before answering, so no surface may render a certified epoch from a publisher
  * write.
  */
 export function parsePublisherWrite(json) {
@@ -147,7 +121,7 @@ export function parsePublisherWrite(json) {
     };
   }
 
-  // A 200 whose body we do not recognise is not a write. Saying so here is what
+  // A 200 whose body we do not recognise is not a write — throwing here is what
   // stops an unrecognised shape becoming a record with an undefined blob id.
   throw new Error(
     `publisher answered 200 with a shape we do not recognise: ${JSON.stringify(json).slice(0, 300)}`,
@@ -159,10 +133,10 @@ export function sha256Hex(bytes) {
 }
 
 /**
- * `encoding_type` arrives as a string, a BCS enum object, or a raw number
- * depending on which read path produced the blob object. Normalise, and when the
- * number is not one we recognise say so rather than guessing a label — a wrong
- * encoding label on a record makes a future blob-ID mismatch unexplainable.
+ * `encoding_type` arrives as a string, a BCS enum object or a raw number depending
+ * on which read path produced the blob object. An unrecognised number keeps an
+ * `enum:N` label rather than a guessed one — a wrong label on a record makes a
+ * future blob-ID mismatch unexplainable.
  */
 export function normaliseEncodingType(value) {
   if (value == null) return null;
@@ -178,32 +152,13 @@ export function normaliseEncodingType(value) {
 /**
  * Turn a JSON record body into deterministic bytes. Sorted keys, trailing LF.
  *
- * THE BUG THIS REPLACES, because it is worth being unable to reintroduce:
+ * NEVER `JSON.stringify(body, Object.keys(body).sort())`. An ARRAY replacer is a
+ * property ALLOWLIST applied RECURSIVELY, not a key ordering: every nested object
+ * silently keeps only the properties whose names are also top-level keys of `body`,
+ * and the hash then commits to the gutted version.
  *
- *     JSON.stringify(body, Object.keys(body).sort())
- *
- * That reads as "serialise with the keys in sorted order". It is not what the
- * second argument does. An ARRAY replacer is a property ALLOWLIST, and it is
- * applied RECURSIVELY, at every depth — so every nested object kept only the
- * properties whose names happened to also be top-level keys of `body`.
- *
- * The evidence blob is the thing this whole product rests on: a verdict points at
- * the exact bytes it judged. Measured on the live blob behind a published verdict
- * (`h8C_CpGKud76Ue-XOAngVkDbLfptoXe3Jj1T9LftBfM`), what it actually contained was
- *
- *     "findings": [ {"severity": 2}, {"severity": 1}, … ]   ← 14 of them
- *     "capabilities": {}
- *     "sourceCoverage": {}
- *
- * `severity` survived only because `severity` is also a top-level field. Every
- * `file`, `line`, `category` and `description` — the entire content of a finding,
- * the part that lets a maintainer check the claim — was silently deleted on the
- * way to a content-addressed store, and the hash committed to the empty version.
- *
- * Determinism is what was actually wanted, and it needs a recursive key sort. It
- * matters because the blob ID is derived from these bytes: two runs that produce
- * the same record must produce the same ID, or the registry stores duplicates of
- * one fact and pays for each.
+ * The blob ID derives from these bytes, so two runs producing the same record must
+ * produce the same ID or the registry stores — and pays for — one fact twice.
  */
 export function recordBytes(body) {
   return new TextEncoder().encode(`${JSON.stringify(sortDeep(body))}\n`);
@@ -236,11 +191,9 @@ function sortDeep(value) {
  * @property {'blob'|'quilt-patch'} addressing
  * @property {string=} patchId        quilt patch id, when addressing is quilt-patch
  * @property {string=} quiltBlobId    the containing quilt, when addressing is quilt-patch
- * @property {'wallet'|'publisher'} registeredBy  WHOSE wallet registered the blob.
- *   `wallet` = ours, and suiObjectId + both digests are ours to stand behind.
- *   `publisher` = a public HTTP publisher's, so the object and any digest are
- *   THEIRS. Always present on both paths — custody is never inferred from a
- *   missing field.
+ * @property {'wallet'|'publisher'} registeredBy  WHOSE wallet registered the blob;
+ *   under `publisher` the object and any digest are THEIRS, not ours. Always
+ *   present on both paths — custody is never inferred from a missing field.
  * @property {string=} publisher          base URL, when registeredBy is publisher
  * @property {'newlyCreated'|'alreadyCertified'=} publisherOutcome
  * @property {boolean=} readbackVerified  the aggregator was asked for the bytes
@@ -252,16 +205,10 @@ export async function createWalrusWriter(options = {}) {
   const log = options.log ?? (() => {});
 
   /**
-   * The key is loaded ON DEMAND, not at construction.
-   *
-   * Publisher mode does not need a Sui wallet at all — that is the point of it,
-   * the publisher's wallet pays — and a writer that demands a key before it will
-   * do a keyless write is a writer that cannot be deployed anywhere the key is
-   * not. Found the hard way: the first publisher run on the DGX died on a missing
-   * secrets file having never touched the network.
-   *
-   * The address assertion moves in here with it, so it still fires before any
-   * write that actually spends, and never for one that does not.
+   * The key loads ON DEMAND, not at construction: publisher mode needs no Sui
+   * wallet, so constructing the writer must not require a key. The address
+   * assertion rides along, firing before any write that spends and never for one
+   * that does not.
    */
   let signerCache = options.keypair ?? null;
   let addressCache = null;
@@ -286,18 +233,17 @@ export async function createWalrusWriter(options = {}) {
     return addressCache;
   }
 
-  /** [] = the SDK write path. Non-empty = HTTP publisher mode. See the header. */
+  /** [] = the SDK write path. Non-empty = HTTP publisher mode. */
   const publishers = options.publishers ?? publishersFrom(options.env ?? process.env);
   const aggregator = (options.aggregator ?? DEFAULT_AGGREGATOR).replace(/\/+$/, '');
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const publishTimeoutMs = options.publishTimeoutMs ?? 90_000;
-  /** The readback is the point of the mode; turning it off has to be deliberate. */
   const verifyPublished = options.verifyPublished !== false;
 
   const client =
     options.client ?? new SuiGrpcClient({ network: 'testnet', baseUrl: fullnode }).$extend(walrus());
 
-  /** Cached, because every write needs it and it changes once a day. */
+  /** Cached — every write needs it and it changes about once a day. */
   let system = null;
   async function systemState() {
     if (!system) system = await client.walrus.systemState();
@@ -338,11 +284,7 @@ export async function createWalrusWriter(options = {}) {
     return digest;
   }
 
-  /**
-   * Swap SUI for WAL only if the wallet has none. The exchange PACKAGE id is
-   * derived from the on-chain type of the exchange OBJECT, so nothing is pinned
-   * by hand here either.
-   */
+  /** Swap SUI for WAL only if the wallet has none. */
   async function ensureWal({ suiToSpend = 500_000_000 } = {}) {
     const before = await balances();
     if (before.wal > 0n) return { swapped: false, wal: before.wal };
@@ -361,13 +303,7 @@ export async function createWalrusWriter(options = {}) {
     return { swapped: true, wal: after.wal, digest };
   }
 
-  /**
-   * Fetch bytes back from the aggregator and hand them to the caller to judge.
-   *
-   * Separate from the write so the check is testable on its own, and so a
-   * verification failure reads as a verification failure rather than as a write
-   * that half-happened.
-   */
+  /** Fetch bytes back from the aggregator and hand them to the caller to judge. */
   async function fetchPublished(blobId) {
     const res = await fetchImpl(`${aggregator}/v1/blobs/${encodeURIComponent(blobId)}`);
     if (!res.ok) throw new Error(`aggregator answered ${res.status} for blob ${blobId}`);
@@ -377,13 +313,10 @@ export async function createWalrusWriter(options = {}) {
   /**
    * PUT the bytes to a publisher, first one that answers wins.
    *
-   * `permanent=true` mirrors the SDK path's `deletable: false` — the registry's
-   * evidence must not be quietly removable, including by us, and including by
-   * whoever's wallet paid for it.
-   *
-   * The timeout is cleared in a `finally` and not on the happy path alone: an
-   * un-cleared AbortController timer is what held a process open for 120 s after
-   * its work was done (FRICTION-LOG V3).
+   * `permanent=true` mirrors the SDK path's `deletable: false` — evidence must not
+   * be quietly removable by anyone, including whoever's wallet paid for it. The
+   * timeout clears in a `finally` and not on the happy path alone: an un-cleared
+   * AbortController timer holds the process open for its full duration (V3).
    */
   async function putToPublishers(payload, term, label) {
     const failures = [];
@@ -401,8 +334,8 @@ export async function createWalrusWriter(options = {}) {
         });
         const text = await res.text();
         if (!res.ok) {
-          // S2: an out-of-range `epochs` comes back as a 500 wrapping a raw Move
-          // abort, so the body is worth far more than the status here.
+          // An out-of-range `epochs` comes back as a 500 wrapping a raw Move abort,
+          // so the body carries far more than the status (S2).
           failures.push(`${base} → HTTP ${res.status} ${text.slice(0, 200)}`);
           continue;
         }
@@ -431,8 +364,7 @@ export async function createWalrusWriter(options = {}) {
   }
 
   /**
-   * The publisher write. Same contract as the SDK's writeRecord — an
-   * EvidencePointer — with custody stated rather than implied.
+   * The publisher write. Same contract as writeRecord, with custody stated.
    *
    * @returns {Promise<EvidencePointer>}
    */
@@ -440,9 +372,8 @@ export async function createWalrusWriter(options = {}) {
     const localSha = sha256Hex(payload);
     const published = await putToPublishers(payload, term, label);
 
-    // The publisher tells us the size it stored. When it disagrees with what we
-    // sent, the pointer would bind this record to bytes that are not this
-    // record's — refuse rather than write it.
+    // A stored size that disagrees with what we sent means the pointer would bind
+    // this record to bytes that are not this record's. Refuse rather than write it.
     if (published.reportedSize !== null && published.reportedSize !== payload.length) {
       throw new Error(
         `publisher ${published.publisher} stored ${published.reportedSize} B for ${label}, we sent ${payload.length} B`,
@@ -450,10 +381,9 @@ export async function createWalrusWriter(options = {}) {
     }
 
     if (verifyPublished) {
-      // The property the gate relies on, checked at write time because a third
-      // party is now in the middle of the write. A publisher that truncated,
-      // re-encoded or simply lied about the blob id fails HERE, once, rather than
-      // in the gate, later, against a record that already claims to be evidence.
+      // A publisher that truncated, re-encoded or lied about the blob id fails
+      // HERE rather than later in the gate, against a record already published as
+      // evidence.
       const served = await fetchPublished(published.blobId);
       const servedSha = sha256Hex(served);
       if (servedSha !== localSha) {
@@ -466,20 +396,18 @@ export async function createWalrusWriter(options = {}) {
 
     return {
       blobId: published.blobId,
-      // Absent rather than null, so it drops out of the serialised record the
-      // same way the SDK path's optional fields do — and never our address: on
-      // this path the blob object belongs to the PUBLISHER's wallet.
+      // undefined, not null, so it drops out of the serialised record the way the
+      // SDK path's optional fields do. Never our address — on this path the blob
+      // object belongs to the PUBLISHER's wallet.
       suiObjectId: published.suiObjectId ?? undefined,
-      // The publisher reports neither digest on a fresh write. `alreadyCertified`
-      // reports the certification EVENT's digest, which is a real Sui transaction
-      // and is recorded as certifyTx — it is just not one we sent.
+      // No digest on a fresh write. `alreadyCertified` gives the certification
+      // EVENT's digest — a real Sui transaction, just not one we sent.
       registerTx: undefined,
       certifyTx: published.certifyTx ?? undefined,
       encodingType: published.encodingType,
       nShards: shards,
-      // Ours, computed from the bytes we sent. This is the field that binds the
-      // record to its Arkiv entity, and it is the one thing the publisher cannot
-      // influence — which is why the mode is sound despite the thinner custody.
+      // Ours, computed from the bytes we sent. This binds the record to its Arkiv
+      // entity and is the one field the publisher cannot influence.
       contentSha256: localSha,
       size: payload.length,
       addressing: 'blob',
@@ -487,7 +415,6 @@ export async function createWalrusWriter(options = {}) {
       digestFrom: 'written',
       certifiedEpoch: published.certifiedEpoch,
       deletable: published.deletable,
-      // ── custody, stated ──────────────────────────────────────────────────
       registeredBy: 'publisher',
       publisher: published.publisher,
       publisherOutcome: published.outcome,
@@ -496,16 +423,13 @@ export async function createWalrusWriter(options = {}) {
   }
 
   /**
-   * One standalone certified blob: owned, permanent, both digests captured.
+   * One standalone certified blob: owned, permanent, both digests captured. Use it
+   * where per-record citability is the point — a source tree, a review, a dispute
+   * submission. Seed-time registry metadata goes through writeQuiltOfRecords
+   * instead, because 50 standalone blobs is 100 Sui transactions.
    *
-   * This is the write for anything whose per-record citability is the point — a
-   * source tree, a review, a dispute submission. Seed-time registry metadata does
-   * NOT come through here; it goes into a quilt (writeQuiltOfRecords) because 50
-   * standalone blobs is 100 Sui transactions for no citation anyone needs.
-   *
-   * In publisher mode the same call writes over HTTP instead, because the SDK
-   * path cannot complete from a residential uplink (S11). The pointer says which
-   * path produced it.
+   * In publisher mode this writes over HTTP; the pointer says which path produced
+   * it.
    *
    * @returns {Promise<EvidencePointer>}
    */
@@ -543,24 +467,20 @@ export async function createWalrusWriter(options = {}) {
       digestFrom: 'written',
       certifiedEpoch: blob.blobObject?.certified_epoch ?? null,
       deletable: blob.blobObject?.deletable ?? null,
-      // Stated on BOTH paths so custody is read, never inferred from which
-      // fields happen to be present.
+      // Stated on BOTH paths — custody is never inferred from absent fields.
       registeredBy: 'wallet',
     };
   }
 
   /**
    * ONE quilt holding many small record bodies. Two Sui transactions total, no
-   * matter how many records go in (Quilt batches up to 660 small blobs into one
-   * storage unit).
+   * matter how many records go in; a quilt takes at most 660 patches.
    *
-   * The trade, recorded rather than papered over: a quilted record is addressed
-   * as (quilt blob, patch id) and has NO certified Sui object of its own, so it
-   * has no per-record explorer link. Every pointer returned here carries
-   * `addressing: 'quilt-patch'`, its own `patchId`, and the containing
-   * `quiltBlobId`, so a consumer can tell the difference without being told.
-   * `contentSha256` is per PATCH — the patch's own bytes — which is what binds a
-   * single record to its Arkiv entity even though the certification is shared.
+   * The trade: a quilted record is addressed as (quilt blob, patch id) and has NO
+   * certified Sui object of its own. Every pointer carries `addressing:
+   * 'quilt-patch'`, its own `patchId` and the containing `quiltBlobId` so a
+   * consumer can tell. `contentSha256` is per PATCH — that is what binds a single
+   * record to its Arkiv entity even though the certification is shared.
    *
    * @param {{identifier:string, body:object|Uint8Array, tags?:Record<string,string>}[]} items
    * @returns {Promise<{quilt: object, patches: Map<string, EvidencePointer>}>}
@@ -595,24 +515,13 @@ export async function createWalrusWriter(options = {}) {
     const uploaded = await flow.upload({ digest: registerTx });
     const certifyTx = await execute(flow.certify(), 'certify');
 
-    // ── mapping identifier → patch id ──────────────────────────────────────
-    //
-    // `listFiles()` gives the patch ids and NOTHING ELSE — no identifier field —
-    // and it does NOT return them in the order the files went in. Measured on a
-    // real 50-patch quilt: positional mapping was correct for 1 of 50, and
-    // "sorted by identifier" for 5 of 50, so the order is neither. Assuming
-    // either produces 50 records each pointing at another record's bytes, which
-    // reads as tampering and is undetectable without fetching.
-    //
-    // `writeQuilt()` DOES return `index.patches[]` with both `patchId` and
-    // `identifier` — but it discards the register/certify digests, the same way
-    // `executeCertify()` does (FRICTION-LOG S4). So no single SDK call gives both
-    // provenance and per-patch addressing.
-    //
-    // The mapping is therefore read back from the certified quilt and verified,
-    // never inferred: each patch's own identifier comes from the quilt index, and
-    // each patch's bytes are hashed and compared against what we hashed locally.
-    // Nothing is returned until the mapping is a proven bijection.
+    // Mapping identifier → patch id, read back and checked rather than inferred.
+    // `listFiles()` gives patch ids and NO identifier field, in an order that is
+    // neither input order nor sorted-by-identifier (measured on a 50-patch quilt:
+    // 1/50 and 5/50 respectively). Assuming either yields 50 records each pointing
+    // at another record's bytes, undetectable without fetching. `writeQuilt()` does
+    // return `index.patches[]` with both, but discards the register/certify digests
+    // (S4) — so no single SDK call gives provenance AND per-patch addressing.
     const listed = await flow.listFiles();
     const patchIds = listed.map((f) => f.id);
     const readBack = await client.walrus.getFiles({ ids: patchIds });
@@ -654,17 +563,15 @@ export async function createWalrusWriter(options = {}) {
       const remoteSha = shaByIdentifier.get(p.identifier);
       if (remoteSha !== localSha) {
         // The pointer would bind this record's Arkiv entity to bytes that are not
-        // this record's. Refuse rather than write it.
+        // this record's. Refuse.
         throw new Error(
           `quilt patch ${patchId} for ${p.identifier} hashes to ${remoteSha}, we wrote ${localSha}`,
         );
       }
       patches.set(p.identifier, {
-        // A quilt patch id IS the read address, so it is recorded as `blobId`'s
-        // sibling rather than in place of it: `blobId` stays the quilt's, which
-        // is what has on-chain certification, and `patchId` is what fetches THIS
-        // record. Collapsing the two would imply a certification that this
-        // record does not individually have.
+        // `blobId` stays the QUILT's — that is what carries the on-chain
+        // certification — and `patchId` is what fetches this record. Collapsing the
+        // two would imply a certification this record does not individually have.
         blobId: encoded.blobId,
         quiltBlobId: encoded.blobId,
         patchId,
@@ -677,12 +584,11 @@ export async function createWalrusWriter(options = {}) {
         size: p.contents.length,
         addressing: 'quilt-patch',
         epochs: term,
-        // Set explicitly rather than left to be inferred from absence: a reader
-        // must never have to guess whether a digest describes the bytes we sent or
-        // the bytes something gave back.
+        // Explicit: a reader must never guess whether a digest describes the bytes
+        // we sent or the bytes something gave back.
         digestFrom: 'written',
-        // Quilts are SDK-only. There is no publisher endpoint that writes one, so
-        // this path is not portable to a residential uplink — writeRecord is.
+        // Quilts are SDK-only — no publisher endpoint writes one, so this path is
+        // not portable to a residential uplink the way writeRecord is.
         registeredBy: 'wallet',
       });
     }
@@ -694,11 +600,10 @@ export async function createWalrusWriter(options = {}) {
    * Read a set of quilt patches back and report, per patch, the identifier the
    * QUILT INDEX gives it and the sha256 of the bytes it actually serves.
    *
-   * `patchIds` must be supplied. A WalrusFile exposes `getIdentifier()` but not its
-   * own patch id, and there is no public encoder from (blobId, index range) to a
-   * patch id — so the ids have to come from the write-time `flow.listFiles()`
-   * output, which is what the seed checkpoint stores. Their ORDER is meaningless;
-   * only the set matters, which is the whole point of this function.
+   * `patchIds` must be supplied: a WalrusFile exposes `getIdentifier()` but not its
+   * own patch id, and there is no public encoder from (blobId, index range) to one,
+   * so the ids come from write-time `flow.listFiles()` (what the seed checkpoint
+   * stores). Their ORDER is meaningless — only the set matters.
    */
   async function readQuiltPatches(patchIds) {
     if (!Array.isArray(patchIds) || !patchIds.length) {
@@ -721,20 +626,13 @@ export async function createWalrusWriter(options = {}) {
 
   /**
    * Rebuild the identifier → patch pointer map for a quilt that is ALREADY
-   * certified.
+   * certified, so a mapping recorded wrong is repairable without paying for a
+   * second quilt (the SDK re-charges for identical bytes, S3).
    *
-   * This exists so a mapping recorded wrong can be repaired without paying for a
-   * second quilt — `alreadyCertified` dedup is publisher behaviour, so re-writing
-   * the same bytes through the SDK re-charges (S3).
-   *
-   * `items` is optional. When given, each patch's served bytes are hashed and
-   * compared against the bytes the caller believes it wrote, which is the strong
-   * check. When omitted, the digest recorded is the digest of the bytes the
-   * certified quilt served — which is sound, because a Walrus blob ID is a
-   * commitment over the blob's content, so bytes that come out of a certified
-   * quilt are the bytes that went into it. It is a weaker STATEMENT, though, so
-   * the pointer is marked `digestFrom: 'served'` rather than `'written'` and no
-   * surface may claim otherwise.
+   * `items` is optional and decides what the pointer may claim. Given, each patch's
+   * served bytes are hashed against the bytes the caller believes it wrote →
+   * `digestFrom: 'written'`. Omitted, the digest is of whatever the certified quilt
+   * served → `digestFrom: 'served'`, and no surface may claim otherwise.
    *
    * @param {{blobId:string, suiObjectId?:string, registerTx?:string, certifyTx?:string,
    *          encodingType?:string, nShards?:number, epochs?:number}} quilt
@@ -794,10 +692,9 @@ export async function createWalrusWriter(options = {}) {
 
   return {
     /**
-     * A GETTER, because reading it loads the key. Publisher mode never needs one,
-     * so a caller that logs the address "for context" would turn a keyless write
-     * into a hard requirement for a key — which is precisely the bug this
-     * lazy-loading exists to prevent. Read it only where you mean to spend.
+     * A GETTER, because reading it LOADS THE KEY. Publisher mode needs no key, so
+     * logging the address "for context" turns a keyless write into one that fails
+     * without a secrets file. Read it only where you mean to spend.
      */
     get address() {
       return addressOf();
@@ -816,7 +713,7 @@ export async function createWalrusWriter(options = {}) {
     fetchPublished,
     sha256Hex,
     recordBytes,
-    /** [] when the SDK path is in use. Callers log which write they are about to do. */
+    /** [] when the SDK path is in use. */
     publishers,
   };
 }

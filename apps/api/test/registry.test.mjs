@@ -4,11 +4,8 @@ import { createApp } from '../src/app.mjs';
 import { STATES } from '@surex/core';
 
 /**
- * `/v1/registry` exists because `/v1/flagged` is the wrong shape for a browse
- * page: seeded entries are written `unknown` and never `clean`, so a
- * flagged-only feed renders an EMPTY registry the moment seeding is what
- * populates it — which reads to a visitor as "nothing here" rather than
- * "nothing flagged".
+ * `/v1/registry` lists every state. Seeded entries are written `unknown` and never
+ * `clean`, so a flagged-only feed would render an empty registry.
  */
 const app = () => createApp({ env: { SUREX_MOCK: '1' } });
 

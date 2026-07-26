@@ -1,17 +1,11 @@
-// What counts as a complete submission.
+// What counts as a complete submission: a repository, plus a release tag OR a
+// commit — never both required.
 //
-// This exists because of a bug that made the submit page unusable for exactly the
-// repositories most worth submitting. The action required a non-empty release
-// TAG, and a project that has never cut a release resolves to its default-branch
-// head — an entry that carries a real 40-hex commit and an empty tag by design
-// (`listReleases`, source `default-branch`). So pasting a perfectly good
-// repository answered "a repository and a release tag are both needed", asking a
-// maintainer to invent a version string for bytes we had already resolved.
-//
-// It was also backwards. The commit is the STRONGER of the two claims: it names
-// bytes that cannot change, where a tag can be repointed or deleted. Refusing a
-// submission that carries the strong identifier for lacking the weak one is the
-// wrong way round, and these tests are the guard against it coming back.
+// The commit is the STRONGER of the two claims, naming bytes that cannot change
+// where a tag can be repointed or deleted. A project that has never cut a release
+// resolves to its default-branch head, which carries a real 40-hex commit and an
+// empty tag by design (`listReleases`, source `default-branch`), so requiring the
+// tag refused exactly the repositories most worth submitting.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,11 +22,9 @@ function form(fields) {
 }
 
 /**
- * Run the action with the network stubbed out.
- *
- * `missing` is decided before any fetch, so a stub that RECORDS whether it was
- * called is what distinguishes "rejected the body" from "accepted it and the call
- * failed" — the two outcomes this file is entirely about telling apart.
+ * Run the action with the network stubbed out. `missing` is decided before any
+ * fetch, so recording whether the stub was called is what distinguishes "rejected
+ * the body" from "accepted it and the call failed".
  */
 async function run(fields) {
   const calls = [];
@@ -55,7 +47,7 @@ async function run(fields) {
 }
 
 test('a commit with NO tag is a complete submission', async () => {
-  // The default-branch case: this is the one the old guard rejected.
+  // The default-branch case: a resolved commit, an empty tag.
   const { outcome, calls } = await run({ repo: 'acme/acme-mcp', release: '', commit: SHA });
   assert.notEqual(outcome.kind, 'missing', 'a resolved commit is a complete submission');
   assert.equal(calls.length, 1, 'it must actually reach the API');
@@ -85,9 +77,8 @@ test('no repository is incomplete however good the commit is', async () => {
 });
 
 test('a commit that is not a SHA is dropped rather than forwarded', async () => {
-  // It is validated here and omitted if it is anything else, because an unchecked
-  // string would end up recorded as provenance. With a tag present the submission
-  // still stands; the commit simply does not travel.
+  // An unchecked string would end up recorded as provenance. With a tag present
+  // the submission still stands; the commit simply does not travel.
   for (const bogus of ['HEAD', 'main', 'not-a-sha', 'a'.repeat(39), `${SHA}0`, '../etc/passwd']) {
     const { outcome, calls } = await run({ repo: 'acme/acme-mcp', release: 'v1', commit: bogus });
     assert.notEqual(outcome.kind, 'missing');
@@ -96,9 +87,9 @@ test('a commit that is not a SHA is dropped rather than forwarded', async () => 
 });
 
 test('a bogus commit with no tag is incomplete — the invalid value cannot stand in for one', async () => {
-  // The failure this pins: relaxing the guard to `!release && !commitRaw` would
-  // accept a body whose only identifier is a string we then refuse to send,
-  // producing a submission that names a repository and nothing else.
+  // Relaxing the guard to `!release && !commitRaw` would accept a body whose only
+  // identifier is a string we then refuse to send, producing a submission that
+  // names a repository and nothing else.
   const { outcome, calls } = await run({ repo: 'acme/acme-mcp', release: '', commit: 'HEAD' });
   assert.equal(outcome.kind, 'missing');
   assert.equal(calls.length, 0);

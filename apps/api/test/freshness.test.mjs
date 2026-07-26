@@ -1,21 +1,13 @@
-// A verdict written a second ago must be the verdict this API serves.
+// A verdict written a second ago must be the verdict this API serves. Two ways that
+// breaks, both guarded here:
 //
-// There was no test for this, which is why it broke in two independent ways at
-// once and neither was noticed until a maintainer refreshed a page:
+//   1. `getVerdictHead` and `getVerdictHeads` choosing different rows for the same
+//      fingerprint, so `/r/<fp>` and the registry list disagree.
+//   2. A read route setting `max-age` with no shared-cache directive, letting
+//      Vercel's CDN pin one body fleet-wide for the whole window.
 //
-//   1. `getVerdictHead` read ONE row and served it. `getVerdictHeads` sorted by
-//      block and served the newest. Same fingerprint, two routes, two answers —
-//      `/r/<fp>` showed the old verdict and the registry list showed the new one.
-//   2. Every read route set `Cache-Control: public, max-age=…` with no shared-cache
-//      directive, so Vercel's CDN pinned one body fleet-wide for the whole window.
-//      Measured live before the fix: `/v1/entry/<fp>` came back `Age: 739`. A
-//      redeploy appeared to fix it because a deploy changes the CDN's cache key.
-//
-// The existing cache test (`verdict.test.mjs`, "cache headers honour the frozen
-// TTLs") pins the long `max-age` — it locks the client TTL in, and it is happy
-// with a CDN holding the same body for fifteen minutes. So it could not have
-// caught this. These assertions are about the SHARED cache, which is the one
-// nobody can bust from a browser.
+// `verdict.test.mjs` pins the client `max-age`; these assertions are about the
+// SHARED cache, the one nobody can bust from a browser.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -105,11 +97,9 @@ for (const [route, why] of MUTABLE_ROUTES) {
 }
 
 test('/v1/entry is never held by a shared cache — it is the only source for /r', async () => {
-  // This test used to guard every assertion behind `if (res.status === 200)` and
-  // ask for a fingerprint the mock store does not have. It reported `ok` on ZERO
-  // executed assertions — a green regression test for the exact incident that
-  // shipped. So the fingerprint now comes from the registry the app just served,
-  // and the 200 is asserted rather than hoped for.
+  // The fingerprint comes from the registry the app just served, and the 200 is
+  // asserted — guarding assertions behind `if (res.status === 200)` reports `ok` on
+  // zero executed assertions.
   const listed = await (await app().request('/v1/registry?limit=1')).json();
   const fp = listed.heads?.[0]?.fingerprint;
   assert.ok(fp, 'the mock registry must serve at least one head for this test to mean anything');
@@ -121,8 +111,7 @@ test('/v1/entry is never held by a shared cache — it is the only source for /r
 });
 
 test('the client TTL the contract froze is still honoured', async () => {
-  // Freshness at the edge must not have been bought by throwing away the gate's
-  // own budget: a coding agent asking twice in a minute should not pay twice.
+  // Freshness at the edge must not be bought by throwing away the gate's own budget.
   const res = await app().request(`/v1/verdict?fp=${FP_A}`);
   const cc = res.headers.get('cache-control') ?? '';
   assert.match(cc, /max-age=\d+/);

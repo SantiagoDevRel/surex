@@ -16,35 +16,21 @@
 //   illustrative  — mock mode only, opt-in twice, marks everything it returns.
 //   world         — the real one. `SUREX_WORLD=1`.
 //
-// The route, the state machine and the 403 path are owned by the API and are not
-// changed here. What IS new is a refusal→status mapping (`REFUSAL_STATUS`), because
-// the real verifier can fail for reasons that are NOT "no human stands behind this
-// agent" and saying so would be a lie:
+// `REFUSAL_STATUS` maps a refusal reason to a status, because the real verifier can
+// fail for reasons that are NOT "no human stands behind this agent":
 //
 //   our RPC was rate-limited      → 503 upstream_unavailable
 //   the request carried no proof  → 401 unauthenticated
 //   lookupHuman really returned 0 → 403 agent_not_human_backed   ← the gate
 //
-// ═══════════════════════════════════════════════════════════════════════════════
-// 🐛 WHY THIS FILE DOES NOT TRUST `lookupHuman`'s NULL  (verified live 2026-07-25)
-//
-// `@worldcoin/agentkit-core@0.2.0`'s AgentBook verifier ends with:
-//
-//     try { …readContract… } catch { return null }
-//
-// So a dead RPC, a rate limit, a wrong contract address and a mis-checksummed
-// address ALL return exactly what an unregistered agent returns. Measured, both
-// cases, against live World Chain 480:
-//
-//     lookupHuman(0xea7d…4171)                     → 0x2493947…f427ff4   (registered)
-//     lookupHuman(0xea7d…4171) with rpcUrl=:9      → null                (RPC down!)
-//     lookupHuman('0xea7d8b94f6E80…')  bad casing  → null                (checksum!)
-//
-// Telling an honest human-backed agent it is not human-backed because our RPC was
-// throttled is the worst failure this route has, so a null answer is never taken at
-// face value: it is re-read through our own viem client, where a transport error is
-// an exception and can be reported as what it is. FRICTION-LOG W7.
-// ═══════════════════════════════════════════════════════════════════════════════
+// 🐛 `lookupHuman`'s NULL IS NEVER TAKEN AT FACE VALUE. `@worldcoin/agentkit-core@0.2.0`'s
+// AgentBook verifier ends in `try { …readContract… } catch { return null }`, so a
+// dead RPC, a rate limit, a wrong contract address and a mis-checksummed address
+// ALL return exactly what an unregistered agent returns — measured both ways
+// against live World Chain 480 on 2026-07-25. Telling an honest human-backed agent
+// it is not human-backed because our RPC was throttled is the worst failure this
+// route has, so a null is re-read through our own viem client, where a transport
+// error is an exception. FRICTION-LOG W7.
 
 import { AGENTKIT, createAgentBookVerifier, declareAgentkitExtension, formatSIWEMessage, parseAgentkitHeader, validateAgentkitMessage, verifyAgentkitSignature } from '@worldcoin/agentkit';
 import { createPublicClient, getAddress, http, keccak256, numberToHex, pad, recoverMessageAddress, toHex } from 'viem';
@@ -57,8 +43,6 @@ import { createHash, randomBytes } from 'node:crypto';
  * The request header an AgentKit client actually sends: `agentkit`, holding a
  * base64 JSON payload. NOT `x-payment` — that is x402's *payment* header, and the
  * base64 `payment-required` header is the challenge travelling the other way.
- * Read out of `@worldcoin/agentkit@0.2.0`, where the client does
- * `headers.set(AGENTKIT, header)` and the server hook does `getHeader(AGENTKIT)`.
  */
 export const AGENTKIT_HEADER = AGENTKIT;
 
@@ -66,20 +50,18 @@ export const AGENTKIT_HEADER = AGENTKIT;
 export const AGENT_BOOK_ADDRESS = '0xA23aB2712eA7BBa896930544C7d6636a96b944dA';
 
 /**
- * Networks AgentBook is actually deployed on, checked by `eth_getCode` on 2026-07-25.
- * The widespread "World Chain mainnet only" claim is false — but see the README and
- * FRICTION-LOG W4/W8 before reaching for Base Sepolia: it exists, it is initialised
- * against the World ID **testnet** router with groupId 1, and it has never had a
- * single registration.
+ * Networks AgentBook is actually deployed on, checked by `eth_getCode` on 2026-07-25
+ * — the "World Chain mainnet only" claim is false. Base Sepolia exists but is
+ * initialised against the World ID **testnet** router and has never had a single
+ * registration (FRICTION-LOG W4/W8).
  */
 export const AGENT_BOOK_NETWORKS = Object.freeze({
   'worldchain-480': {
     chainId: 480,
     caip2: 'eip155:480',
     address: AGENT_BOOK_ADDRESS,
-    // The official public World Chain endpoint. Passed EXPLICITLY (never left to
-    // viem's chain default) so the value is visible, overridable and greppable —
-    // W5. Override with SUREX_WORLD_RPC_URL for anything load-bearing.
+    // Passed EXPLICITLY, never left to viem's chain default, so the endpoint is
+    // visible and greppable. Override with SUREX_WORLD_RPC_URL (W5).
     defaultRpcUrl: 'https://worldchain-mainnet.g.alchemy.com/public',
     canonical: true,
   },
@@ -123,12 +105,8 @@ const EMPTY_SIGNAL_HASH_V3 = '0x00c5d2460186f7233c927e7db2dcc703c0e500b653ca8227
 const EMPTY_SIGNAL_HASH_V4 = '0x0';
 
 /**
- * Which HTTP status each refusal reason deserves. The route applies this; the
- * knowledge of what a reason MEANS lives with the verifier that produces it.
- *
- * Anything not listed falls through to the route's default for that path (403 for
- * an agent, 401 for a human), which is what keeps the stub's `verifier_not_wired`
- * on the 403 path it has always been on.
+ * Which HTTP status each refusal reason deserves. Anything not listed falls through
+ * to the route's default for that path — 403 for an agent, 401 for a human.
  */
 export const REFUSAL_STATUS = Object.freeze({
   // our fault, and we say so rather than blaming the agent or the network
@@ -152,11 +130,9 @@ export const REFUSAL_STATUS = Object.freeze({
 
 /**
  * World's `hashToField`: keccak256 of the bytes, shifted right 8 bits, left-padded
- * to 32 bytes. Implemented here rather than imported because `hashSignal` ships in
- * `@worldcoin/idkit-core`, a browser SDK this read-only API has no reason to carry.
- *
- * NOT guessed — cross-checked against `hashSignal()` from the real SDK on four
- * vectors, including the documented empty-signal default. The test pins all four.
+ * to 32 bytes. Reimplemented rather than imported because `hashSignal` ships in
+ * `@worldcoin/idkit-core`, a browser SDK this read-only API has no reason to carry
+ * — cross-checked against the real SDK on four vectors, all pinned in the test.
  */
 export function hashToField(signal) {
   const bytes = typeof signal === 'string' && /^0x[0-9a-fA-F]*$/.test(signal) ? signal : toHex(String(signal ?? ''));
@@ -198,17 +174,15 @@ export function evidenceHashOf(body) {
 /* ─────────────────────────────────────────────────────────── nullifier store ─*/
 
 /**
- * Uniqueness, per tech spec §7.1 — and NOTHING ELSE ABOUT THE PERSON (NFR-4).
+ * Uniqueness, per tech spec §7.1 — and NOTHING ELSE ABOUT THE PERSON (NFR-4). Per
+ * row: the nullifier as a DECIMAL STRING, the action, and the timestamps it was
+ * seen at. No proof, no merkle root, no IP, no user agent. Decimal because hex
+ * parsing is the bug class here: `0x0A`, `0x0a` and `0xa` are one person and three
+ * different strings.
  *
- * What is stored per row: the nullifier as a DECIMAL STRING, the action, and the
- * timestamps at which it was seen. No proof, no merkle root, no IP, no user agent.
- * Decimal because the documented bug class here is hex parsing: `0x0A` and `0x0a`
- * and `0xa` are one person and three different strings.
- *
- * ⚠️ In-memory, so it is per-process and resets on restart. That is honest for a
- * read-path API with no database — a durable `NUMERIC(78,0) UNIQUE(nullifier,
- * action)` table belongs with the worker, which is the process that can write.
- * Said out loud in the accepted response rather than implied.
+ * ⚠️ In-memory, so per-process and reset on restart — said out loud in the accepted
+ * response rather than implied. A durable `NUMERIC(78,0) UNIQUE(nullifier, action)`
+ * table belongs with the worker, the process that can write.
  */
 export function createNullifierStore({ now = () => Date.now() } = {}) {
   const rows = new Map(); // `${action}:${decimal}` → number[] (timestamps)
@@ -260,9 +234,8 @@ export const STUB_DETAIL =
   'implementation into createApp({ verifiers }) to enable disputes.';
 
 /**
- * The default. Refuses everything, loudly, and says which of the two paths it
- * refused. Accepting a dispute we could not check would be the exact failure the
- * 403 exists to prevent, so the stub fails closed and never silently passes.
+ * The default. Fails closed: accepting a dispute it could not check is the exact
+ * failure the 403 exists to prevent, so it refuses everything and never passes.
  */
 export function createStubVerifiers({ logger = console } = {}) {
   let warned = false;
@@ -289,11 +262,8 @@ export function createStubVerifiers({ logger = console } = {}) {
 }
 
 /**
- * Mock-mode only, opt-in with SUREX_MOCK_ACCEPT_DISPUTES=1.
- *
- * It exists so the web lane can build and demo the accept path standalone before
- * World is wired. It grants standing to nobody real: every result it returns is
- * marked illustrative, and it refuses outright unless mock mode is on.
+ * Mock-mode only, opt-in with SUREX_MOCK_ACCEPT_DISPUTES=1. Grants standing to
+ * nobody real: every result it returns is marked illustrative.
  */
 export function createIllustrativeVerifiers({ logger = console } = {}) {
   logger.warn?.(
@@ -313,8 +283,8 @@ export function createIllustrativeVerifiers({ logger = console } = {}) {
       if (!agentAddress) {
         return { ok: false, humanId: null, reason: 'invalid_body', detail: 'no agentAddress in the request body', illustrative: true };
       }
-      // Deliberate: an address ending in 0 is refused, so the 403 path stays
-      // demonstrable in mock mode too. Not a rule — a fixture.
+      // A fixture, not a rule: an address ending in 0 is refused so the 403 path
+      // stays demonstrable in mock mode.
       if (/0$/.test(agentAddress)) {
         return {
           ok: false,
@@ -332,15 +302,13 @@ export function createIllustrativeVerifiers({ logger = console } = {}) {
 /* ─────────────────────────────────────────────────────────── the real thing ─*/
 
 /**
- * World ID (humans) + AgentBook (agents).
+ * World ID (humans) + AgentBook (agents). Two halves with INDEPENDENT
+ * configuration, so one cannot take the other down:
  *
- * Two halves with INDEPENDENT configuration, because they have independent
- * dependencies and pretending otherwise would take one down with the other:
- *
- *   agent half  — needs an RPC and nothing else. Works today. Reading AgentBook
- *                 requires no Orb; only REGISTERING an agent does.
- *   human half  — needs a Developer Portal relying party (`WORLD_RP_ID`). With
- *                 none configured it fails with a configuration error, never a pass.
+ *   agent half  — needs an RPC and nothing else. Reading AgentBook requires no Orb;
+ *                 only REGISTERING an agent does.
+ *   human half  — needs a Developer Portal relying party (`WORLD_RP_ID`). With none
+ *                 configured it fails with a configuration error, never a pass.
  */
 export function createWorldVerifiers({ env = process.env, logger = console, fetchImpl, nullifiers } = {}) {
   const doFetch = fetchImpl ?? globalThis.fetch;
@@ -396,12 +364,9 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
 
   /**
    * The AgentKit challenge, in the exact `extensions.agentkit` shape the SDK's
-   * client expects — so `createHeader(challenge)` consumes it unmodified.
-   *
-   * Served in the body of the refusal rather than through `@x402/hono`, because
-   * this is IDENTITY, not payment: nothing here is priced, nothing is charged, and
-   * an x402 payment flow is explicitly deferred (AGENTS.md §5). The one thing we
-   * borrow from x402 is the extension envelope.
+   * client expects — so `createHeader(challenge)` consumes it unmodified. Served in
+   * the body of the refusal rather than through `@x402/hono`: this is IDENTITY, not
+   * payment, and an x402 payment flow is explicitly deferred (AGENTS.md §5).
    */
   function challenge({ headers = {}, path = '/v1/disputes' } = {}) {
     const uri = `${resourceUri(headers).replace(/\/+$/, '')}${path}`;
@@ -505,10 +470,10 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       );
     }
 
-    // Signature → address. For an EOA (eip191) this is pure local recovery: no RPC,
-    // so no network condition can turn a good signature into a rejected agent. The
-    // SDK's own path routes eip191 through `publicClient.verifyMessage`, which needs
-    // a working RPC and returns `{valid:false}` when it does not have one.
+    // Signature → address. For an EOA (eip191) this is pure local recovery, so no
+    // network condition can turn a good signature into a rejected agent — the SDK's
+    // own path routes eip191 through `publicClient.verifyMessage`, which needs a
+    // working RPC and returns `{valid:false}` without one.
     let address;
     if (payload.type === 'eip191') {
       let message;
@@ -531,9 +496,9 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
           payload.address,
         );
       } catch (err) {
-        // Two different failures land here: a chainId namespace the SDK does not
-        // know, and a payload whose own `address` is not a valid checksummed
-        // address (siwe refuses to build the message). They are not the same fact.
+        // Two different failures land here and are not the same fact: a chainId
+        // namespace the SDK does not know, and a payload whose own `address` is not
+        // checksummed (siwe refuses to build the message).
         const message = String(err?.message ?? err);
         return refuse(
           /chainid/i.test(message) ? 'agentkit_chain_unsupported' : 'agentkit_signature_invalid',
@@ -608,7 +573,6 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       network: networkKey,
       chainId: network.caip2,
       contract: contractAddress,
-      // Legible without being a claim about the agent: what was checked, where.
       standing: {
         proved: 'a human registered this wallet in AgentBook',
         notProved: 'that the rebuttal is correct, and nothing about how this agent has behaved',
@@ -709,8 +673,8 @@ export function createWorldVerifiers({ env = process.env, logger = console, fetc
       }
     }
 
-    // Forward the payload BYTE-FOR-BYTE. Reshaping it is the documented cause of
-    // spurious invalid_proof, and this API is not the authority on proofs anyway.
+    // Forward the payload BYTE-FOR-BYTE — reshaping it is the documented cause of
+    // spurious invalid_proof.
     let res;
     let text;
     try {

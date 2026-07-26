@@ -4,11 +4,10 @@
 // Walrus; everything else is written as `unreviewable` with `reason: 'licence'`
 // and NO source upload.
 //
-// The rule that matters most here: **unmatched is INELIGIBLE, not permissive.**
-// No licence found, a proprietary licence, and a custom text we could not match
-// all land in the same bucket. A false positive writes someone else's code into
-// content-addressed storage that has no delete — so the gate is deliberately
-// biased towards refusing, and the cost of refusing wrongly is one extra
+// The rule that matters most: **unmatched is INELIGIBLE, not permissive.** No
+// licence found, a proprietary licence and an unmatchable custom text land in the
+// same bucket, because a false positive writes someone else's code into
+// content-addressed storage that has no delete. Refusing wrongly costs one extra
 // `unreviewable` row.
 //
 // Resolution order, per spec:
@@ -21,16 +20,12 @@
 const UA = 'surex-worker/0.1 (ETHGlobal Lisbon 2026; licence gate)';
 
 /**
- * The eligible set. Tech spec §8 names MIT, Apache-2.0, BSD-*, ISC, MPL-2.0 and
- * the GPL family, and this implements exactly that and nothing more.
+ * The eligible set: exactly what tech spec §8 names — MIT, Apache-2.0, BSD-*, ISC,
+ * MPL-2.0, the GPL family — and nothing more.
  *
- * Deliberately NOT included: Unlicense, CC0-1.0, Zlib, Python-2.0 and other
- * public-domain or permissive licences that a human would probably wave through.
- * They are redistribution-permitting in substance, but widening a gate that
- * writes third-party source into storage with no delete is a decision for a
- * person to make and record, not for this file to make quietly. Their effect
- * today is one `unreviewable` row each, which is a recoverable outcome; the
- * opposite mistake is not.
+ * Unlicense, CC0-1.0, Zlib and Python-2.0 are deliberately OUT despite permitting
+ * redistribution. Widening a gate that writes third-party source into storage with
+ * no delete is a decision for a person to make and record.
  */
 const ELIGIBLE_PATTERNS = [
   /^MIT(-0)?$/i,
@@ -125,10 +120,9 @@ function splitTop(text, op) {
 }
 
 /**
- * A few non-SPDX spellings that appear constantly in real package.json files.
- * Only unambiguous ones. Bare "BSD" is deliberately NOT normalised: it names a
- * family, not a licence, and the LICENSE-file matcher will pin the actual variant
- * — guessing here would be exactly the false positive this gate exists to avoid.
+ * Non-SPDX spellings common in real package.json files, unambiguous ones only.
+ * Bare "BSD" is deliberately NOT here: it names a family, not a licence, and the
+ * LICENSE-file matcher pins the actual variant.
  */
 const ALIASES = new Map([
   ['mit license', 'MIT'],
@@ -158,12 +152,10 @@ export function normaliseKnownAlias(text) {
 }
 
 /**
- * SPDX template matching for a licence FILE.
- *
- * Each entry is the set of phrases that only that licence's real text contains,
- * matched against whitespace-collapsed lowercase. `not` clauses discriminate
- * between near-identical BSD variants, where the difference between 2-Clause and
- * 3-Clause is one paragraph.
+ * SPDX template matching for a licence FILE. Each entry is the set of phrases only
+ * that licence's real text contains, matched against whitespace-collapsed
+ * lowercase; `not` clauses separate the near-identical BSD variants, where 2-Clause
+ * and 3-Clause differ by one paragraph.
  */
 const TEMPLATES = [
   {
@@ -264,24 +256,12 @@ export function rawUrlsFor(repoUrl, filename) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Fetch a file and say WHY it failed, because the two failures mean opposite
- * things.
- *
- * A 404 is a real negative: that file is not in that repo, try the next name. A
- * timeout, a 429 or a 5xx is **no answer at all** — and the old code returned
- * `null` for all of them alike, so the gate concluded "no licence file found in
- * repo" and marked the package ineligible. That is the same shape as World's
- * `lookupHuman()` returning `null` for a dead RPC and for an unregistered agent
- * (FRICTION-LOG W7): a transport failure wearing the costume of a real negative,
- * where the negative is the harmful answer.
- *
- * Here the harm is concrete and public. Measured: `@modelcontextprotocol/
- * server-everything` resolves to Apache-2.0 five times out of five on a healthy
- * network, and came back "no licence file found in repo" once inside a
- * 58-package loop. Publishing that would have said `unreviewable`, reason
- * `licence` — rendered on the site as *"no licence permits us to store this
- * source"* — about somebody else's correctly licensed package, because of a rate
- * limit.
+ * Fetch a file and say WHY it failed. NEVER collapse the two failures into `null`:
+ * a 404 is a real negative (that file is not in that repo, try the next name), but
+ * a timeout, 429 or 5xx is NO ANSWER AT ALL. Treating the second as the first makes
+ * the gate publish `unreviewable`/`licence` — "no licence permits us to store this
+ * source" — about somebody else's correctly licensed package, because of a rate
+ * limit. `transport: true` marks that case for the caller.
  */
 export async function fetchWithReason(url, { timeoutMs = 8000, attempts = 3 } = {}) {
   let why = 'unknown';
@@ -320,10 +300,9 @@ async function getJson(url, { timeoutMs = 8000 } = {}) {
 }
 
 /**
- * npm registry metadata for one version.
- * Also carries `dist.integrity` — the sha512 of the published tarball, which is
- * what makes Tier A reachable later (FR-18). It is recorded now because it is
- * free now and unobtainable after the version is unpublished.
+ * npm registry metadata for one version. Carries `dist.integrity` — the sha512 of
+ * the published tarball that makes Tier A reachable later (FR-18) — recorded now
+ * because it is unobtainable once the version is unpublished.
  */
 export async function npmVersionMeta(name, version) {
   const encoded = String(name).replace('/', '%2f');
@@ -443,11 +422,10 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
 
   // 2. A LICENSE file in the repo, matched against SPDX templates.
   //
-  // `undetermined` tracks whether any candidate failed for a reason that is not
-  // an answer. If the walk ends with no licence found AND something along the way
-  // could not be reached, the gate refuses to CLAIM ineligibility — see the
-  // return at the bottom. Ineligible is a public statement about somebody's
-  // package; "we could not tell" is not.
+  // `undetermined` tracks a candidate that failed for a reason that is not an
+  // answer. No licence found AND something unreachable → refuse to CLAIM
+  // ineligibility (see the return at the bottom): ineligible is a public statement
+  // about somebody's package, "we could not tell" is not.
   let undetermined = null;
   if (fetchRepoFiles && candidate.repo?.url) {
     for (const filename of LICENCE_FILENAMES) {
@@ -470,10 +448,9 @@ export async function licenceGate(candidate, { fetchRepoFiles = true } = {}) {
             resolvedVersion,
           };
         }
-        // A file that exists but does not match is the "custom text" case, and
-        // per the rule at the top of this file that is INELIGIBLE. Stop looking:
-        // a repo whose LICENSE we cannot read is not made eligible by a second
-        // file with a friendlier name.
+        // A file that exists but does not match is the "custom text" case —
+        // INELIGIBLE, and stop looking: a repo whose LICENSE we cannot read is not
+        // made eligible by a second file with a friendlier name.
         if (!spdx) {
           return {
             eligible: false,

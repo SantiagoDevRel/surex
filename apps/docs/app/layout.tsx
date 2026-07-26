@@ -7,11 +7,7 @@ import type { ReactNode } from 'react';
 
 import './globals.css';
 
-/**
- * design/tokens.html §02. Self-hosted by next/font at build time — this site
- * makes no request to a CDN at runtime, which for a project about what your
- * tools reach out to is not a detail.
- */
+/** Self-hosted by next/font at build time — no CDN request at runtime. */
 const mono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
@@ -43,8 +39,6 @@ const navbar = (
       </span>
     }
     projectLink="https://github.com/SantiagoDevRel/surex"
-    // The registry is the product; the docs are about it. Keep it one click away.
-    // `/registry`, not the site root: the root is the landing page now.
     chatLink="https://arkiv-surex.vercel.app/registry"
     chatIcon={<span style={{ fontSize: 11 }}>registry ↗</span>}
   />
@@ -82,7 +76,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           footer={footer}
           pageMap={await getPageMap()}
           docsRepositoryBase="https://github.com/SantiagoDevRel/surex/tree/main/apps/docs"
-          // Dark-first, like the registry.
           nextThemes={{ defaultTheme: 'dark', attribute: 'class' }}
           editLink="Edit this page"
           sidebar={{ defaultMenuCollapseLevel: 2 }}

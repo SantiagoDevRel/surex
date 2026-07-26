@@ -109,11 +109,9 @@ test('uvx accepts pip-style pins', () => {
 });
 
 test('THE PORTABILITY TEST: the same server on Windows and macOS is ONE entry', () => {
-  // Found by running the gate against a real machine, not by writing a test
-  // first. Every MCP server in a Windows config is `cmd /c npx <pkg>`; the same
-  // server on macOS is `npx <pkg>`. Without unwrapping, the two hash
-  // differently AND the Windows form loses the package name entirely — the gate
-  // would look like it worked while recognising nothing (failure-modes §3.1).
+  // Every MCP server in a Windows config is `cmd /c npx <pkg>`; the same server on
+  // macOS is `npx <pkg>`. Without unwrapping the two hash differently AND the
+  // Windows form loses the package name entirely.
   const windows = { command: 'cmd', args: ['/c', 'npx', '@playwright/mcp@1.2.3'] };
   const macos = { command: 'npx', args: ['@playwright/mcp@1.2.3'] };
   assert.equal(fingerprint(windows), fingerprint(macos));
@@ -127,7 +125,6 @@ test('sh -c with a single quoted string unwraps too', () => {
 });
 
 test('a proxy shim resolves to the endpoint behind it, not the shim', () => {
-  // `npx mcp-remote <url>` is a remote server wearing a stdio costume.
   // Fingerprinting the shim would file every remote server under one entry.
   const viaProxy = canonicalise({ command: 'cmd', args: ['/c', 'npx', 'mcp-remote', 'https://mcp.vercel.com'] });
   assert.equal(viaProxy.transport, 'http');
@@ -143,9 +140,8 @@ test('a proxy shim resolves to the endpoint behind it, not the shim', () => {
 test('A LOCAL SCRIPT IS NOT IDENTIFIED BY ITS BASENAME — that would be a collision', () => {
   // The bug: every locally-run MCP server on earth is `node server.js`. The
   // absolute path cannot go in the fingerprint (machine-specific), but the
-  // basename alone would file two unrelated servers under one entry — and the
-  // gate would then hand one server's verdict to the other. A collision here is
-  // strictly worse than a miss, because a miss only warns.
+  // basename alone files two unrelated servers under one entry, and the gate then
+  // hands one server's verdict to the other.
   const a = canonicalise({ command: 'node', args: ['/home/ana/project-a/server.js'] });
   const b = canonicalise({ command: 'node', args: ['C:\\work\\project-b\\server.js'] });
   assert.equal(a.package.version, 'local-unresolved');
@@ -163,8 +159,7 @@ test('with a content resolver, a local script gets a real and portable identity'
   assert.notEqual(fingerprintOf(a), fingerprintOf(b), 'different content, different entry');
 
   // The property that makes a registry entry for a local server possible at all:
-  // the same file content on a different machine, at a different path, is the
-  // same fingerprint.
+  // same content, different machine, different path, same fingerprint.
   const elsewhere = canonicalise(
     { command: 'node', args: ['/opt/somewhere/else/server.js'] },
     { hashLocalEntry: () => 'a'.repeat(64) },

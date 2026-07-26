@@ -1,22 +1,15 @@
-// What the verdict page SAYS, for every state a head can carry.
+// What the verdict page SAYS, for every state a head can carry: the banner, the
+// twenty-second summary, and the problem-kind line.
 //
-// These four functions decide the three sentences a reader actually reads — the
-// banner, the twenty-second summary, and the problem-kind line — and none of them
-// had a test. Three false statements shipped through that gap, all the same shape:
-// one situation's wording applied to a situation it does not describe.
+// The failure these guard against is one situation's wording applied to a
+// situation it does not describe — `withheld` (a review that RAN and is not
+// published) reading as "the source could not be read", `no-agreement` (read
+// twice, no majority) getting the same sentence next to "the readings disagreed",
+// `unknown` (nobody has looked) asserting what the model saw.
 //
-//   · `unreviewable / withheld` — a review that RAN and is not published — was
-//     described as "the source could not be read or could not be stored".
-//   · `unreviewable / no-agreement` — read twice, no majority — got the same
-//     sentence, immediately followed by "the readings disagreed". Two clauses, one
-//     banner, opposite claims.
-//   · `unknown` — nobody has looked — got "None recorded. That is a statement
-//     about what the model saw", which asserts a reading that never happened.
-//
-// So the assertions below are mostly about MEANING rather than about strings: no
-// rendered body may claim a reading that did not happen, and no body may contain
-// two clauses that contradict each other. Those survive a copy edit; an exact-text
-// assertion would not.
+// So the assertions are about MEANING rather than strings: no rendered body may
+// claim a reading that did not happen, and no body may contain two clauses that
+// contradict each other. Those survive a copy edit; exact-text ones would not.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -91,9 +84,8 @@ test('no-agreement says the readings disagreed, and never that nothing was read'
 });
 
 test('no-reading says nothing was read, and never that readings disagreed', () => {
-  // The distinction this reason exists for: the publisher used to fill an empty
-  // reason with `no-agreement`, so a run where the reviewer was unreachable was
-  // published as "the readings disagreed and no majority formed".
+  // The distinction this reason exists for: an empty reason filled in as
+  // `no-agreement` publishes an unreachable reviewer as "the readings disagreed".
   const body = stateBanner(head({ reason: 'no-reading' })).body;
   assert.match(body, /never read|could not be reached/i);
   assert.doesNotMatch(body, /disagree|did not converge/i);
@@ -167,16 +159,16 @@ test('an unrecognised concern renders nothing rather than the raw enum value', (
 });
 
 test('the strongest concern describes the code, not the author\'s purpose', () => {
-  // `deliberate-concealment` is the only value that asserts intent. The reviewer's
-  // own schema says a wrong one "is an accusation about a person rather than about
-  // a program", so the rendered string must not read as a claim about motive.
+  // `deliberate-concealment` is the only value that asserts intent, and the
+  // reviewer's schema calls a wrong one "an accusation about a person rather than
+  // about a program" — so the rendered string must not read as a claim about motive.
   const sentence = COPY.verdict.concerns['deliberate-concealment'];
   assert.doesNotMatch(sentence, /\bit works to\b|\bintends?\b|\bdeliberately\b|\bon purpose\b/i);
   assert.match(sentence, /the code is written/i);
 });
 
 test('no concern wording claims something a static read cannot establish', () => {
-  // "code that was never reviewed" asserts a fact about the whole world; SureX
-  // only knows the code is not in the blob it read.
+  // "code that was never reviewed" asserts a fact about the whole world. SureX only
+  // knows the code is not in the blob it read.
   assert.doesNotMatch(COPY.verdict.concerns['runs-code-it-fetched'], /never reviewed/i);
 });

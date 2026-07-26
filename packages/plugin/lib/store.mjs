@@ -1,18 +1,12 @@
-// Everything the gate keeps between runs.
-//
-// It ALL lives in ${CLAUDE_PLUGIN_DATA}, never ${CLAUDE_PLUGIN_ROOT}. The root
-// is replaced on every plugin update and the docs say to treat it as ephemeral,
-// so a user's overrides written there would be wiped by an update — losing the
-// approvals that are the only reason blocking is acceptable at all.
+// Everything the gate keeps between runs. It ALL lives in ${CLAUDE_PLUGIN_DATA},
+// never ${CLAUDE_PLUGIN_ROOT} — the root is replaced on every plugin update, so
+// overrides written there would be wiped by one.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-/**
- * ${CLAUDE_PLUGIN_DATA} when Claude Code provides it. The fallback is for
- * running the CLI outside a session, where the env var is absent.
- */
+/** ${CLAUDE_PLUGIN_DATA}, falling back to ~/.surex for the CLI outside a session. */
 export function dataDir() {
   const fromEnv = process.env.CLAUDE_PLUGIN_DATA;
   if (fromEnv) return fromEnv;
@@ -49,13 +43,9 @@ export const paths = {
 // ─── cache ──────────────────────────────────────────────────────────────────
 
 /**
- * Disk cache, keyed by fingerprint.
- *
- * The one rule that matters: a cached `flagged` survives its TTL and survives
- * the registry being unreachable. A network blip must never un-flag a server we
- * already know is bad — and since a hook that exceeds its timeout fails open
- * (FRICTION-LOG C1), the offline path is the only one that cannot be timed out
- * into silence.
+ * Disk cache, keyed by fingerprint. A cached `flagged` survives its TTL and the
+ * registry being unreachable: a network blip must never un-flag a server already
+ * known to be bad.
  */
 export function readCache() {
   const raw = readJson(paths.cache(), { v: 1, entries: {} });
@@ -67,8 +57,7 @@ export function cacheGet(fingerprint, now = Date.now(), cache = readCache()) {
   if (!entry) return null;
   const fresh = now < entry.expiresAt;
   if (fresh) return { ...entry, stale: false };
-  // Expired. Only a flagged verdict is still worth returning, and only as a
-  // fallback the caller must ask for explicitly.
+  // Expired. Only a flagged verdict is still worth returning, marked stale.
   if (entry.head?.state === 'flagged' || entry.head?.state === 'disputed') {
     if (now < entry.expiresAt + (entry.graceMs ?? 0)) return { ...entry, stale: true };
   }
@@ -99,14 +88,9 @@ export function cachePutMany(heads, opts) {
 // ─── overrides ──────────────────────────────────────────────────────────────
 
 /**
- * The escape hatch, and the entire reason blocking is defensible.
- *
- * SureX's job is to make sure nobody runs a flagged server *unknowingly*, not
- * to decide for them. A block a user cannot pass is a block that gets the gate
- * uninstalled the first time it is wrong.
- *
- * Overrides are local and are reported nowhere. A registry that phones home
- * about which warnings you ignored is a different product, and a worse one.
+ * The escape hatch: a block a user cannot pass is one that gets the gate
+ * uninstalled. Overrides are local and are reported nowhere — which warnings a
+ * user ignored never leaves the machine.
  */
 export function readOverrides() {
   const raw = readJson(paths.overrides(), { v: 1, always: [], sessions: {} });
@@ -155,10 +139,9 @@ export function removeOverride(fingerprint) {
 // ─── log ────────────────────────────────────────────────────────────────────
 
 /**
- * A local, append-only record of what the gate did. It never leaves the
- * machine; it exists so a user can answer "why did that get blocked" after the
- * fact, and so registry hit rate is measurable at all (failure-modes §3.1 —
- * a gate that recognises almost nothing looks identical to one that works).
+ * A local, append-only record of what the gate did. It never leaves the machine.
+ * Exists so "why did that get blocked" is answerable after the fact, and so
+ * registry hit rate is measurable at all (failure-modes §3.1).
  */
 export function logDecision(entry) {
   try {

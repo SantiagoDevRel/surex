@@ -1,11 +1,9 @@
 // POST /a/<slug>/load-model — the demo-recovery control.
 //
-// WHAT THIS IS, HONESTLY: an unguessable path, plus a weak shared password, plus a
-// rate limit, controlling ONE idempotent action on our own box (make a model
-// resident on the reviewer). It is a demo control, not a security boundary, and
-// the README says so in those words. It exists because the reviewer runs on a
-// home DGX over a tunnel and the tunnel will drop mid-demo; the alternative is
-// walking to the laptop.
+// HONESTLY: an unguessable path, plus a weak shared password, plus a rate limit,
+// controlling ONE idempotent action on our own box (make a model resident on the
+// reviewer). It is a demo control, not a security boundary, and the README says so
+// in those words.
 //
 // What keeps it defensible:
 //   · it mounts ONLY if SUREX_ADMIN_SLUG is set — no default is committed, so a
@@ -13,8 +11,7 @@
 //   · the password travels in a HEADER, never a query string (query strings land
 //     in access logs, referrers and shell history);
 //   · the comparison is timing-safe;
-//   · the rate limit is checked BEFORE the password, so the limiter also limits
-//     guessing rather than only limiting authenticated calls;
+//   · the rate limit is checked BEFORE the password, so it limits guessing too;
 //   · it triggers exactly one thing, and that thing is idempotent.
 
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -29,12 +26,9 @@ export const DEFAULT_LOAD_TIMEOUT_MS = 120_000;
 export const MIN_SLUG_LENGTH = 16;
 
 /**
- * Constant-time string comparison.
- *
- * Both sides are hashed to a fixed 32 bytes first. That is what makes it safe to
- * call with inputs of different lengths — raw timingSafeEqual THROWS on a length
- * mismatch, and catching that throw would leak the password's length through
- * control flow, which is the bug this shape avoids.
+ * Constant-time string comparison. Both sides are hashed to a fixed 32 bytes first
+ * because raw timingSafeEqual THROWS on a length mismatch, and catching that throw
+ * would leak the password's length through control flow.
  */
 export function timingSafeCompare(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -44,11 +38,9 @@ export function timingSafeCompare(a, b) {
 }
 
 /**
- * Fixed-window limiter, in process memory.
- *
- * Honest limitation: on Vercel this is per instance, so the effective limit is
- * (limit × warm instances). Good enough for one idempotent action on our own box;
- * it is not a defence against a distributed attacker, and the README says so.
+ * Fixed-window limiter, in process memory. On Vercel that is PER INSTANCE, so the
+ * effective limit is (limit × warm instances) — not a defence against a distributed
+ * attacker.
  */
 export function createRateLimiter({ limit = DEFAULT_RATE_LIMIT, windowMs = DEFAULT_RATE_WINDOW_MS } = {}) {
   const buckets = new Map();
@@ -81,13 +73,10 @@ export function createRateLimiter({ limit = DEFAULT_RATE_LIMIT, windowMs = DEFAU
 }
 
 /**
- * Best-effort client identity. Falls back to a SHARED bucket — i.e. it errs toward
- * more limiting, never less.
- *
- * `x-forwarded-for` is client-supplied unless a proxy overwrites it, so an attacker
- * who can set it can rotate buckets. On Vercel it is overwritten and trustable; run
- * directly on a public port and it is not. Acceptable for one idempotent action on
- * our own box, and stated in the README rather than implied.
+ * Best-effort client identity, falling back to a SHARED bucket — it errs toward more
+ * limiting, never less. `x-forwarded-for` is client-supplied unless a proxy
+ * overwrites it (Vercel does, a bare public port does not), so an attacker who can
+ * set it can rotate buckets.
  */
 export function clientKey(c) {
   const h = c.req.header.bind(c.req);
@@ -97,23 +86,9 @@ export function clientKey(c) {
 }
 
 /**
- * Force a model resident on the reviewer.
- *
- * The reviewer is ollama-compatible, so the cheapest way to make a model resident
- * is a real completion request with max_tokens 1 — one token of work, and the
- * load is the side effect we actually want. Returns what HAPPENED, including the
- * failure, because "the button did nothing and said OK" is the worst outcome for
- * a recovery control.
- */
-/**
  * `<base>/v1/chat/completions`, whether or not the caller's base URL already ends
- * in `/v1`.
- *
- * The reviewer package appends `/chat/completions` (so its base URL includes
- * `/v1`) and the admin route appended `/v1/chat/completions` (so its base URL did
- * not). Same env var, two conventions, and one of them yields
- * `/v1/v1/chat/completions` and a 404 — the kind of thing that fails once, in
- * production, at the worst moment. Both now normalise.
+ * in `/v1`. The reviewer package and this route read the same env var with two
+ * conventions, and one of them yields `/v1/v1/chat/completions` and a 404.
  */
 export function chatCompletionsUrl(baseUrl) {
   const trimmed = String(baseUrl ?? '').replace(/\/+$/, '');
@@ -121,6 +96,12 @@ export function chatCompletionsUrl(baseUrl) {
   return `${root}/v1/chat/completions`;
 }
 
+/**
+ * Force a model resident on the reviewer: an ollama-compatible completion with
+ * max_tokens 1, where the load is the side effect. Returns what HAPPENED including
+ * the failure — "the button did nothing and said OK" is the worst outcome for a
+ * recovery control.
+ */
 export async function loadModel({ baseUrl, model, apiKey = null, timeoutMs = DEFAULT_LOAD_TIMEOUT_MS, fetchImpl = fetch } = {}) {
   const url = chatCompletionsUrl(baseUrl);
   const controller = new AbortController();
@@ -129,9 +110,8 @@ export async function loadModel({ baseUrl, model, apiKey = null, timeoutMs = DEF
   try {
     const res = await fetchImpl(url, {
       method: 'POST',
-      // The reviewer sits behind a bearer-gated proxy, because the DGX is a home
-      // machine and an open ollama port is a free GPU for the internet. Without
-      // this the route reached the box and got a truthful 401.
+      // The reviewer sits behind a bearer-gated proxy: the DGX is a home machine
+      // and an open ollama port is a free GPU for the internet.
       headers: {
         'content-type': 'application/json',
         ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
@@ -171,19 +151,17 @@ export async function loadModel({ baseUrl, model, apiKey = null, timeoutMs = DEF
       httpStatus: null,
       ms: Date.now() - t0,
       // node's fetch reports a bare "fetch failed" and hides the useful part in
-      // `cause`. For a recovery control the difference between ECONNREFUSED (the
-      // reviewer is down) and ENOTFOUND (the tunnel hostname is gone) is the whole
-      // diagnosis, so it is surfaced rather than swallowed.
+      // `cause` — ECONNREFUSED (reviewer down) vs ENOTFOUND (tunnel hostname gone)
+      // is the whole diagnosis.
       error:
         err.name === 'AbortError'
           ? `timed out after ${timeoutMs} ms`
           : [err.message, err.cause?.code, err.cause?.message].filter(Boolean).join(' · '),
     };
   } finally {
-    // Not optional. Without this, every call leaves a pending 120-second timer
-    // holding the event loop open — which kept `node --test` alive for a hundred
-    // seconds after the last assertion and would keep a serverless invocation
-    // billable long after it answered.
+    // Not optional: without it every call leaves a pending 120-second timer holding
+    // the event loop open — `node --test` stayed alive long after the last
+    // assertion, and a serverless invocation stays billable after it answered.
     clearTimeout(timer);
   }
 }
@@ -287,7 +265,6 @@ export function mountAdmin(app, options = {}) {
     logger.info?.(
       `[surex-api] load-model model=${model} ok=${result.ok} status=${result.httpStatus ?? '-'} ${result.ms}ms`,
     );
-    // Report the real outcome. 200 when the reviewer answered, 502 when it did not.
     return c.json({ action: 'load-model', reviewerBaseUrl, ...result }, result.ok ? 200 : 502);
   });
 

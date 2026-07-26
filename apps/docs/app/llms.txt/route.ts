@@ -1,10 +1,8 @@
 /**
  * /llms.txt — the whole product as one flat file, for a model with no navigation.
- *
- * Generated rather than written: the states, the decision outcomes, the routes,
- * the cache policy, the banned words and the install prompts all come from the
- * same modules the gate and the API import, so this file cannot describe a
- * contract that no longer exists.
+ * Generated rather than written: states, decisions, routes, cache policy, banned
+ * words and prompts all come from the modules the gate and the API import, so this
+ * cannot describe a contract that no longer exists.
  */
 import { CACHE, DEFAULT_API_BASE, GATE_BUDGET, ROUTES } from '@surex/core/contract';
 import { CLEAN_MEANS, NO_HUMAN_AUDIT } from '@surex/core/copy';

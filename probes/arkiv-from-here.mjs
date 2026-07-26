@@ -3,21 +3,12 @@
  *
  *   node probes/arkiv-from-here.mjs
  *
- * Deliberately narrow. `probes/arkiv-write-read.mjs` answers six semantic
- * questions about the SDK and costs six writes to do it; this one answers the
- * only question a new host raises — does the write path work from this uplink —
- * and it is the counterpart to `probes/walrus-publish.mjs`.
+ * Deliberately narrow — the counterpart to `probes/walrus-publish.mjs`, which exists
+ * because Walrus turned out to be uplink-sensitive (S11). Arkiv writes are ordinary
+ * JSON-RPC to ONE endpoint, but "no reason to expect the same failure" is not a test.
  *
- * It exists because Walrus turned out to be uplink-sensitive in a way nothing
- * documented (S11: the SDK's direct-to-101-nodes upload cannot complete from a
- * residential connection). Arkiv writes are ordinary JSON-RPC to ONE endpoint, so
- * there is no reason to expect the same failure — but "no reason to expect it"
- * is not a test, and the writer moved to a residential box without anyone ever
- * having run an Arkiv write from it.
- *
- * Writes ONE throwaway entity under a probe-only project so nothing it does can
- * reach the registry: the API scopes every read to project `surex-lisbon`, and
- * this writes to `surex-probe`.
+ * Writes ONE throwaway entity under a probe-only project so nothing it does can reach
+ * the registry: the API scopes every read to `surex-lisbon`, this writes `surex-probe`.
  *
  * Needs ARKIV_WRITER_PK in the environment (on the DGX: /etc/surex/ingest.env).
  */
@@ -51,16 +42,14 @@ log('\n# 2. one throwaway write');
 const fingerprint = `sxf1_probe_${Date.now().toString(36)}`;
 const built = {
   payload: { probe: 'arkiv-from-here', writtenAt: new Date().toISOString() },
-  // Scoped to the probe project, so a stray read of the real registry — which is
-  // scoped to `surex-lisbon` — can never pick this up.
+  // Scoped to the probe project, so a read of the real registry cannot pick this up.
   attributes: [
     { key: 'project', value: PROBE_PROJECT },
     { key: 'entityType', value: 'probe' },
     { key: 'fingerprint', value: fingerprint },
   ],
-  // Seconds, and an EVEN number of them: 0.7.0 throws InvalidExpirationError on
-  // an odd value where 0.6.8 silently rounded (A3). One hour is plenty for a
-  // throwaway and costs nothing to let expire.
+  // Seconds, and an EVEN number of them: 0.7.0 throws InvalidExpirationError on an
+  // odd value where 0.6.8 silently rounded (A3).
   expiresIn: 3600,
 };
 

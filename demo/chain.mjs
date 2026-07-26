@@ -1,22 +1,15 @@
 #!/usr/bin/env node
-// The whole chain, end to end, driven by a real Claude Code session.
-//
-//   the fixture MCP server we wrote
-//     → a real tool call
-//       → the SureX plugin's PreToolUse hook (loaded as a PLUGIN, not a setting)
-//         → SXF-1 fingerprint from config alone
-//           → the registry says flagged
-//             → the gate fetches the evidence from Walrus
-//               → and RECOMPUTES the blob ID from the bytes it received
-//                 → the call is denied, with the case in one string
+// The whole chain, end to end, driven by a real Claude Code session: the fixture
+// MCP server → a real tool call → the plugin's PreToolUse hook (loaded as a PLUGIN,
+// not a setting) → SXF-1 from config alone → the registry says flagged → the gate
+// fetches the evidence from Walrus and RECOMPUTES the blob ID → the call is denied.
 //
 // Run:  node demo/chain.mjs            (registry stood in locally)
 //       SUREX_API_URL=… node demo/chain.mjs   (against a live API)
 //
-// Nothing here is mocked past the registry. The Walrus fetch is a real HTTP
-// request to a public aggregator for a blob that was really certified on Sui,
-// and the blob ID is really recomputed locally with the vendored encoder. If
-// the network is down, this fails loudly rather than pretending.
+// Nothing here is mocked past the registry: the Walrus fetch is a real request to a
+// public aggregator for a blob certified on Sui, and a network failure fails loudly
+// rather than pretending.
 
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
@@ -32,11 +25,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURE_ENTRY = join(ROOT, 'packages', 'fixture-mcp', 'src', 'server.mjs');
 const PLUGIN_DIR = join(ROOT, 'packages', 'plugin');
 
-/**
- * A real blob, written and certified on Walrus testnet by probes/walrus-write.mjs.
- * The evidence in this demo points at bytes that genuinely exist on chain — the
- * point of the exercise is that the gate goes and gets them and checks them.
- */
+/** A real blob, written and certified on Walrus testnet by probes/walrus-write.mjs. */
 const REAL_EVIDENCE = {
   blobId: '-SzjTmxUSjs01bmC2AZ48iqz-fTCcllwcLu3nc2rb2Y',
   contentSha256: 'f0457c3012a351b89df29a190d8189595074cf2fe843d85aeff8047cc1ff2ad7',
@@ -117,9 +106,8 @@ if (!registryUrl) {
       return;
     }
     if (url.pathname.endsWith('/verdicts/batch')) {
-      // Answer for EVERY requested fingerprint. A batch endpoint that stays
-      // silent about one is how a flag gets suppressed -- see
-      // partitionBatchResponse in packages/core.
+      // Answer for EVERY requested fingerprint: staying silent about one is how a
+      // flag gets suppressed — see partitionBatchResponse in packages/core.
       let body = '';
       req.on('data', (d) => (body += d));
       req.on('end', () => {
@@ -142,32 +130,26 @@ if (!registryUrl) {
 // ── 3. a real Claude Code session, with the plugin installed as a plugin ────
 const sandbox = mkdtempSync(join(tmpdir(), 'surex-chain-'));
 
-// Claude Code sets ${CLAUDE_PLUGIN_DATA} itself and OVERRIDES anything we pass:
-// for a plugin loaded with --plugin-dir it is ~/.claude/plugins/data/<name>-inline.
-// That is the behaviour we want in production -- state survives plugin updates --
-// but it means a demo run inherits the previous run's cache, so clear it.
+// Claude Code sets ${CLAUDE_PLUGIN_DATA} itself and OVERRIDES anything we pass: for
+// a plugin loaded with --plugin-dir it is ~/.claude/plugins/data/<name>-inline. So a
+// demo run inherits the previous run's cache unless it is cleared here.
 const dataDir = join(homedir(), '.claude', 'plugins', 'data', 'surex-inline');
 mkdirSync(dataDir, { recursive: true });
 rmSync(join(dataDir, 'cache.json'), { force: true });
 rmSync(join(dataDir, 'overrides.json'), { force: true });
 rmSync(join(dataDir, 'gate.log'), { force: true });
 
-// The server definition is written as a project-scope `.mcp.json` in the sandbox
-// and the session is run from there.
-//
-// This is not decoration. A server passed only via `--mcp-config` is INVISIBLE to
-// the gate: a hook receives no server config (FRICTION-LOG C3) and has to
-// rediscover the definition from the config scopes on disk, and a file handed to
-// the CLI on the command line is in none of them. Writing it where a real install
-// would put it is both what makes the demo work and what a real install looks
-// like. `--mcp-config` still points at the same file so the session connects
-// without needing an interactive approval for a project-scoped server.
+// The server definition is written as a project-scope `.mcp.json` in the sandbox and
+// the session runs from there. A server passed ONLY via `--mcp-config` is invisible
+// to the gate: a hook receives no server config (FRICTION-LOG C3) and rediscovers the
+// definition from the config scopes on disk, and a file handed to the CLI is in none
+// of them. `--mcp-config` still points at the same file so the session connects
+// without an interactive approval.
 const mcpConfig = join(sandbox, '.mcp.json');
 writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { fixture: fixtureDef } }, null, 2));
 
-// Piped in rather than passed as an argv entry: the prompt contains quotes, and
-// on Windows a shell-spawned argv mangles it — the model received the single word
-// "Use" and asked what we meant.
+// Piped in rather than passed as an argv entry: the prompt contains quotes, and on
+// Windows a shell-spawned argv mangles it down to the first word.
 const PROMPT =
   'Use the search tool from the fixture MCP server to search for the word onboarding. ' +
   'Then tell me in one sentence exactly what happened, and if the call was blocked, ' +
@@ -180,9 +162,8 @@ const claudeArgs = [
   '--strict-mcp-config',
   '--plugin-dir', PLUGIN_DIR,
   // NOTE: no `--setting-sources ''`. An empty-string argv entry is dropped when
-  // spawning through a shell on Windows, and the next flag is then consumed as
-  // its value — which fails as "Invalid setting source: --allowedTools" and
-  // looks exactly like the hook not firing.
+  // spawning through a shell on Windows, the next flag is consumed as its value, and
+  // the failure looks exactly like the hook not firing.
   '--allowedTools', 'mcp__fixture__search',
   '--output-format', 'stream-json',
   '--include-hook-events',
@@ -242,11 +223,8 @@ const blockText = toolResults
   .find((t) => t.includes('SureX blocked this call')) ?? '';
 
 step('the block message reached the model', Boolean(blockText));
-// Assert the SHAPE, not a specific line. Against the stand-in registry the top
-// finding is the hand-written intent-mismatch; against live Arkiv it is whatever
-// the model actually ranked highest, which was the planted injection at
-// search.mjs:33. Pinning a line number here would fail on the more real of the
-// two runs.
+// Assert the SHAPE, not a specific line: the top finding differs between the
+// stand-in registry and live Arkiv, so a pinned line number fails the realer run.
 const findingLine = blockText.split('\n').find((l) => l.startsWith('Finding ('));
 step(
   'it names the finding, with file and line',
@@ -254,9 +232,8 @@ step(
   findingLine?.slice(0, 150),
 );
 step('it discloses that no human audited it', blockText.includes('No human audited this'));
-// The override must be present AND be an invocation that exists on this machine.
-// Bare `surex` is not on PATH from a marketplace install (FRICTION-LOG C7), so
-// the gate resolves its own location and prints that instead.
+// The override must be an invocation that exists on this machine: bare `surex` is
+// not on PATH from a marketplace install (FRICTION-LOG C7).
 step(
   'it prints an override that exists, and says the risk is the user\'s',
   new RegExp(`allow ${fingerprint}`).test(blockText) && /at your own risk/i.test(blockText),
@@ -265,7 +242,6 @@ step(
 step('it does not claim the reviewed bytes are the installed bytes (tier C)',
   /may be about code that is not your code/.test(blockText));
 
-// The non-negotiable.
 const fetched = /Evidence fetched from Walrus and checked/.test(blockText);
 step('the gate FETCHED the evidence from Walrus while blocking', fetched,
   fetched ? blockText.split('\n').find((l) => l.includes('Walrus')) : 'no Walrus line in the block message');

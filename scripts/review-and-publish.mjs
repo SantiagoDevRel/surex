@@ -1,20 +1,17 @@
 #!/usr/bin/env node
-// Review a family of fixture MCP servers on the DGX and publish each verdict on
-// chain — the generalised version of what publish-fixture-review.mjs did for the
-// one original fixture.
+// Review a family of fixture MCP servers on the DGX and publish each verdict on chain.
 //
 // For every server under packages/fixtures/<name>/ and the original
 // packages/fixture-mcp:
 //   1. read its whole source tree (the reviewer needs the code)
-//   2. start it over stdio and ask it tools/list (the stated intent is what the
-//      server ACTUALLY declares, not what we assume)
+//   2. start it over stdio and ask it tools/list — the stated intent is what the
+//      server ACTUALLY declares, not what we assume
 //   3. run the real double-pass review on the DGX
 //   4. write the review body to Walrus, index a ReviewRecord + VerdictHead on Arkiv
 //   5. append the outcome to a database written to the owner's Downloads
 //
-// Only OUR OWN fixtures are ever flagged (AGENTS.md §4). The honest ones should
-// come back clean, the malicious ones flagged, and the ambiguous ones wherever
-// the model actually lands — which is the point of having them.
+// Only OUR OWN fixtures are ever flagged (AGENTS.md §4). The ambiguous ones land
+// wherever the model lands, which is the point of having them.
 //
 //   node scripts/review-and-publish.mjs --dry-run     # review, print, write nothing
 //   node scripts/review-and-publish.mjs               # review + publish
@@ -48,7 +45,6 @@ const onlyIx = process.argv.indexOf('--only');
 const ONLY = onlyIx !== -1 ? process.argv[onlyIx + 1] : null;
 const log = (...a) => console.log(...a);
 
-// ── discover the servers ─────────────────────────────────────────────────────
 function discover() {
   const out = [];
   const original = join(ROOT, 'packages', 'fixture-mcp');
@@ -69,7 +65,6 @@ function discover() {
   return out.filter((s) => !ONLY || s.name.includes(ONLY));
 }
 
-// ── review one server ────────────────────────────────────────────────────────
 async function reviewOne(server) {
   const files = readTree(server.dir);
   // cwd at the repo ROOT: an in-repo fixture imports @modelcontextprotocol/sdk
@@ -94,7 +89,6 @@ async function reviewOne(server) {
   return { server, files, statedIntent, result, top, caps };
 }
 
-// ── main ─────────────────────────────────────────────────────────────────────
 // Guarded so importing this file (a test, a debug session) does not run reviews
 // and publish to chain. Only direct execution does anything.
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
@@ -118,7 +112,6 @@ for (const s of servers) {
   }
 }
 
-// ── the database for Downloads ───────────────────────────────────────────────
 const db = reviewed.map((r) => {
   if (r.error) return { name: r.server.name, tier: r.server.tier, error: r.error };
   const { server, statedIntent, result, top, caps } = r;
@@ -145,7 +138,6 @@ const dbPath = join(downloads, 'surex-mcp-fixtures.json');
 writeFileSync(dbPath, JSON.stringify({ generatedAt: new Date().toISOString(), servers: db }, null, 2));
 log(`\ndatabase → ${dbPath}`);
 
-// a readable summary table too
 const line = (r) => `${(r.name ?? '?').padEnd(20)} ${(r.tier ?? '?').padEnd(10)} ${(r.verdict ?? r.error ?? '?').padEnd(13)} sev ${r.severity ?? '-'} · ${(r.capabilitySurface ?? []).join(' ')}`;
 log('\n' + db.map(line).join('\n'));
 
@@ -154,13 +146,11 @@ if (DRY) {
   process.exit(0);
 }
 
-// ── publish each verdict on chain ────────────────────────────────────────────
 log('\npublishing verdicts on chain…');
 
 /**
- * The commit these fixtures were read at. Provenance, not decoration: the worker
- * now REFUSES to write a flag without it, because the live `@surex/mal-*` heads
- * were written without one and their block messages render "commit —" — a
+ * The commit these fixtures were read at. The worker REFUSES to write a flag without
+ * it: a head published with none renders "commit —" in its block message, which is a
  * finding the accused cannot trace to any bytes.
  */
 let reviewedCommit = null;
@@ -176,12 +166,12 @@ if (!reviewedCommit) {
 log(`  provenance: commit ${reviewedCommit.slice(0, 12)}`);
 
 /**
- * Regenerate the self-authored allowlist from the fixtures we are about to
- * publish, and hand it to the worker.
+ * Regenerate the self-authored allowlist from the fixtures about to be published, and
+ * hand it to the worker, which refuses to flag anything absent from it.
  *
- * The allowlist is FINGERPRINTS, computed here from our own directories, because
- * a name is whatever the caller types — `totally-not-a-fixture-thirdparty`
- * satisfies any name regex. The worker refuses to flag anything absent from it.
+ * FINGERPRINTS, computed here from our own directories — never names, because a name
+ * is whatever the caller types and `totally-not-a-fixture-thirdparty` satisfies any
+ * name regex.
  */
 const selfAuthored = [];
 for (const r of reviewed) {
@@ -209,11 +199,9 @@ for (const r of reviewed) {
   const canonical = canonicalise(config, { hashLocalEntry: localEntryResolver(ROOT) });
   const fingerprint = fingerprintOf(canonical);
 
-  // Idempotent: if a verdict head already exists for this fingerprint, skip the
-  // whole server — including the Walrus write. Without this a re-run re-writes and
-  // RE-CHARGES for every blob (the SDK does not dedupe already-certified bytes,
-  // FRICTION-LOG S3), and the original fixture-mcp is already on chain from an
-  // earlier publish.
+  // Idempotent: an existing head skips the whole server, INCLUDING the Walrus write.
+  // The SDK does not dedupe already-certified bytes (FRICTION-LOG S3), so a re-run
+  // without this re-charges for every blob.
   if (await existingKey(fingerprint, 'verdictHead')) {
     log(`  · ${server.name.padEnd(20)} already on chain — skipped`);
     continue;
@@ -272,9 +260,6 @@ for (const r of reviewed) {
     name: `@surex/${server.name}`,
     latestReviewKey: reviewKey, sourceKey: `in-repo:${server.name}`,
     modelId: result.modelId, promptVersion: result.promptVersion,
-    // The commit these bytes were read at. The worker refuses a flag without it:
-    // the live heads written before this line existed render "commit —" in the
-    // block message, which is a finding nobody can trace to anything.
     reviewedCommit,
     reviewedAt: new Date().toISOString(),
     capabilities: result.capabilities, topFinding: top ?? undefined,

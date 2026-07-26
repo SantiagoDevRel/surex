@@ -1,17 +1,13 @@
 // Checkpoint and resume for the seed.
 //
-// This exists because of a measured fact, not caution: the testnet SUI faucet
-// produced continuous 429s for ~7 minutes, with a `retry-after` that reads
-// "Wait for 0s", is not per-IP, and is discarded by the SDK — success came on
-// attempt 53 of a blind loop (FRICTION-LOG S1). And `alreadyCertified` dedup is
-// publisher behaviour, so re-running a Walrus write RE-CHARGES rather than
-// deduplicating (S3). A seed that dies at record 40 and has to start over pays
-// twice for the first 39.
+// A restart is expensive, measured twice over: the testnet SUI faucet 429s
+// continuously for minutes at a time (S1), and re-running a Walrus write RE-CHARGES
+// rather than deduplicating, because `alreadyCertified` dedup is publisher
+// behaviour (S3). A seed that dies at record 40 pays twice for the first 39.
 //
-// So: state is written after EVERY server, atomically, and re-running the same
-// command continues instead of restarting. The file is the record of what really
-// happened — it is never edited to look tidier, and a failure is stored as a
-// failure.
+// So state is written after EVERY server, atomically, and re-running the same
+// command continues instead of restarting. The file records what happened — a
+// failure is stored as a failure, never tidied.
 
 import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -56,9 +52,8 @@ export function loadState(file = DEFAULT_STATE_FILE) {
 }
 
 /**
- * Atomic write — temp file then rename. A seed interrupted mid-write must not
- * leave a truncated checkpoint, because an unparseable checkpoint is the same as
- * no checkpoint and costs the whole run.
+ * Atomic write — temp file then rename. An interrupted write must not leave a
+ * truncated checkpoint: unparseable is the same as absent, and costs the whole run.
  */
 export function saveState(state, file = DEFAULT_STATE_FILE) {
   mkdirSync(dirname(file), { recursive: true });

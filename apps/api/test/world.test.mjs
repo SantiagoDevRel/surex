@@ -698,10 +698,8 @@ test('a checked submission is FORWARDED to the writer, and 202 only if the write
 });
 
 test('GET /v1/submissions/:id names the model doing the reading', async () => {
-  // A review is minutes because a model reads the source twice — four times when
-  // the readings disagree. A screen that hides that behind an anonymous spinner
-  // is asking to be trusted rather than read, so the status says which model,
-  // and it comes from the same variable the reviewer itself reads.
+  // The status names which model, from the same variable the reviewer itself reads,
+  // so the screen cannot drift from what actually ran.
   const env = {
     SUREX_MOCK: '1',
     SUREX_INGEST_URL: 'https://writer.test',

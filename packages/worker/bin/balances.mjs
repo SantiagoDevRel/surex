@@ -1,10 +1,7 @@
 #!/usr/bin/env node
-// Preflight. Run this BEFORE a seed, every time.
-//
-// The point is not tidiness: the testnet faucet took 53 blind attempts to answer
-// once (FRICTION-LOG S1), so a run that starts underfunded does not fail fast —
-// it stalls somewhere in the middle and leaves a half-populated registry. Better
-// to read four numbers first.
+// Preflight. Run this BEFORE a seed, every time: the testnet faucet can take dozens
+// of blind attempts to answer (S1), so a run that starts underfunded does not fail
+// fast — it stalls mid-way and leaves a half-populated registry.
 
 import { createWalrusWriter } from '../src/walrus.mjs';
 import { createArkivWriter } from '../src/arkiv.mjs';

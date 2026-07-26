@@ -55,14 +55,10 @@ test('an evidence pointer without contentSha256 or nShards is refused', () => {
 });
 
 /**
- * Custody has to reach the RECORD, not just the pointer.
- *
- * `evidenceOf` is a whitelist, and that is how the first publisher-mode write
- * produced a pointer saying `registeredBy: 'publisher'` and an on-chain payload
- * that said nothing at all — verified live from the DGX on 2026-07-25 against
- * blob `lw_kbQSmqditWMKzPMFsFVTaWlljkD8Hk6tBop4j-uE`. A record that cannot say
- * whose wallet registered its evidence is exactly the sentence this project
- * refuses to let anyone assume.
+ * Custody has to reach the RECORD, not just the pointer. `evidenceOf` is a
+ * whitelist, so a pointer field it does not name is silently dropped — which is how
+ * a `registeredBy: 'publisher'` pointer once produced an on-chain payload that could
+ * not say whose wallet registered its evidence.
  */
 test('a publisher-written pointer carries its custody into the payload', () => {
   const e = evidenceOf({
@@ -135,10 +131,9 @@ test('unreviewable needs a reason', () => {
 });
 
 test('needsReanalysis is a string, and severity/enforceAfter stay integers', () => {
-  // This test is about attribute ENCODING, but a `flagged` head now has to get
-  // past the two write-boundary gates first: the fingerprint must be one of ours,
-  // and the accusation must carry provenance. Satisfying them here is not
-  // weakening the test — `accusation-gate.test.mjs` is where those rules live.
+  // About attribute ENCODING, but a `flagged` head has to clear the two
+  // write-boundary gates first — allowlist and provenance. Those rules are tested
+  // in accusation-gate.test.mjs; satisfying them here does not weaken this test.
   setSelfAuthored(['sxf1_x']);
   const head = buildVerdictHead({
     fingerprint: 'sxf1_x',

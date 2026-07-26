@@ -1,10 +1,7 @@
 /**
  * Probe — Arkiv (Braga testnet): write one entity, read it back filtered by
- * `.createdBy(WRITER)`, and prove that filter EXCLUDES a colliding entity
- * written by a different wallet.
- *
- * This is a throwaway verification probe, not product code. It exists to answer
- * questions the SureX gate depends on before any feature code is written:
+ * `.createdBy(WRITER)`, and prove that filter EXCLUDES a colliding entity written by
+ * a different wallet. Throwaway verification, not product code. It answers:
  *
  *   1. Does a write + `.createdBy` read round-trip at all?
  *   2. Does `.createdBy` actually exclude a foreign write with the SAME
@@ -28,10 +25,8 @@ import { createPublicClient, createWalletClient } from '@arkiv-network/sdk'
 import { braga } from '@arkiv-network/sdk/chains'
 import { eq } from '@arkiv-network/sdk/query'
 import { jsonToPayload } from '@arkiv-network/sdk/utils'
-// `http` and `privateKeyToAccount` come from viem DIRECTLY in SDK 0.7.0.
-// In 0.6.8 both were re-exported by the SDK (`export * from "viem"` and a
-// `@arkiv-network/sdk/accounts` subpath); 0.7.0 removed both, with no
-// changelog. Every 0.6.x snippet breaks at import. See FRICTION-LOG.md A1.
+// `http` and `privateKeyToAccount` come from viem DIRECTLY: SDK 0.7.0 removed the
+// re-exports 0.6.8 had, so every 0.6.x snippet breaks at import (FRICTION-LOG A1).
 import { http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -74,8 +69,8 @@ const attrsFor = (state, severity, tier) => [
   { key: 'tier', value: tier },
 ]
 
-// The verdict body itself never lives on Arkiv — Arkiv holds the queryable head
-// that points at the content-addressed blob. Clearly-labelled fake pointer here.
+// The verdict body never lives on Arkiv — Arkiv holds the queryable head pointing at
+// the content-addressed blob. Clearly-labelled fake pointer here.
 const payloadFor = (who) =>
   jsonToPayload({
     schema: 'surex.verdictHead/probe',
@@ -206,8 +201,7 @@ async function main() {
   step(4, 'COLLISION — same project+entityType+fingerprint, DIFFERENT wallet')
   const theirs = await foreign.createEntity({
     payload: payloadFor('foreign-attacker'),
-    // Same identity attributes. Different verdict: 'clean', severity 0, tier A.
-    // This is exactly the attack — an attacker claims the server is clean.
+    // Same identity attributes, different verdict — the attack itself.
     attributes: attrsFor('clean', 0, 'A'),
     contentType: 'application/json',
     expiresIn: EXPIRES_IN,

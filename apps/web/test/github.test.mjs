@@ -1,6 +1,5 @@
 // The repository inspector: what it pins, what it refuses, and the one thing it
 // must never do — turn a failed request into a claim about somebody's repo.
-//
 // Node 22 strips types, so this runs against the same `.ts` the app imports.
 
 import test from 'node:test';
@@ -91,9 +90,9 @@ test('a repository that is simply not an MCP server is refused, definitively', (
 });
 
 test('UNREADABLE manifests are undetermined, NEVER "not an MCP server"', () => {
-  // The rule the licence gate had to learn (FRICTION-LOG D10). GitHub rate-limits
-  // an unauthenticated browser at 60 requests an hour; if that read as "no signals
-  // found", the form would tell a maintainer their MCP server is not one.
+  // FRICTION-LOG D10: GitHub rate-limits an unauthenticated browser at 60 requests
+  // an hour, and a 403 read as "no signals found" would tell a maintainer their
+  // MCP server is not one.
   const r = detectMcp(MCP_PROBE_PATHS.map((p) => ({ path: p, text: null, unreachable: true })));
   assert.equal(r.undetermined, true);
   assert.equal(r.isMcp, false, 'still not a positive — but the caller must not refuse on it');
@@ -112,10 +111,9 @@ test('a package.json that will not parse is not evidence either way', () => {
 
 function scriptedFetch(routes) {
   return async (url) => {
-    // `key !== undefined`, not `key ?` — a catch-all route keyed on the empty
-    // string is a legitimate pattern and `''` is falsy, so the truthiness check
-    // silently routed every request to the 404 default and the rate-limit case
-    // tested nothing.
+    // `key !== undefined`, not `key ?` — a catch-all route keyed on `''` is a
+    // legitimate pattern, and a truthiness check sent every request to the 404
+    // default, which once left the rate-limit case testing nothing.
     const key = Object.keys(routes).find((k) => String(url).includes(k));
     const reply = key !== undefined ? routes[key] : { status: 404 };
     return {

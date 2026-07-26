@@ -2,8 +2,8 @@
 //
 // THE APP CAN ONLY READ. There is no wallet in this process and no write route to
 // Arkiv; verdicts are written by the worker's wallet in a different process. That
-// separation is the reason a compromise of this service cannot rewrite the
-// registry, so it is a property to preserve, not an implementation detail.
+// separation is why a compromise of this service cannot rewrite the registry —
+// preserve it.
 //
 // Shapes, routes, error codes, cache TTLs and the gate's latency budget all come
 // from @surex/core's FROZEN contract. Nothing here redefines them.
@@ -41,25 +41,12 @@ const S = (ms) => Math.floor(ms / 1000);
 /**
  * Cache-Control for a route whose answer changes the moment the worker writes.
  *
- * `max-age` and `s-maxage` are different audiences and this API had been treating
- * them as one. `max-age` is the CLIENT's budget — the gate's contract TTL, frozen,
- * and deliberately long: a coding agent asking the same question twice in fifteen
- * minutes should not pay for two round trips. `s-maxage` is the SHARED cache in
- * front of us, and on Vercel that is a fleet-wide CDN which will happily serve one
- * cached body to everybody for the whole `max-age` window when no shared directive
- * is given.
- *
- * That is what "the verdict did not update until we redeployed" actually was. A
- * deploy changes the URL the CDN keys on, so redeploying looked like it flushed a
- * server-side cache; it flushed the edge. Measured on the live API on 2026-07-26,
- * before this change:
- *
- *     GET /v1/entry/<fp>   Cache-Control: public, max-age=900   X-Vercel-Cache: HIT   Age: 739
- *
- * — a twelve-minute-old entry served to `/r/<fp>` while `/v1/registry`, on a
- * 60-second window, had already moved on. The two pages disagreed because their
- * caches expired at different times, which is a far more confusing bug than either
- * page simply being wrong.
+ * `max-age` and `s-maxage` are different audiences. `max-age` is the CLIENT's
+ * budget — the gate's frozen contract TTL, deliberately long. `s-maxage` is the
+ * SHARED cache in front of us, and on Vercel that is a fleet-wide CDN which serves
+ * one cached body to everybody for the whole `max-age` window when no shared
+ * directive is given: measured live, a twelve-minute-old `/v1/entry/<fp>` while
+ * `/v1/registry`, on a 60-second window, had already moved on.
  *
  * So: keep whatever client TTL the contract froze, and tell the shared cache to
  * revalidate every time. The origin read is one Arkiv query of ~100–180 ms.
@@ -76,14 +63,12 @@ function cacheControl(c, { clientTtlMs = 0, staleWhileRevalidateMs = 0 } = {}) {
 }
 
 /**
- * Server-side hot-path cache.
+ * Server-side hot-path cache, honouring exactly the TTLs in the frozen contract.
  *
- * Honours exactly the TTLs in the frozen contract, because a positive TTL the
- * server does not honour is a stale block waiting to happen. The grace window is
- * asymmetric on purpose: a cached BLOCKING head outlives its TTL when Arkiv is
- * unreachable, and a cached non-blocking one does not. A network blip must never
- * un-flag a server we already know is bad, and must never keep answering `clean`
- * for one we can no longer check.
+ * The grace window is asymmetric on purpose: a cached BLOCKING head outlives its
+ * TTL when Arkiv is unreachable, a non-blocking one does not. A network blip must
+ * never un-flag a server we know is bad, and must never keep answering `clean` for
+ * one we can no longer check.
  */
 export function createHeadCache({
   positiveTtlMs = CACHE.positiveTtlMs,
@@ -156,12 +141,9 @@ export function createApp(options = {}) {
   const telemetry = options.telemetry ?? createTelemetry();
 
   /**
-   * The `unknown` answer for a miss.
-   *
-   * unknownHead() is synthesised by the API, not read from a fixture, so in mock
-   * mode it has to be marked HERE — the envelope middleware only reaches the root
-   * of a body, and a head pulled out of `heads[]` and rendered on its own must
-   * still carry the flag.
+   * The `unknown` answer for a miss. Synthesised, not read from a fixture, so in
+   * mock mode it is marked HERE — the envelope middleware only reaches the root of
+   * a body, and a head pulled out of `heads[]` must still carry the flag.
    */
   const unknown = store.illustrative
     ? (fp) => ({ ...unknownHead(fp), illustrative: true })
@@ -190,8 +172,8 @@ export function createApp(options = {}) {
 
   /**
    * The belt to mock.mjs's braces: in mock mode EVERY JSON body leaves with
-   * `illustrative: true`, including errors, whatever the route did. A route that
-   * forgets the flag cannot cause demo data to be rendered as real.
+   * `illustrative: true`, errors included, so a route that forgets the flag cannot
+   * cause fixture data to be rendered as real.
    */
   if (store.illustrative) {
     app.use('*', async (c, next) => {
@@ -217,9 +199,8 @@ export function createApp(options = {}) {
   app.onError((err, c) => {
     telemetry.upstreamErrors += 1;
     logger.error?.(`[surex-api] ${c.req.method} ${c.req.path} failed:`, err);
-    // ERROR_CODES.INTERNAL was added to the contract after this lane reported the
-    // gap: reporting our own fault as `upstream_unavailable` blames the wrong
-    // party, and a client deciding whether to retry needs to know which it is.
+    // INTERNAL, not `upstream_unavailable`: our own fault must not blame upstream,
+    // and a client deciding whether to retry needs to know which it is.
     return c.json(
       apiError(ERROR_CODES.INTERNAL, 'the API failed to serve this request', {
         detail: String(err?.message ?? err).slice(0, 300),
@@ -337,8 +318,7 @@ export function createApp(options = {}) {
     }
 
     // Malformed entries are reported separately rather than failing the whole
-    // prefetch: one bad row in a config should not cost the other nineteen their
-    // verdicts. They are never silently turned into `unknown`.
+    // prefetch, and are never silently turned into `unknown`.
     const invalid = [];
     const valid = [];
     for (const fp of fps) {
@@ -389,19 +369,9 @@ export function createApp(options = {}) {
       return c.json(apiError(ERROR_CODES.NOT_FOUND, 'no registry entry for that fingerprint', { fingerprint: fp }), 404);
     }
     /**
-     * The links, on every record this returns.
-     *
-     * `/v1/source/:key` and `/v1/review/:key` have always applied `withLinks`;
-     * this route did not, and it is the one the verdict PAGE reads. So a page
-     * whose entire argument is "here is the blob we judged and here is where it
-     * is recorded on chain" printed the blob id and the Arkiv entity key as
-     * plain text, and a reader had nowhere to go to check either of them.
-     *
-     * Applied per record rather than once at the top, because each carries its
-     * own pointer: the source blob and the review blob are different blobs, and
-     * collapsing them into one set of links would send someone to the wrong one.
-     * `withLinks` omits anything the record does not carry — a dead link that
-     * looks alive is worse than no link.
+     * The links, on every record this returns. Applied PER RECORD, not once at the
+     * top: the source blob and the review blob are different blobs, and collapsing
+     * them into one set of links sends someone to the wrong one.
      */
     const linked = {
       ...entry,
@@ -439,9 +409,9 @@ export function createApp(options = {}) {
             illustrative: true,
           };
         } else if (record.evidence?.blobId) {
-          // core does the fetch AND reports which checks actually ran, including
-          // the blob-ID one it cannot run without an encoder. It never collapses
-          // "asserted" into "passed".
+          // core reports which checks actually ran, including the blob-ID one it
+          // cannot run without an encoder — it never collapses "asserted" into
+          // "passed".
           const loaded = await loadEvidence(record.evidence, {
             aggregators: env.SUREX_WALRUS_AGGREGATOR ? [env.SUREX_WALRUS_AGGREGATOR] : undefined,
           });
@@ -461,10 +431,6 @@ export function createApp(options = {}) {
   recordRoute('review', (key) => store.getReview(key));
 
   // ── the whole registry, for a browse page ─────────────────────────────────
-  // Added because `/v1/flagged` is the wrong shape for browsing: seeded entries
-  // are written `unknown` and never `clean`, so a flagged-only feed renders an
-  // EMPTY registry as soon as seeding is what populates it — which reads as
-  // "nothing here" rather than "nothing flagged".
   app.get(`/${API_VERSION}/registry`, async (c) => {
     const raw = Number(c.req.query('limit') ?? 200);
     const limit = Number.isFinite(raw) ? Math.min(Math.max(1, Math.trunc(raw)), MAX_FLAGGED) : 200;
@@ -520,10 +486,9 @@ export function createApp(options = {}) {
       registryError = String(err?.message ?? err).slice(0, 200);
     }
 
-    // Registry hit rate first (failure-modes §3.1: the first number that should be
-    // on the dashboard, and currently nowhere). It is REAL but narrow: what this
-    // process observed since it started. On serverless that is one warm instance,
-    // not the fleet — said here rather than quietly implied.
+    // Registry hit rate (failure-modes §3.1). REAL but narrow: what THIS process
+    // observed since it started, which on serverless is one warm instance and not
+    // the fleet — said in the body rather than quietly implied.
     const hitRate =
       telemetry.lookups > 0
         ? {
@@ -587,13 +552,10 @@ export function createApp(options = {}) {
     }
 
     // Who is contesting. An agent is identified by an explicit contestantType, a
-    // signed AgentKit header, an agentAddress, or an x402 payment header.
-    //
-    // The AgentKit request header is `agentkit` — confirmed by reading
-    // @worldcoin/agentkit@0.2.0, not inferred. It was missing from this list, so a
-    // correctly signed agent with no `agentAddress` field in its JSON body was
-    // classified as a HUMAN and refused for having no World ID proof. All request
-    // headers are handed to the verifier, so the verifier never has to guess either.
+    // signed AgentKit header, an agentAddress, or an x402 payment header. The
+    // `agentkit` header must stay in this list: without it a correctly signed agent
+    // carrying no `agentAddress` body field is classified as a HUMAN and refused for
+    // having no World ID proof.
     const headers = Object.fromEntries(c.req.raw.headers.entries());
     const agentAddress = body?.agentAddress ?? null;
     const looksLikeAgent = Boolean(
@@ -636,15 +598,10 @@ export function createApp(options = {}) {
 
     /**
      * A refusal is not automatically "no human stands behind this agent".
-     *
      * `REFUSAL_STATUS` (verifiers.mjs) classifies the reasons that mean something
-     * else, and anything unclassified keeps the path's original code — which is why
-     * the stub's `verifier_not_wired` still produces the 403 it always has.
-     *
-     * The case this exists for: our RPC gets rate-limited mid-check. Reporting that
-     * as `agent_not_human_backed` tells an honest, registered agent it is not
-     * human-backed because OUR infrastructure was throttled. It is the worst thing
-     * this route could say, and it is the default failure mode of the SDK.
+     * else — a rate-limited RPC reported as `agent_not_human_backed` tells an
+     * honest, registered agent it is not human-backed because OUR infrastructure was
+     * throttled. Anything unclassified keeps the path's original code.
      */
     const refuse = (check, fallbackCode, fallbackStatus, fallbackMessage) => {
       switch (REFUSAL_STATUS[check?.reason]) {
@@ -691,10 +648,8 @@ export function createApp(options = {}) {
         body,
         path: `/${API_VERSION}/disputes`,
       });
-      // THE AGENTKIT GATE. lookupHuman returned null → no human stands behind this
-      // agent → no standing to dispute. This is the 403 the whole track fit rests
-      // on, and it is the same code path whether the refusal comes from the stub
-      // or from a real AgentBook lookup.
+      // THE AGENTKIT GATE. No humanId → no human stands behind this agent → no
+      // standing to dispute. Same code path for the stub and a real AgentBook lookup.
       if (!check?.ok || !check?.humanId) {
         return refuse(
           check,
@@ -770,8 +725,8 @@ export function createApp(options = {}) {
                   ...(check.uniqueness ? { uniqueness: check.uniqueness } : {}),
                 },
         },
-        // Say the enforcement consequence out loud so no client implements the
-        // wrong one: a dispute changes the wording, never the block (tech spec §9).
+        // Stated so no client implements the wrong one: a dispute changes the
+        // wording, never the block (tech spec §9).
         enforcement: 'unchanged — a disputed verdict still blocks; only a human overturn produces a clean head',
         headTransition: { from: body._headState ?? null, to: 'disputed', appliedBy: 'worker' },
         persisted: false,
@@ -787,16 +742,11 @@ export function createApp(options = {}) {
 
   // ── the identity half is built; the ingest half is not ────────────────────
   //
-  // The World ID gate runs FIRST and for real. A submission with no proof, a proof
-  // for the wrong action, or a staging proof against a production deployment never
-  // reaches the pipeline — which is the point of the gate, and is true today even
-  // though the pipeline behind it does not exist yet.
-  //
-  // What is honestly NOT built: the repo-ownership proof, the licence gate, the
-  // Walrus upload and the Arkiv write. Those need a wallet this process does not
-  // have. So a VALID proof gets 501, not 202 — and the nullifier is deliberately
-  // NOT spent, because nothing was queued and a person must not lose their one
-  // submission to a pipeline that never ran.
+  // The World ID gate runs FIRST and for real. NOT built: the repo-ownership proof,
+  // the licence gate, the Walrus upload and the Arkiv write, all of which need a
+  // wallet this process does not have. So a VALID proof gets 501, not 202 — and the
+  // nullifier is deliberately NOT spent, because nothing was queued and a person
+  // must not lose their one submission to a pipeline that never ran.
   const NOT_BUILT =
     'POST /v1/submissions is in the frozen contract but is NOT built in this lane. The submission path ' +
     '(World ID + repo-ownership proof + licence gate + Walrus upload) belongs to the web/identity lane ' +
@@ -804,8 +754,7 @@ export function createApp(options = {}) {
 
   app.post(`/${API_VERSION}/submissions`, async (c) => {
     // With no identity implementation wired in, "not built" is the whole truth and
-    // validating a body before saying so would be theatre. Unchanged from before
-    // the World lane existed, deliberately.
+    // validating a body before saying so would be theatre.
     if (verifiers.isStub) {
       return c.json(apiError(ERROR_CODES.UPSTREAM_UNAVAILABLE, NOT_BUILT, { built: false }), 501);
     }
@@ -816,16 +765,10 @@ export function createApp(options = {}) {
     } catch {
       return c.json(apiError(ERROR_CODES.INVALID_BODY, 'body must be JSON: { repo, commit, proof }'), 400);
     }
-    // A repo and a COMMIT. `release` used to be required here and is now the
-    // optional half: a tag is a human-readable label for a commit, and it is the
-    // commit that names bytes. Requiring the label rejected perfectly good
-    // submissions of a default-branch head, and did it BEFORE the proof was
-    // checked — so a submitter with a valid proof was told their body was
-    // malformed for omitting something that identifies nothing.
-    // Only the shape needed to run the gate. The commit is checked AFTER the
-    // proof, by validateSubmission — identity first, then the submission's
-    // content. Checking the commit here would refuse an anonymous request for
-    // the wrong reason and reveal that we had read the body before the gate.
+    // Only the shape needed to run the gate. The commit is checked AFTER the proof,
+    // by validateSubmission — identity first, then content. Checking the commit here
+    // would refuse an anonymous request for the wrong reason, and would reveal that
+    // the body was read before the gate.
     if (!body?.repo) {
       return c.json(apiError(ERROR_CODES.INVALID_BODY, 'a submission names a repository'), 400);
     }
@@ -869,11 +812,8 @@ export function createApp(options = {}) {
 
     // ── the proof checked out; hand it to the writer ────────────────────────
     //
-    // This process still has no wallet, and that is the design: the ingest
-    // service holds it, on the machine the reviewer already runs on. So the
-    // submission is FORWARDED. Nothing below ever answers 202 unless the writer
-    // said it accepted — a submit form that reports "queued" when nothing was
-    // queued is the exact class of lie this registry exists to make impossible.
+    // The ingest service holds the wallet, so the submission is FORWARDED. Nothing
+    // below ever answers 202 unless the writer said it accepted.
     const shape = validateSubmission(body);
     if (!shape.ok) {
       return c.json(apiError(ERROR_CODES.INVALID_BODY, shape.detail, { field: shape.code }), 400);
@@ -895,8 +835,7 @@ export function createApp(options = {}) {
         deduped: forwarded.deduped || undefined,
         queuePosition: forwarded.queuePosition ?? undefined,
         identity,
-        // Said plainly: the review has NOT run yet, and the verdict may be that
-        // nothing could be concluded. Queued is not a promise of a clean answer.
+        // Queued is not a promise of a clean answer: the review has NOT run yet.
         note:
           'The release is queued for review. A verdict blob publishes to the index when the run completes, ' +
           'whatever it concludes.',
@@ -916,9 +855,8 @@ export function createApp(options = {}) {
       );
     }
 
-    // Reachable and refused, or not reachable at all. Either way this is OUR
-    // problem, and the submitter is told that rather than being left to think
-    // their submission was rejected.
+    // Reachable and refused, or not reachable at all — either way OUR problem, and
+    // the submitter is told so rather than left thinking they were rejected.
     return c.json(
       apiError(
         ERROR_CODES.UPSTREAM_UNAVAILABLE,
@@ -931,15 +869,8 @@ export function createApp(options = {}) {
   });
 
   /**
-   * How a submission is going.
-   *
-   * Public and unauthenticated on purpose: the id is unguessable, it reveals only
-   * what the submitter already knows, and requiring a credential would mean a
-   * submit page that cannot show progress on the thing it just submitted.
-   *
-   * It names the model. A review takes minutes because a model reads the source
-   * twice — four times when the two readings disagree — and a screen that hides
-   * that behind an anonymous spinner is asking to be trusted rather than read.
+   * How a submission is going. Public and unauthenticated on purpose: the id is
+   * unguessable and reveals only what the submitter already knows.
    */
   app.get(`/${API_VERSION}/submissions/:id`, async (c) => {
     const status = await submissionStatus(c.req.param('id'), { env, fetchImpl: options.fetchImpl });
@@ -975,17 +906,15 @@ export function createApp(options = {}) {
       startedAt: status.startedAt ?? undefined,
       durationMs: status.durationMs ?? undefined,
       reviewer: status.reviewer,
-      // What the writer is doing right now — stage, a sentence, done/total, and
-      // whatever that stage already knows (a blob id, a transaction hash). Absent
-      // until the pipeline has said something, and never invented: a job that has
-      // not started has no progress, and the queue position is what is true then.
+      // What the writer is doing right now. Absent until the pipeline has said
+      // something, and never invented — a job that has not started has no progress,
+      // and the queue position is what is true then.
       progress: status.progress ?? undefined,
       result: status.result ?? undefined,
       error: status.error ?? undefined,
       stage: status.stage,
       detail: status.detail,
       // A job the process died under may have written half of what it intended.
-      // Whoever is watching needs that said, not smoothed over.
       interrupted: status.interrupted,
     });
   });

@@ -1,29 +1,20 @@
 // The official MCP Registry crawler, and the resolution of an entry to something
 // SXF-1 can fingerprint.
 //
-// Endpoint verified live on 2026-07-25 rather than remembered:
+// The endpoint, as measured:
 //   GET https://registry.modelcontextprotocol.io/v0/servers?version=latest&limit=100[&cursor=…]
 //   → { servers: [ { server: {...}, _meta: { "io.modelcontextprotocol.registry/official": {...} } } ],
 //       metadata: { nextCursor, count } }
-// `version=latest` collapses the many published versions of a server to one row;
-// without it the first page is three revisions of the same server. Paging is by
-// opaque `nextCursor`, not offset.
+// `version=latest` collapses a server's many published versions to one row; without
+// it the first page is three revisions of the same server. Paging is by opaque
+// `nextCursor`, not offset.
 //
-// WHICH CONFIG WE FINGERPRINT, and why it matters more than it looks.
-//
-// The registry publishes a pinned version for every package. A real user's config
-// is almost always the UNPINNED form — `npx -y @scope/pkg` — because that is what
-// every README says to paste. Under SXF-1 those are two different fingerprints on
-// purpose ("Pinned vs unpinned are different fingerprints. Do not collapse them"),
-// and the gate fingerprints whatever is in the user's config, not whatever the
-// registry knows.
-//
-// So the seeded entry uses the UNPINNED form: it is the fingerprint real configs
-// actually produce, and seeding the pinned form instead would give a registry that
-// looks full and matches nothing (failure-modes §3.1 calls hit rate the first
-// number). The pinned fingerprint is computed and recorded alongside as an alias
-// so a later pass can seed it, and it is labelled as not-yet-seeded rather than
-// implied to exist. The consequence is honest and expected: unpinned ⇒ Tier C.
+// WHICH CONFIG WE FINGERPRINT. Under SXF-1 pinned and unpinned are different
+// fingerprints on purpose, and the gate fingerprints what is in the USER's config —
+// almost always the unpinned `npx -y @scope/pkg` a README told them to paste. So the
+// seeded entry is the UNPINNED form; seeding the registry's pinned form gives a
+// registry that looks full and matches nothing. The pinned fingerprint is recorded
+// alongside as an alias, labelled not-yet-seeded. Unpinned ⇒ Tier C, expected.
 
 import { canonicalise, fingerprintOf, tierOf } from '@surex/core';
 
@@ -75,26 +66,19 @@ export async function crawlRegistry({ want = 400, pageSize = 100, maxPages = 20,
 /**
  * Named/positional argument descriptors → a flat arg list.
  *
- * `onlyNamed` exists because of a live registry data problem, found while seeding.
- * `runtimeArguments` is documented as arguments to the RUNTIME (npx, docker), so
- * they belong before the package spec. But publishers misfile package arguments
- * there: `ai.marketintell/marketintell` declares a positional `"mcp"` (a CLI
- * subcommand) and `ai.matih/mcp` declares a positional endpoint URL, both in
- * `runtimeArguments`. Composed in the documented order that produces
- * `npx -y mcp marketintell`, and the package name in the fingerprint becomes
- * `mcp` — or, in the second case, an https URL. Both would be entries no real
- * config could ever match.
- *
- * So: only NAMED runtime arguments (flags) may precede the package spec. A
- * POSITIONAL runtime argument is treated as a package argument and placed after
- * it, which is what the publisher plainly meant and what the working command is.
+ * With `onlyNamed`, only NAMED runtime arguments (flags) may precede the package
+ * spec; a POSITIONAL one is deferred and placed after it. Publishers misfile
+ * package arguments under `runtimeArguments` — a CLI subcommand, an endpoint URL —
+ * and composing those in the documented order yields `npx -y mcp marketintell`,
+ * making the fingerprint's package name `mcp` (or an https URL): an entry no real
+ * config can ever match.
  */
 function argValues(list, { onlyNamed = false } = {}) {
   const out = [];
   const deferred = [];
   for (const a of list ?? []) {
-    // Only arguments with a concrete value are identity-bearing; a placeholder
-    // the user is meant to fill in says nothing about which server this is.
+    // Only arguments with a concrete value are identity-bearing; a placeholder the
+    // user fills in says nothing about which server this is.
     if (a.type === 'named' && a.name) {
       out.push(a.name);
       if (a.value !== undefined && a.value !== null && a.value !== '') out.push(String(a.value));
@@ -161,11 +145,9 @@ export function toCandidate(row) {
   const canonical = canonicalise(configs.unpinned);
   if (!canonical.package?.name) return null;
 
-  // Sanity check, not paranoia: the canonical package name must actually be the
-  // package the registry named. When it is not, the command was composed wrong
-  // (see argValues) and the fingerprint is one no real config can ever produce —
-  // a dead entry that makes the registry look fuller than it is. Skip it loudly
-  // rather than seed it.
+  // The canonical package name must be the package the registry named. When it is
+  // not, the command was composed wrong (see argValues) and the fingerprint is one
+  // no real config can produce — a dead entry that inflates the registry.
   const identifierStem = String(pkg.identifier).split(':')[0];
   if (!identifierStem.includes(canonical.package.name) && !canonical.package.name.includes(identifierStem)) {
     return null;
@@ -187,8 +169,8 @@ export function toCandidate(row) {
 
   return {
     fingerprint,
-    // Display name is the runnable identity, which is what a user recognises in a
-    // block message — not the registry's reverse-DNS server name.
+    // The runnable identity, which is what a user recognises in a block message —
+    // not the registry's reverse-DNS server name.
     name: canonical.package.version === 'unpinned'
       ? canonical.package.name
       : `${canonical.package.name}@${canonical.package.version}`,
@@ -225,17 +207,12 @@ export function publisherOf(candidate) {
 /**
  * Crawl → candidates, deduplicated by fingerprint.
  *
- * `requireRepo` defaults to true because the licence gate's fallback path needs a
- * repository, and an entry with no licence signal at all can only ever be written
- * `unreviewable`. Seeding a pile of those would inflate the count without adding a
- * usable row.
+ * `requireRepo` defaults true: the licence gate's fallback path needs a repository,
+ * and an entry with no licence signal can only ever be written `unreviewable`.
  *
- * `maxPerPublisher` exists because the registry is ordered alphabetically and one
- * publisher bulk-publishing twenty near-identical servers will otherwise fill a
- * 50-row seed on its own — measured: a first pass took 18 of 50 from a single
- * namespace. That is a real property of the registry, but a registry seeded that
- * way tests nothing, so the cap spreads the seed across publishers and the raw
- * skew is reported instead of being smuggled into the data.
+ * `maxPerPublisher` caps namespace skew — the registry is ordered alphabetically,
+ * and one publisher's bulk-published near-identical servers took 18 of 50 rows on a
+ * first pass. The raw skew is reported in `stats` rather than smuggled into the data.
  */
 export async function collectCandidates({
   target = 50,

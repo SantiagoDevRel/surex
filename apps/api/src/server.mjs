@@ -1,7 +1,4 @@
 // Local entry. Port 4310 (the web app takes 4311).
-//
-// The app itself is in app.mjs and knows nothing about a server, so the same app
-// object is what the tests exercise and what the Vercel function serves.
 
 import { serve } from '@hono/node-server';
 import { createApp } from './app.mjs';

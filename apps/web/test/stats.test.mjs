@@ -4,10 +4,9 @@ import assert from 'node:assert/strict';
 import { normaliseStats } from '../lib/api.ts';
 
 /**
- * The exact `byState` the live API returns for the seeded registry: 50 servers
- * crawled from the official MCP registry, of which 40 are `unknown` and 10 were
- * blocked by the licence gate, plus our own fixture, which is the only thing that
- * has actually been reviewed.
+ * The `byState` the live API returns for the seeded registry: 50 servers crawled
+ * from the official MCP registry — 40 `unknown`, 10 stopped by the licence gate —
+ * plus our own fixture, the only entry that has actually been reviewed.
  */
 const LIVE = {
   registry: {
@@ -18,9 +17,8 @@ const LIVE = {
 
 test('reviewed counts ONLY states a real review can produce', () => {
   const stats = normaliseStats(LIVE, [], false);
-  // This shipped to production as 41, computed as entries - unreviewable, which
-  // silently counted 40 seeded `unknown` entries as reviewed. Coverage is the one
-  // number nobody should inflate.
+  // This shipped as 41, computed as entries - unreviewable, silently counting 40
+  // seeded `unknown` entries as reviewed.
   assert.equal(stats.reviewed, 1);
   assert.equal(stats.flagged, 1);
 });

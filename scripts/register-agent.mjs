@@ -9,19 +9,16 @@
 // `status`, once with an independent `lookupHuman` read through the same code path
 // the API uses to gate disputes.
 //
-// ─── the three things worth knowing before you run it ────────────────────────
+// Three things to know before running it:
 //
-// 1. REGISTRATION IS GASLESS. A hosted relay pays. The agent wallet needs no
-//    balance, on any chain. Do not fund it first.
-//
+// 1. REGISTRATION IS GASLESS — a hosted relay pays, so the agent wallet needs no
+//    balance on any chain. Do not fund it first.
 // 2. IT NEEDS AN ORB-VERIFIED WORLD ID. The contract checks `groupId = 1` and only
-//    Orb credentials exist on chain, so a device-level or Selfie Check credential
-//    cannot register an agent. This is a hard dependency on a physical human at a
-//    physical Orb; no amount of code removes it.
-//
-// 3. DO NOT PASS `--network`. The shipped CLI 0.2.0 has no such option — it
-//    hardcodes World Chain — even though its own npm README and REGISTRATION.md
-//    document `--network base | base-sepolia`. Those docs are stale. (FRICTION-LOG W2)
+//    Orb credentials exist on chain, so device-level and Selfie Check cannot
+//    register an agent. No amount of code removes that.
+// 3. DO NOT PASS `--network`. The shipped CLI 0.2.0 has no such option and hardcodes
+//    World Chain; its own npm README and REGISTRATION.md document
+//    `--network base | base-sepolia` and are stale. (FRICTION-LOG W2)
 //
 // Nothing here writes a private key anywhere, and nothing prints one.
 
@@ -45,8 +42,6 @@ const flag = (name) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : undefined;
 };
-
-/* ────────────────────────────────────────────── which address, and from where ─*/
 
 function resolveAddress() {
   const explicit = flag('address') ?? process.env.SUREX_AGENT_ADDRESS;
@@ -85,8 +80,6 @@ The wallet file is deliberately outside this repo — private keys never enter i
 
 const { address, source } = resolved;
 
-/* ─────────────────────────────────────────────────────────────────── preamble ─*/
-
 line('═');
 console.log('  REGISTER THE SUREX AGENT IN WORLD AGENTBOOK');
 line('═');
@@ -108,8 +101,6 @@ console.log(`
                         that any particular rebuttal is right.
 `);
 line();
-
-/* ────────────────────────────────────────────── is it already done? (idempotent) ─*/
 
 const verifiers = createWorldVerifiers({
   env: { ...process.env, SUREX_WORLD: '1' },
@@ -152,8 +143,6 @@ if (before === 'unknown') {
   if (!args.includes('--force')) process.exit(1);
 }
 
-/* ───────────────────────────────────────────────────────────── run the CLI ────*/
-
 function run(label, cliArgs) {
   return new Promise((resolve) => {
     line();
@@ -183,8 +172,6 @@ if (registerCode !== 0) {
   Nothing was written on chain if registration did not complete. Re-run to retry.
 `);
 }
-
-/* ───────────────────────────────────────────────────────── confirm it, twice ──*/
 
 await run('status', ['status', address]);
 

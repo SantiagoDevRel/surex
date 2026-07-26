@@ -13,14 +13,9 @@
 // Modes come from argv so one script covers every case:
 //   labels | contract | mock | gateway | sepolia
 //
-// Why (3) is here at all, in a probe, rather than only in `forge test`:
-// Foundry cannot be installed in the environment this was built in —
-// `foundry.paradigm.xyz` is refused by the egress policy (403 on CONNECT) and the
-// `foundry-rs/foundry` GitHub repo is not enabled for the session. So the contract
-// is compiled with solc-js and executed on an in-process EVM instead. The Foundry
-// suite in `contracts/test/` is the canonical one and covers more; this mode is
-// what could actually be RUN, and it pins the two things a cross-language bug
-// would hide: the digest, and the recovery.
+// (3) compiles the contract with solc-js and runs it on an in-process EVM. The
+// Foundry suite in `contracts/test/` is the canonical one and covers more; this mode
+// pins the two things a cross-language bug would hide: the digest, and the recovery.
 //
 // Usage:
 //   node ens-resolve.mjs labels
@@ -157,8 +152,8 @@ async function contract() {
     hexToBytes(`0x${artifact.evm.deployedBytecode.object}`),
   );
 
-  // `block.timestamp` is 0 in a bare runCall, which would make every expiry
-  // assertion vacuous — `expires < 0` is never true. Give the EVM a block.
+  // `block.timestamp` is 0 in a bare runCall, which makes every expiry assertion
+  // vacuous — `expires < 0` is never true. Give the EVM a block.
   const NOW = 1_700_000_000n;
   const block = {
     header: {
@@ -330,13 +325,9 @@ async function contract() {
 /* ─────────────────────────────── 4a · the gateway, against the resolver ────*/
 
 /**
- * The whole CCIP-Read loop, minus the client library: build the `resolve()`
- * calldata a resolver would revert with, GET the gateway, and hand what comes
- * back to a real `resolveWithProof` running on an in-process EVM.
- *
- * This is the mode that proves the two halves of the build interoperate. The
- * `sepolia` mode below proves a real client walks the same path, but it cannot
- * run until something is deployed, and this can run now.
+ * The whole CCIP-Read loop, minus the client library: build the `resolve()` calldata
+ * a resolver would revert with, GET the gateway, and hand what comes back to a real
+ * `resolveWithProof` running on an in-process EVM.
  *
  * Needs `next dev` on :4311 with SUREX_ENS_* set, and something answering
  * `/v1/registry`. `--serve-mock` starts that something.
@@ -501,8 +492,7 @@ async function serveMock(port) {
       json({heads, total: heads.length, byState: {flagged: 1, clean: 1}});
       return;
     }
-    // Enough of `/v1/entry/:fp` for the evidence page to render, so the ENS row
-    // can be looked at rather than only asserted.
+    // Enough of `/v1/entry/:fp` for the evidence page to render.
     if (req.url.startsWith('/v1/entry/')) {
       const fp = decodeURIComponent(req.url.slice('/v1/entry/'.length).split('?')[0]);
       const head = heads.find((h) => h.fingerprint === fp);
@@ -553,19 +543,14 @@ async function endToEnd({ rpcUrl, chain, name }) {
  * E6 · the DEPLOYED contract, hop by hop.
  *
  * `getEnsText` is a black box: when the path breaks it returns `null`, which is
- * indistinguishable from an empty record, and you learn nothing about which hop
- * failed. That is not hypothetical — it is exactly how the first mainnet
- * deployment hid a real bug. `resolve()` forwarded only `data` (the inner
- * `text(bytes32,string)` call) and dropped `name`, so the gateway received a
- * namehash it could not reverse and 400'd every request. 17 Foundry tests and
- * six in-process EVM cases all passed, because each half was checked against its
- * own idea of the request rather than against the other half. `gateway` mode
- * BUILDS the request the way the gateway parses it; nothing took what the
- * contract actually emits and fed it to the gateway.
+ * indistinguishable from an empty record. Every other mode BUILDS the request the
+ * way the gateway parses it, so each half can pass against its own idea of the
+ * request while disagreeing with the other — which is how a `resolve()` that dropped
+ * `name` survived 17 Foundry tests and six EVM cases.
  *
  * So this mode never constructs a request. It reads the real revert off chain,
- * asserts the invariant that was violated, then walks the rest of the path and
- * names the hop that breaks.
+ * asserts the invariant that was violated, then walks the rest of the path and names
+ * the hop that breaks.
  */
 async function live() {
   const viem = await import('viem');
@@ -620,11 +605,9 @@ async function live() {
   let raw;
   try {
     const { data } = await client.call({ to: resolver, data: outer, ccipRead: false });
-    // Not a failure. `ccipRead: false` is best-effort — when the whole path is
-    // healthy viem can still follow the lookup and hand back the answer, and a
-    // returned value means every hop below already worked. Reporting that as
-    // "it did not revert" was this probe's own false negative: it called a
-    // fully working deployment broken.
+    // Not a failure. `ccipRead: false` is best-effort: on a healthy path viem can
+    // still follow the lookup and return the answer, and a returned value means
+    // every hop below already worked.
     const value = viem.decodeFunctionResult({
       abi: TEXT_ABI,
       functionName: 'text',
@@ -647,10 +630,9 @@ async function live() {
   const { args } = viem.decodeErrorResult({ abi: LOOKUP_ABI, data: raw });
   const [sender, urls, callData, , extraData] = args;
 
-  // 3 — THE INVARIANT THAT WAS VIOLATED. The gateway needs the name, and a
-  //     namehash cannot be reversed, so callData must be the whole resolve()
-  //     call. Asserting the selector alone is not enough: the failure mode is a
-  //     dropped name, so decode it and check the name survives.
+  // 3 — THE INVARIANT. The gateway needs the name and a namehash cannot be reversed,
+  //     so callData must be the whole resolve() call. The selector alone is not
+  //     enough: the failure mode is a dropped name, so decode and check it survives.
   const selector = callData.slice(0, 10).toLowerCase();
   const expected = viem.toFunctionSelector('resolve(bytes,bytes)').toLowerCase();
   if (

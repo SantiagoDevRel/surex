@@ -14,9 +14,8 @@ import { ERROR_CODES } from '@surex/core';
 const quiet = { warn() {}, info() {}, error() {} };
 const FLAGGED = FIXTURES.find((f) => f.label === 'flagged-tier-b').fingerprint;
 
-// NOTE the order: opts spreads FIRST, then the merged env, or a caller passing
-// `{ env: {…} }` silently replaces the whole env and loses SUREX_MOCK — which is
-// how an earlier version of this file quietly made these tests hit live Braga.
+// NOTE the order: opts spreads FIRST, then the merged env. Reversed, a caller
+// passing `{ env: {…} }` loses SUREX_MOCK and these tests hit live Braga.
 const app = (opts = {}) =>
   createApp({ logger: quiet, ...opts, env: { SUREX_MOCK: '1', ...(opts.env ?? {}) } });
 
@@ -112,8 +111,7 @@ test('the verifier interface is what a route sees, and a real one drops straight
 
 test('an accepted dispute states the state machine, and that it does NOT unblock', async () => {
   // tech-spec §9: a dispute changes what the user is told and queues a human
-  // review. It never switches off enforcement. Saying so in the response is what
-  // stops a client implementing the wrong one.
+  // review; it never switches off enforcement.
   const a = app({
     verifiers: {
       name: 'test',
@@ -230,8 +228,7 @@ test('the stub verifier refuses both paths and never returns a humanId', async (
 });
 
 test('the illustrative verifier is opt-in, mock-only, and marks everything it returns', async () => {
-  // It exists so the web lane can build the accept path standalone. It must be
-  // impossible to enable by accident in a live deployment.
+  // It must be impossible to enable by accident in a live deployment.
   assert.equal(resolveVerifiers({ env: {}, logger: quiet }).name, 'stub');
   assert.equal(resolveVerifiers({ env: { SUREX_MOCK_ACCEPT_DISPUTES: '1' }, logger: quiet }).name, 'stub');
   assert.equal(

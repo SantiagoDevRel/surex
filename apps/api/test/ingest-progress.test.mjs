@@ -12,9 +12,6 @@
 //      every progress line to reach the real result.
 //   3. That `GET /v1/submissions/:id` carries progress through unchanged.
 //
-// It lives beside the other API tests because the API is the consumer: the writer
-// parses these lines so that this endpoint has something true to say.
-//
 // Every test here fails if its guard is removed — a test that passes with the
 // logic disabled is a comment (repo memory: "grep rules are not tests").
 
@@ -145,10 +142,8 @@ test('a progress line carrying `ok` is refused, not published as progress', () =
   assert.equal(parseProgressLine(PROGRESS({ ok: true })), null);
   assert.equal(parseProgressLine(PROGRESS({ ok: false })), null);
 
-  // What this does NOT do, said plainly so nobody reads more protection into it
-  // than there is: resultFrom reads the RAW stdout, so a line that broke the rule
-  // is still a candidate result there and no reader-side check can save it. The
-  // next test is the one that actually holds the invariant.
+  // What this does NOT do: resultFrom reads the RAW stdout, so a line that broke
+  // the rule is still a candidate result there. The next test holds the invariant.
   assert.ok(resultFrom(PROGRESS({ ok: true })), 'resultFrom cannot tell — which is why the emitter must never produce one');
 });
 

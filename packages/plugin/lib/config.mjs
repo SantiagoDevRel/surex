@@ -1,12 +1,10 @@
-// Finding the MCP server definition that a tool call came from.
+// Finding the MCP server definition that a tool call came from. The hook payload
+// carries `tool_name` and no server config (FRICTION-LOG C3), so both are
+// rediscovered from disk — the gate NEVER connects to an MCP server to identify
+// one, which is what lets SessionStart prefetch work: it fires before MCP
+// connections exist.
 //
-// The hook payload carries `tool_name` and no server name and no server config
-// (FRICTION-LOG C3), so the gate has to rediscover both. Everything here is
-// read from configuration on disk — the gate NEVER runs or connects to an MCP
-// server to identify it. That is what makes SessionStart prefetch possible at
-// all: SessionStart fires before MCP connections exist.
-//
-// Config shapes below were read off a real machine, not from docs:
+// Config shapes:
 //   user scope    ~/.claude.json  → .mcpServers
 //   local scope   ~/.claude.json  → .projects["<root>"].mcpServers
 //   project scope <root>/.mcp.json → .mcpServers
@@ -43,9 +41,8 @@ function ancestors(cwd) {
 }
 
 /**
- * `${VAR}` expansion, as the client does it before launching a server.
- * Unset variables are left as the literal token rather than blanked: blanking
- * would silently merge two different servers onto one fingerprint.
+ * `${VAR}` expansion, as the client does it. An unset variable is left as the
+ * literal token, never blanked — blanking merges two servers onto one fingerprint.
  */
 export function expandVars(value, env = process.env) {
   if (typeof value === 'string') {
@@ -65,11 +62,9 @@ export function expandVars(value, env = process.env) {
 }
 
 /**
- * Every MCP server visible from `cwd`, with the scope it came from.
- *
- * Precedence, highest first — and it is NOT a merge. The first scope that
- * defines a name owns that name entirely, because a half-merged definition
- * would fingerprint as a server that exists nowhere.
+ * Every MCP server visible from `cwd`, with the scope it came from. Precedence is
+ * highest-first and NOT a merge: the first scope defining a name owns it entirely,
+ * since a half-merged definition fingerprints as a server that exists nowhere.
  */
 export function discoverServers(cwd = process.cwd(), opts = {}) {
   const env = opts.env ?? process.env;
@@ -101,8 +96,7 @@ export function discoverServers(cwd = process.cwd(), opts = {}) {
     if (!existsSync(path)) continue;
     const json = readJson(path);
     if (!json?.mcpServers) continue;
-    // A server listed in .mcp.json the user declined is not running, so it is
-    // not a server we have anything to say about.
+    // A server the user declined is not running, so it is not one we speak about.
     const entry = claudeJson.projects?.[toProjectKey(dir)] ?? {};
     const disabled = new Set(entry.disabledMcpjsonServers ?? []);
     for (const [name, def] of Object.entries(json.mcpServers)) {
@@ -123,12 +117,10 @@ export function discoverServers(cwd = process.cwd(), opts = {}) {
 }
 
 /**
- * Resolve one server by the name parsed out of a tool_name.
- *
- * Plugin-provided servers are named `mcp__plugin_<plugin>_<server>__<tool>` and
- * their definitions live inside the plugin, not in any of the scopes above.
- * We can name them but not fingerprint them, and saying so is better than
- * guessing — a wrong fingerprint reads as `unknown`, which is a silent miss.
+ * Resolve one server by the name parsed out of a tool_name. Plugin-provided
+ * servers (`mcp__plugin_<plugin>_<server>__<tool>`) keep their definition inside
+ * the plugin, so they resolve to null — a guessed fingerprint would read as
+ * `unknown`, which is a silent miss.
  */
 export function findServer(serverName, cwd = process.cwd(), opts = {}) {
   const { servers, sources } = discoverServers(cwd, opts);

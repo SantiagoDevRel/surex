@@ -1,9 +1,6 @@
 // Reading an MCP server the way the reviewer needs it: its source tree, and the
-// tool list it declares about itself.
-//
-// Extracted from review-and-publish.mjs so calibrate.mjs and review-known.mjs use
-// the SAME reader. Two of the three functions here encode bugs that were paid for
-// once — a second copy would pay for them again. The comments are the record.
+// tool list it declares about itself. The single reader shared by
+// review-and-publish.mjs, calibrate.mjs and review-known.mjs.
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -28,10 +25,8 @@ export function entryOf(dir) {
 /**
  * Read a source tree the way the reviewer wants it: `{path, text}[]`.
  *
- * The reviewer keys everything off `file.text` — the capability scan, the
- * injection scan and the prompt all read it. Passing `content` (which the model
- * half also accepts) but not `text` was why `reach` came back "nothing detected"
- * on code with 21 real call sites. Supply `text`.
+ * The key must be `text`, not `content`: the capability scan, the injection scan and
+ * the prompt all read `file.text`, and a tree keyed `content` silently scans as empty.
  */
 export function readTree(dir, { maxFileBytes = 200 * 1024 } = {}) {
   const files = [];
@@ -52,9 +47,8 @@ export function readTree(dir, { maxFileBytes = 200 * 1024 } = {}) {
 }
 
 /**
- * Start the server over stdio and ask it what it declares. The stated intent is
- * the server's OWN words — what it tells an agent it does — which is the half a
- * review compares the code against.
+ * Start the server over stdio and ask it what it declares — the server's OWN words,
+ * which is the half a review compares the code against.
  *
  * @param {object} opts
  * @param {string} opts.dir      package directory (for README/AGENTS.md)
@@ -66,13 +60,11 @@ export function readTree(dir, { maxFileBytes = 200 * 1024 } = {}) {
  */
 export function statedIntentFrom({ dir, name, entry, cwd, env, timeoutMs = 8000 }) {
   return new Promise((resolvePromise) => {
-    // cwd matters: an in-repo fixture imports @modelcontextprotocol/sdk from the
-    // monorepo's hoisted top-level node_modules, so it must be launched from the
-    // repo ROOT. Launched from anywhere else, node cannot resolve the import and
-    // the server dies before printing a line — which reads from the outside as
-    // "the server declares no tools". An extracted npm package is the opposite:
-    // it has its own node_modules and must be launched from its own directory.
-    // The caller knows which; this function does not guess.
+    // cwd is load-bearing and never guessed here. An in-repo fixture resolves
+    // @modelcontextprotocol/sdk from the monorepo's hoisted node_modules and must be
+    // launched from the repo ROOT; an extracted npm package has its own and must be
+    // launched from its own directory. Get it wrong and the child dies before
+    // printing a line, which reads as "the server declares no tools".
     const child = spawn(process.execPath, [entry], {
       cwd,
       env: env ?? process.env,
@@ -92,22 +84,19 @@ export function statedIntentFrom({ dir, name, entry, cwd, env, timeoutMs = 8000 
         name,
         tools: partial.tools ?? [],
         readme: readme ? readFileSync(readme, 'utf8') : null,
-        // How the tool list was obtained, so a verdict can say so rather than
-        // implying the server was interrogated when it was not.
+        // How the list was obtained, so a verdict never implies the server was
+        // interrogated when it was not.
         toolSource: partial.reason ? `not-enumerated:${partial.reason}` : 'tools/list',
       });
     }
 
     child.on('error', (err) => done({ tools: [], reason: `spawn-failed:${err.code ?? 'error'}` }));
-    // `close`, NOT `exit`: exit fires when the process ends, which can be before
-    // its stdout has been drained — resolving there would discard a tools/list
-    // answer that had already been written and report the server as declaring
-    // nothing. `close` fires after the stdio streams are done.
+    // `close`, NOT `exit`: exit can fire before stdout is drained, discarding a
+    // tools/list answer already written and reporting the server as declaring nothing.
     child.on('close', (code) => done({ tools: [], reason: `exited:${code}` }));
 
-    // Consume COMPLETE lines only. Splitting the running buffer on every `data`
-    // event re-parses partial lines and never advances past them — which is why
-    // the first version saw zero tools even though the server answered three.
+    // Consume COMPLETE lines only: splitting the running buffer on every `data` event
+    // re-parses partial lines and never advances past them, so no tool is ever seen.
     child.stdout.on('data', (d) => {
       buf += d.toString();
       let nl;

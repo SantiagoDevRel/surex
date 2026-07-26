@@ -1,17 +1,14 @@
 // The writer service, running for real, against a stub pipeline.
 //
-// `apps/api/test/ingest-progress.test.mjs` holds the parsing to its contract. This
-// one proves the contract is actually WIRED: a real child process, a real socket,
-// a real state file, and progress that has to survive the whole path from a chunked
-// stdout write to the JSON that `GET /v1/ingest/:id` answers with.
+// `ingest-progress.test.mjs` holds the parsing to its contract; this one proves the
+// contract is WIRED: a real child process, a real socket, a real state file, and
+// progress that survives a chunked stdout write through to `GET /v1/ingest/:id`.
+// No GPU, no wallet, nothing on chain.
 //
-// It is exactly the stub verification `infra/dgx-ingest/README.md` documents, done
-// by the test runner instead of by hand — no GPU, no wallet, nothing on chain.
-//
-// Every assertion is made on the job's FINAL view, never on a poll that happened to
-// catch a stage mid-flight. A test that samples a running pipeline is a test that
-// fails on a loaded machine for reasons that have nothing to do with the code, so
-// each stub is written so that the fact under test is the LAST thing it said.
+// Every assertion is made on the job's FINAL view, never on a poll that caught a
+// stage mid-flight — sampling a running pipeline fails on a loaded machine for
+// reasons unrelated to the code. Each stub makes the fact under test the LAST thing
+// it said.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,19 +51,10 @@ function startService(t, stubSource) {
   });
   t.after(() => {
     child.kill();
-    // `maxRetries` because of the SIGKILL case, and only on Windows: a killed
-    // process's handles are released asynchronously there, so the directory is
-    // still locked the instant after the kill and `rmSync` throws EBUSY. The
-    // assertions had already passed — this was a red suite caused entirely by
-    // tearing down faster than the OS could let go. POSIX unlinks an open file
-    // happily and never sees it.
-    // Retried AND swallowed. The retries handle the ordinary case; the catch
-    // handles the full-suite run, where the machine is busy enough that half a
-    // second of retries is not always enough. Either way a temp directory the OS
-    // has not finished releasing is not a defect in the thing under test, and
-    // failing a test whose assertions all passed because of it is a false alarm
-    // that trains people to ignore red. `packages/plugin/test/gate.test.mjs`
-    // settled this the same way for the same reason.
+    // Retried AND swallowed, for the SIGKILL case on Windows: a killed process's
+    // handles are released asynchronously there, so `rmSync` throws EBUSY just
+    // after the kill. The retries cover the ordinary case, the catch covers a busy
+    // full-suite run. POSIX unlinks an open file happily and never sees this.
     try {
       rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     } catch { /* windows file locks */ }
@@ -109,13 +97,10 @@ async function runOne(base, commit = 'a'.repeat(40)) {
 }
 
 test('a progress line split MID-OBJECT across two writes still reaches the job view', async (t) => {
-  // The failure this catches cannot be caught by reading the code: parsing per
-  // chunk looks correct either way, and only shows up as stages going missing at
-  // random. The stub writes 18 bytes, yields, then writes the rest — so the parent
-  // genuinely receives half a JSON object in one `data` event.
-  //
-  // One progress line only, so "the last thing it said" IS the line under test and
-  // nothing about this depends on when the test happened to poll.
+  // The stub writes 18 bytes, yields, then writes the rest, so the parent genuinely
+  // receives half a JSON object in one `data` event — parsing per chunk looks
+  // correct by inspection and only shows up as stages going missing at random.
+  // One progress line only, so "the last thing it said" IS the line under test.
   const service = startService(t, `
     const write = (s) => new Promise((r) => process.stdout.write(s, r));
     const line = ${PROGRESS({ stage: 'resolving', label: 'Reading acme/mcp', done: 1, detail: { repo: 'acme/mcp' } })};
@@ -170,10 +155,9 @@ test('the result is found past every progress line, and junk between them is ign
 });
 
 test('a pipeline that prints progress and then dies is a FAILURE, never a verdict', async (t) => {
-  // The failure the whole `ok`-discriminator design exists to prevent. The stub
-  // prints two perfectly good progress lines and exits 1 without a result; the job
-  // must come back `failed` with no `result`, because a verdict URL in front of a
-  // maintainer for a review that never finished is the lie this project is about.
+  // What the `ok` discriminator exists to prevent: the stub prints two good
+  // progress lines and exits 1 without a result, so the job must come back `failed`
+  // with no `result` — never a verdict URL for a review that never finished.
   const service = startService(t, `
     process.stdout.write(${PROGRESS({ stage: 'reviewing', label: 'reading', done: 5 })} + '\\n');
     process.stdout.write(${PROGRESS({ stage: 'walrus', label: 'writing', done: 6 })} + '\\n');
@@ -193,15 +177,12 @@ test('a pipeline that prints progress and then dies is a FAILURE, never a verdic
 });
 
 test('the stage a job was on survives a HARD kill of the service', async (t) => {
-  // This is what persisting on a stage CHANGE buys, and the only test that makes it
-  // load-bearing rather than decorative: SIGKILL runs no shutdown handler and no
-  // finish(), so the only way `reviewing` is on disk afterwards is that the stage
-  // transition wrote it there while the pipeline was still running.
-  //
-  // It matters because restore() marks an interrupted job FAILED rather than
-  // re-running it — the pipeline may already have signed something — and "it was
-  // reviewing" versus "it was writing to Arkiv" is exactly what tells a human
-  // whether to go and look at the registry before re-submitting.
+  // What persisting on a stage CHANGE buys: SIGKILL runs no shutdown handler and no
+  // finish(), so `reviewing` being on disk afterwards means the stage transition
+  // wrote it while the pipeline was still running. restore() marks an interrupted
+  // job FAILED rather than re-running it (it may already have signed something), so
+  // "it was reviewing" vs "it was writing to Arkiv" is what tells a human whether to
+  // check the registry before re-submitting.
   const service = startService(t, `
     process.stdout.write(${PROGRESS({ stage: 'reviewing', label: 'the model is reading', done: 5, detail: { model: 'stub-model' } })} + '\\n');
     setTimeout(() => {}, 60_000);

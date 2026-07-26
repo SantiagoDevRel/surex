@@ -1,8 +1,8 @@
 // The licence gate, offline. No network: these are the decisions, not the fetches.
 //
-// The test that matters most is the last group — UNMATCHED IS INELIGIBLE. A false
-// positive here writes someone else's code into storage that has no delete, so
-// "we could not tell" must never resolve to "go ahead".
+// The rule under test is UNMATCHED IS INELIGIBLE: a false positive writes someone
+// else's code into storage that has no delete, so "we could not tell" must never
+// resolve to "go ahead".
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,9 +35,8 @@ test('the spec list is eligible', () => {
 });
 
 test('anything outside the spec list is ineligible, including permissive-looking ones', () => {
-  // Unlicense/CC0/Zlib really are redistribution-permitting. They are refused on
-  // purpose: widening this gate is a human decision, and the cost of refusing is
-  // one `unreviewable` row while the cost of a false positive is unrecoverable.
+  // Unlicense/CC0/Zlib do permit redistribution and are refused anyway: widening
+  // this gate is a human decision, and a false positive is unrecoverable.
   for (const id of ['Unlicense', 'CC0-1.0', 'Zlib', 'Python-2.0', 'Elastic-2.0', 'BUSL-1.1', 'SSPL-1.0', 'BSD']) {
     assert.equal(isEligibleSpdx(id), false, `${id} should NOT be eligible`);
   }

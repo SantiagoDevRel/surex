@@ -4,37 +4,20 @@
 //   node scripts/curate-registry.mjs --dry-run     # print the plan, touch nothing
 //   node scripts/curate-registry.mjs               # do it
 //
-// The registry accumulated 85 heads from three separate seeding passes, and most
-// of them say nothing. This removes the ones that are not verdicts and retires the
-// fixtures that are not part of the demo set, leaving entries a reader can trust
-// one at a time.
-//
-// ── WHAT MAY BE REMOVED, AND WHY THAT LIST IS SHORT ────────────────────────
-//
-// AGENTS.md §4: a verdict is **superseded, never deleted**. Corrections have to be
-// as durable as the claim they correct, or a registry becomes a place where
-// inconvenient findings quietly stop existing. Two categories fall outside that,
-// and NOTHING else does:
+// WHAT MAY BE REMOVED, AND WHY THAT LIST IS SHORT. AGENTS.md §4: a verdict is
+// **superseded, never deleted**, or a registry becomes a place where inconvenient
+// findings quietly stop existing. Exactly three categories fall outside that rule:
 //
 //   1. `unknown` heads — seeding placeholders. `packages/core/src/verdict.mjs`
-//      defines `unknown` as the ABSENCE of an entry, so a stored `unknown` head is
-//      a record asserting there is no record. It is a contradiction in the
-//      product's own vocabulary, not a verdict that was reached and might later
-//      embarrass us. Deleting it removes no finding, because it never contained one.
+//      defines `unknown` as the ABSENCE of an entry, so a stored `unknown` head is a
+//      record asserting there is no record. Deleting it removes no finding.
+//   2. Verdicts about OUR OWN fixtures. The rule exists so an accusation against
+//      somebody else cannot be made to disappear; retiring a review of a server we
+//      wrote hides nothing from anyone.
+//   3. A third party's `unreviewable` — no conclusion was ever reached. See the note
+//      on `assertRemovable`, which is where that case is argued and enforced.
 //
-//   2. Verdicts about OUR OWN fixtures. We wrote those servers to be reviewed and
-//      we are the subject of the review. The rule exists so that an accusation
-//      against SOMEBODY ELSE cannot be made to disappear; retiring a review of
-//      `@surex/mal-postinstall` hides nothing from anyone and protects no one.
-//
-// Everything else stays. In particular the 24 `unreviewable` heads are REAL
-// ANSWERS about real third-party packages — "we could not read this, and here is
-// why" is a finding — and this script refuses to remove them even if asked. They
-// are filtered out of the registry's default VIEW instead, which is a display
-// decision and reversible; deletion is neither.
-//
-// The result is the demo set plus every third-party server that carries a real
-// reviewed verdict.
+// A third party's REACHED verdict is never removable, whatever the plan says.
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -46,9 +29,7 @@ const DRY = process.argv.includes('--dry-run');
 const log = (...a) => console.log(...a);
 
 /**
- * The three servers the demo drives the gate against, one per branch of
- * `decide()`. Verified over 10 consecutive reviewer runs, and republished under
- * prompt rv-6:
+ * The three servers the demo drives the gate against, one per branch of `decide()`:
  *
  *   honest-weather        clean,   severity 0  → allow
  *   ambiguous-telemetry   flagged, severity 2  → warn  ("are you sureX…?")
@@ -60,14 +41,7 @@ export const DEMO_SET = Object.freeze([
   '@surex/mal-tool-shadow',
 ]);
 
-/**
- * The whole registry, named. Owner's list, 2026-07-25.
- *
- * Everything not on it goes. That is a deliberate choice to make the registry
- * READABLE one entry at a time rather than comprehensive: nine entries carrying a
- * verdict a person can check, plus exactly one `unreviewable` so the state is
- * still demonstrable instead of merely described.
- */
+/** The whole registry, named — everything not on it goes. */
 export const KEEP = Object.freeze([
   ...DEMO_SET,
   // Third-party servers that carry a real reviewed verdict.
@@ -77,12 +51,8 @@ export const KEEP = Object.freeze([
   '@modelcontextprotocol/server-google-maps',
   '@modelcontextprotocol/server-gitlab',
   '@modelcontextprotocol/server-brave-search',
-  /**
-   * The kept specimen. A registry that shows only what it could read teaches that
-   * everything is readable, and the honest answer for most published MCP servers
-   * is that the licence does not permit us to read them. One stays so the state
-   * has an example rather than a paragraph.
-   */
+  // The kept `unreviewable` specimen: one stays on chain so the state has a live
+  // example rather than only a paragraph describing it.
   '@certscore/mcp',
 ]);
 
@@ -90,8 +60,8 @@ export const KEEP = Object.freeze([
 const FIXTURE_SCOPE = '@surex/';
 
 /**
- * Decide what happens to one head, and say why in words that end up in the
- * printed plan. Pure, so the reasoning is testable without a chain.
+ * Decide what happens to one head, and say why in words that end up in the printed
+ * plan. Pure, so the reasoning is testable without a chain.
  *
  * @returns {{action:'keep'|'remove', why:string}}
  */
@@ -103,8 +73,7 @@ export function planFor(head) {
     return { action: 'keep', why: DEMO_SET.includes(name) ? 'the demo set' : 'on the keep list' };
   }
   if (!name) {
-    // A head with no name cannot be matched against anything, and guessing is how
-    // the wrong entity gets deleted. Keeping it costs one row.
+    // Unmatchable against anything, and guessing is how the wrong entity gets deleted.
     return { action: 'keep', why: 'unnamed — never removed on an assumption' };
   }
   if (state === 'unknown') {
@@ -121,28 +90,15 @@ export function planFor(head) {
 
 /**
  * The guard, kept separate from the plan so it cannot be reasoned around: whatever
- * `planFor` decided, a third party's REACHED verdict is never removable.
+ * `planFor` decided, a third party's REACHED verdict — clean, flagged, disputed,
+ * stale — is never removable, and this throws if a plan ever asks.
  *
- * ── on removing a third party's `unreviewable` ────────────────────────────────
- *
- * The owner asked for a registry of ten named entries, which means removing 24
- * `unreviewable` heads about real packages. That deserves saying out loud rather
- * than doing quietly, because AGENTS.md §4 says a verdict is superseded, never
- * deleted, and these are about servers we do not own.
- *
- * What makes it defensible is what `unreviewable` MEANS. It is the state for
- * "we could not read this" — a licence that does not permit review, source that
- * does not correspond to the declared tools, an OCI image with no tarball to
- * read. No conclusion was ever reached about the code, so there is no finding to
- * bury and nobody is protected by the row's continued existence. The rule exists
- * so an ACCUSATION cannot be made to disappear; an `unreviewable` is the opposite
- * of an accusation, and removing one takes nothing away from the package's author.
- *
- * `@certscore/mcp` stays for exactly this reason: the state has to remain
- * demonstrable rather than merely described, so one real example is kept on chain.
- *
- * A third party's REACHED verdict — clean, flagged, disputed, stale — is still
- * never removable, and this throws if a plan ever asks.
+ * A third party's `unreviewable` IS removable, and that is the one case worth
+ * arguing. `unreviewable` means "we could not read this" — a licence that does not
+ * permit review, source that does not match the declared tools, an OCI image with no
+ * tarball. No conclusion was reached about the code, so there is no finding to bury;
+ * §4 exists so an ACCUSATION cannot be made to disappear, and this is the opposite of
+ * one.
  */
 export function assertRemovable(head) {
   const name = String(head?.name ?? '');
@@ -158,12 +114,9 @@ export function assertRemovable(head) {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Everything above is pure and importable. Everything below runs ONLY when this
-// file is the entrypoint — without that guard, importing it to test the rules
-// opens a chain connection and reads every head, which is how the first version
-// of its test suite came to take four minutes and touch the network.
-// ---------------------------------------------------------------------------
+// Everything above is pure and importable; everything below runs ONLY under the
+// entrypoint guard at the bottom. Without it, importing this to test the rules opens
+// a chain connection and reads every head.
 
 async function main() {
 const arkiv = createArkivWriter({ log: (m) => log(' ', m) });
@@ -190,8 +143,7 @@ const planned = rows.map((r) => ({ ...r, ...planFor(r) }));
 const removing = planned.filter((p) => p.action === 'remove');
 const keeping = planned.filter((p) => p.action === 'keep');
 
-// Every removal re-checked against the guard, one at a time. A bug in `planFor`
-// must not be able to reach the chain.
+// Re-checked one at a time, so a bug in `planFor` cannot reach the chain.
 for (const r of removing) assertRemovable(r);
 
 const byWhy = new Map();

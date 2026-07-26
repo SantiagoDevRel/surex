@@ -1,9 +1,8 @@
 // The decision, and the words it is delivered in.
 //
-// Everything user-facing about a verdict is composed here so the copy law has
-// exactly one place to be enforced (and one place to be tested):
-//   the word is REVIEWED — never safe, trusted, verified or secure,
-//   and never "reputation" about anything agent-shaped.
+// Everything user-facing about a verdict is composed here so the copy law has one
+// place to be enforced: the word is REVIEWED — never trusted, verified or secure,
+// and never "reputation" about anything agent-shaped.
 // Spec: docs/surex-prd.md §6, docs/surex-tech-spec.md §3.3.
 //
 // Node stdlib only — vendored into the plugin. See scripts/sync-core.mjs.
@@ -46,12 +45,9 @@ export function decide(head) {
 }
 
 /**
- * Which of the three block wordings applies.
- *
- * `enforceAfter` does NOT gate blocking (FR-21) — the server blocks from the
- * moment it is flagged. The window only decides whether the block calls itself
- * unconfirmed or confirmed, so a maintainer gets a chance to answer before an
- * accusation hardens, while users are protected with no delay.
+ * Which of the three block wordings applies. `enforceAfter` does NOT gate
+ * blocking (FR-21) — a server blocks from the moment it is flagged; the window
+ * only decides whether the block calls itself unconfirmed or confirmed.
  */
 export function confidenceOf(head, now = Date.now()) {
   if (head?.state === 'disputed') return 'disputed';
@@ -88,12 +84,10 @@ export function capabilityLine(capabilities) {
 }
 
 /**
- * The block message. This single string is the only channel that reaches both
- * the user's terminal and the model, so the entire case goes in it.
- *
- * Kept deliberately short. A 12,054-character reason was measured to arrive
- * intact but stop being *read* as a block — the model described it as a tool
- * error (FRICTION-LOG C4). The limit that matters is comprehension.
+ * The block message. The only channel that reaches both the user's terminal and
+ * the model, so the entire case goes in it — and kept short: a 12,054-character
+ * reason arrived intact but was read as a tool error, not a block
+ * (FRICTION-LOG C4). The test pins it under 1,200 characters.
  */
 export function blockMessage(head, opts = {}) {
   const now = opts.now ?? Date.now();
@@ -102,15 +96,9 @@ export function blockMessage(head, opts = {}) {
   const finding = head.topFinding ?? null;
 
   const lines = [];
-  // A QUESTION, because the gate stops this call and hands the decision to the
-  // human rather than ending it (`permissionDecision: 'ask'`). The call does not
-  // run unless they approve — but they are the ones who approve it, and a message
-  // that announced a block while Claude Code showed them a prompt would be
-  // describing a product we do not ship.
-  //
-  // The recommendation is stated separately and plainly. "We do not recommend
-  // proceeding" is advice about an action; it is not a claim that anything is
-  // safe or unsafe, which the copy law forbids either way.
+  // A QUESTION, because the gate hands the decision to the human
+  // (`permissionDecision: 'ask'`) rather than ending the call. The recommendation
+  // is stated separately: advice about an action, never a claim about the code.
   lines.push(`Are you sureX you want to use ${name}?`);
   lines.push('');
   lines.push('SureX does not recommend proceeding.');
@@ -137,14 +125,12 @@ export function blockMessage(head, opts = {}) {
   const caps = capabilityLine(head.capabilities);
   if (caps) lines.push(`This code can reach: ${caps}`);
 
-  // The link line. Tier is the honest part: it says whether the reviewed bytes
-  // are the bytes about to run, and C means we cannot tell.
   lines.push('');
   lines.push(tierSentence(head.tier));
 
-  // The contract carries the pointer as `evidence.blobId`; accept the flat form
-  // too so a hand-built head in a test or a fixture cannot silently drop the
-  // one identifier that makes the verdict checkable.
+  // The contract carries the pointer as `evidence.blobId`; the flat form is
+  // accepted too, so a hand-built head cannot silently drop the one identifier
+  // that makes the verdict checkable.
   const blobId = head.evidence?.blobId ?? head.evidenceBlobId;
   lines.push(
     `Reviewed: commit ${shortId(head.reviewedCommit, 7, 0)} · blob ${shortId(blobId)} · ` +
@@ -160,11 +146,9 @@ export function blockMessage(head, opts = {}) {
   }
 
   lines.push('');
-  // The override is printed in EVERY block, and the caller supplies the exact
-  // invocation because whether a bare `surex` resolves depends on how the plugin
-  // was installed — it is not on PATH from a marketplace install (FRICTION-LOG
-  // C7). Printing a command that does not exist would break the one escape hatch
-  // that makes blocking acceptable.
+  // Printed in EVERY block. The caller supplies the exact invocation because a
+  // bare `surex` is not on PATH from a marketplace install (FRICTION-LOG C7), and
+  // printing a command that does not exist breaks the only escape hatch.
   const override = opts.overrideCommand ?? `surex allow ${head.fingerprint}`;
   lines.push(`You can proceed anyway, at your own risk:  ${override}`);
 
@@ -202,21 +186,13 @@ export function warnMessage(head, ctx = {}) {
       return `⚠ SureX: ${name} has a finding below the blocking threshold (severity ${head.severity}). Proceeding.`;
     case 'unknown':
     default:
-      // `unknown` covers two different facts and they must not read the same. An
-      // entry that exists carries a name; a fingerprint nobody has ever submitted
-      // does not. Telling a user a server "is not in the registry" when it is
-      // listed and simply unreviewed is a false statement about our own data —
-      // and it is the difference between "nobody has looked" and "nobody has even
-      // heard of this".
-      // `listed` is set by the caller from the API's own answer, BEFORE any local
-      // display name is merged in — the gate always fills `name` from the local
-      // config, so `name` cannot tell these two apart.
+      // `unknown` covers two facts that must not read the same: listed but
+      // unreviewed, and never submitted at all. `listed` is set by the caller from
+      // the API's own answer BEFORE any local display name is merged in — the gate
+      // always fills `name` from the local config, so `name` cannot tell them apart.
       //
-      // Only the never-submitted branch gets the submit link, and that is the
-      // point of keeping the two branches apart. "Submit it" is actionable advice
-      // when nobody has ever sent this configuration in; pointed at a server that
-      // is already listed and merely waiting for a review, it would send someone
-      // to fill in a form that changes nothing.
+      // Only the never-submitted branch gets the submit link; pointed at a listed
+      // server it would send someone to fill in a form that changes nothing.
       if (head?.listed) {
         return `⚠ SureX: ${name} is listed but has not been reviewed. Proceeding unreviewed.`;
       }

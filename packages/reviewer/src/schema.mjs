@@ -1,16 +1,14 @@
 // Output validation. Hand-rolled, zero dependencies — same rule as @surex/core.
 //
-// The hard rule this file exists to enforce (tech-spec §6):
+// The hard rule this file exists to enforce:
 //
 //     A MALFORMED MODEL RESPONSE IS A FAILED REVIEW (`unreviewable`).
 //     IT IS NEVER A `clean` VERDICT.
 //
-// `clean` is the only verdict that causes SureX to say nothing at all. A parser
-// that shrugs at a broken response and defaults to `clean` would turn every
-// model hiccup into a silent pass — which is exactly the laundering service the
-// spec warns about. So validation here is strict, it returns errors rather than
-// guesses, and the only fallback constructor in this file builds an
-// `unreviewable` record.
+// `clean` is the only verdict that causes SureX to say nothing at all, so a parser
+// that shrugs at a broken response and defaults to it turns every model hiccup into
+// a silent pass. Validation is strict, it returns errors rather than guesses, and
+// the only fallback constructor in this file builds an `unreviewable` record.
 
 export const VERDICTS = Object.freeze(['clean', 'flagged', 'unreviewable']);
 
@@ -18,18 +16,14 @@ export const VERDICTS = Object.freeze(['clean', 'flagged', 'unreviewable']);
  * The closed `reason` enum from the contract. `null` means "no special reason".
  *
  * The first three are all "we could not read the code". **`no-agreement` is a
- * different admission**: the code was read, more than once, and the readings did
- * not converge — so there is a review, and it has no verdict. A model may not
- * return it (nothing in the prompt offers it); only the merge produces it.
+ * different admission**: the code was read, more than once, and the readings did not
+ * converge — so there is a review, and it has no verdict. A model may not return it
+ * (nothing in the prompt offers it); only the merge produces it.
  *
- * **`no-reading` is a third thing again, and it exists because the second one was
- * being used to describe it.** When both readings fail — the reviewer endpoint is
- * unreachable, a request times out, nothing parses — the merge produced no reason,
- * and the publisher filled the blank with `no-agreement`. The registry then told
- * the world "the readings disagreed and no majority formed" about a run in which
- * NOTHING WAS READ. That is a fabricated account of what happened, on a public
- * page, under a rule that says never fabricate. The DGX reviewer sits behind a home
- * tunnel; this is an ordinary failure, not an exotic one.
+ * **`no-reading` is a third thing again**: both readings failed, so NOTHING WAS READ.
+ * Filling that blank with `no-agreement` tells the world "the readings disagreed and
+ * no majority formed" about a run that never happened — a fabricated account, on a
+ * public page. The reviewer sits behind a home tunnel; this is an ordinary failure.
  */
 export const REASONS = Object.freeze([
   'licence', 'source-unavailable', 'remote-endpoint',
@@ -41,33 +35,24 @@ export const CAPABILITY_KEYS = Object.freeze([
 ]);
 
 /**
- * The KIND of problem a review found, as a closed set. (rv-7)
- *
- * This exists because "what did the review actually say" had no answer a screen
- * could use. A verdict carried `severity: 3`, a category string the model invented
- * on the spot, and a paragraph of prose — so a reader had to work out for
- * themselves whether they were looking at a package that quietly posts their files
- * somewhere or one that simply never implements half the tools it advertises.
- * Those are completely different decisions, and the registry was making the reader
- * do the classification.
+ * The KIND of problem a review found, as a closed set.
  *
  * Deliberately NOT a severity scale and NOT a security taxonomy. It answers one
  * question — what sort of gap is there between what this server says and what it
- * does — and the order runs from "nothing", through "does less than it claims",
- * to "actively hides what it does".
+ * does — and **the ORDER is load-bearing**: "nothing", through "does less than it
+ * claims", to "actively hides what it does". `pickConcern` breaks a tie by the lower
+ * index.
  *
- * `deliberate-concealment` is the only value that asserts intent, and both the
- * prompt and this comment exist to make it the last resort. Everything else here
- * describes a program; that one describes a person's purpose, on the strength of a
- * reading no human audited. When the code does not settle it, the weaker value is
- * the honest one.
+ * `deliberate-concealment` is the only value that asserts intent, and is the last
+ * resort. Everything else here describes a program; that one describes a person's
+ * purpose, on the strength of a reading no human audited. When the code does not
+ * settle it, the weaker value is the honest one.
  */
 export const CONCERNS = Object.freeze([
   // Nothing to report. The only value a `clean` verdict may carry.
   'none',
   // It does not deliver what it advertises — declared tools that are not
-  // implemented, a schema the handler ignores, a parameter nothing reads. An
-  // honesty and correctness problem, not necessarily a safety one.
+  // implemented, a schema the handler ignores, a parameter nothing reads.
   'does-not-do-what-it-claims',
   // It does MORE than its description accounts for, and the extra reads as
   // incidental: a usage ping, a version check, a file written outside its own
@@ -105,18 +90,14 @@ export const DISAGREEMENT_SEVERITY_CAP = 2;
  */
 export const MAX_PANEL = 4;
 
-// ---------------------------------------------------------------------------
-// primitives
-// ---------------------------------------------------------------------------
-
 function isPlainObject(v) {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 /**
- * Models emit `"severity": "3"` roughly as often as `3`. Coercing a numeric
- * string is parsing, not guessing — the value is unambiguous. Anything that is
- * not a finite number after that is an error, never a default.
+ * Models emit `"severity": "3"` roughly as often as `3`, and coercing an unambiguous
+ * numeric string is parsing, not guessing. Anything that is not a finite number after
+ * that is an error, never a default.
  */
 function asInt(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
@@ -136,19 +117,14 @@ export function clampSeverity(n) {
   return Math.max(0, Math.min(MAX_SEVERITY, i));
 }
 
-// ---------------------------------------------------------------------------
-// getting JSON out of a chat completion
-// ---------------------------------------------------------------------------
-
 /**
  * Pull the JSON object out of a completion body.
  *
- * Ollama honours `response_format: {type:'json_object'}` for some models and
- * ignores it for others, and a reasoning model will happily wrap the object in
- * a ```json fence or a sentence of preamble. Locating the object inside that is
- * parsing. Repairing a truncated or contradictory object would not be, and this
- * function does not attempt it: if brace balancing does not land on valid JSON,
- * it fails.
+ * Ollama honours `response_format: {type:'json_object'}` for some models and ignores
+ * it for others, and a reasoning model will wrap the object in a ```json fence or a
+ * sentence of preamble. Locating the object inside that is parsing; repairing a
+ * truncated or contradictory one would not be, and is not attempted — if brace
+ * balancing does not land on valid JSON, this fails.
  *
  * @returns {{ok:true, value:object} | {ok:false, error:string}}
  */
@@ -201,15 +177,11 @@ function tryParse(s) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// the model's own output
-// ---------------------------------------------------------------------------
-
 /**
- * Validate one model run. The model is asked for judgement only — it is never
- * asked for `capabilities`, because that surface comes from the static scan and
- * must not be influenceable by the text being reviewed. A `capabilities` key in
- * a model response is dropped on the floor here, deliberately and silently.
+ * Validate one model run. The model is asked for judgement only — never for
+ * `capabilities`, since that surface comes from the static scan and must not be
+ * influenceable by the text being reviewed. A `capabilities` key in a model response
+ * is dropped on the floor here, deliberately and silently.
  *
  * @returns {{ok:true, value:object} | {ok:false, errors:string[]}}
  */
@@ -238,24 +210,12 @@ export function validateModelOutput(raw) {
   }
 
   /**
-   * A missing `statedIntentSummary` is an ABSENT SENTENCE, not a failed review.
-   *
-   * It used to be an error, and rv-7 turned that into a measured regression. The
-   * new `assessment` field asks for prose too, and the model — reasonably —
-   * collapsed the two and answered only one of them. Result on the DGX,
-   * 2026-07-26: five honest fixtures came back with `agreementRuns: 0`, because
-   * BOTH readings had been thrown away. Their content was
-   * `verdict: clean, severity: 0, concern: none, findings: []` with a paragraph of
-   * accurate description. Two correct readings, discarded over a missing summary,
-   * and the fixture published as `unreviewable`.
-   *
-   * The strict rule is right about the VERDICT — a malformed verdict is never
-   * `clean` — and wrong about everything decorating it. This is prose. It becomes
-   * `''`, which is what `unreviewableRecord` has always defaulted it to, and the
-   * downstream validator accepts.
-   *
-   * The prompt was fixed as well, so this path should be rare; both halves,
-   * because a prompt is a request and a request is not a guarantee.
+   * A missing `statedIntentSummary` is an ABSENT SENTENCE, not a failed review. When
+   * it was an error, a model that collapsed it into `assessment` — both ask for prose
+   * — cost five honest fixtures BOTH readings: two correct `clean, severity 0` reads
+   * discarded over a missing summary, published as `unreviewable` with
+   * `agreementRuns: 0`. The strict rule is right about the VERDICT and wrong about
+   * the prose decorating it, so this defaults to `''` as `unreviewableRecord` does.
    */
   const summary = asString(raw.statedIntentSummary) ?? '';
 
@@ -300,19 +260,12 @@ export function validateModelOutput(raw) {
   }
 
   /**
-   * `concern` and `assessment` are validated TOLERANTLY, and that is a decision
-   * rather than laziness.
-   *
-   * A malformed response is a failed review — that rule is the whole point of this
-   * file, and it protects the VERDICT. These two fields are not the verdict: they
-   * describe a finding the rest of the response has already established with a file
-   * and a line. Failing a whole reading because a model wrote `"concern":
-   * "suspicious"` instead of a value from the list would turn a good review into
-   * `unreviewable`, and doing that to one reading of two collapses the panel to a
-   * single run whose severity is then capped. A worse verdict, for a label.
-   *
-   * So an unrecognised concern becomes `null` — "not stated" — never a guess and
-   * never an error. The consumer treats absence as absence.
+   * `concern` and `assessment` are validated TOLERANTLY, deliberately. The strict
+   * rule protects the VERDICT; these two only describe a finding the rest of the
+   * response has already established with a file and a line. Failing a whole reading
+   * over `"concern": "suspicious"` collapses the panel to a single run whose severity
+   * is then capped — a worse verdict, for a label. An unrecognised concern becomes
+   * `null` ("not stated"), never a guess and never an error.
    */
   let concern = null;
   const rawConcern = asString(raw.concern);
@@ -324,11 +277,9 @@ export function validateModelOutput(raw) {
     assessment = rawAssessment.trim().slice(0, MAX_ASSESSMENT_CHARS);
   }
 
-  // A clean verdict states no concern. This is a coercion and not an error for the
-  // same reason as above: `severity > 0` and a non-zero finding already fail a
-  // contradictory clean response above, so the verdict itself is protected. What is
-  // left here is a label disagreeing with a verdict that has already been checked,
-  // and the verdict is the one that means something.
+  // A clean verdict states no concern. A coercion, not an error: a contradictory
+  // clean response already failed above on severity and findings, so the verdict is
+  // protected and what is left is a label disagreeing with a checked verdict.
   if (verdict === 'clean') concern = 'none';
 
   if (errors.length) return { ok: false, errors };
@@ -338,14 +289,10 @@ export function validateModelOutput(raw) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// the assembled record
-// ---------------------------------------------------------------------------
-
 /**
- * Validate the full ReviewRecord blob body (tech-spec §4.1, §6) before it is
- * written anywhere. Called on the way out of `reviewServer`, so a bug in the
- * merge cannot produce a record that the API would later have to guess about.
+ * Validate the full ReviewRecord blob body before it is written anywhere. Called on
+ * the way out of `reviewServer`, so a bug in the merge cannot produce a record the
+ * API would later have to guess about.
  */
 export function validateReviewRecord(raw) {
   const errors = [];
@@ -367,13 +314,10 @@ export function validateReviewRecord(raw) {
   if (typeof raw.promptVersion !== 'string' || !raw.promptVersion) {
     errors.push('promptVersion must be a non-empty string');
   }
-  // The panel is two readings normally and FOUR when the first two split (one
-  // more of each variant — see TIEBREAK_VARIANTS in review.mjs), so the number
-  // of readings that agreed can be anything from 0 to 4. This used to say
-  // "0, 1 or 2", which was true when a split was resolved by picking a side; it
-  // silently turned every majority-of-four verdict into `unreviewable` the moment
-  // the tie-break shipped — a validation failure being reported as a review
-  // failure, which is exactly the confusion this validator exists to prevent.
+  // The panel is two readings normally and FOUR when the first two split (one more of
+  // each variant — see TIEBREAK_VARIANTS in review.mjs), so agreed readings run 0..4.
+  // A ceiling of 2 here silently turns every majority-of-four verdict into
+  // `unreviewable`: a validation failure reported as a review failure.
   const runs = asInt(raw.agreementRuns);
   if (runs === null || runs < 0 || runs > MAX_PANEL) {
     errors.push(`agreementRuns must be between 0 and ${MAX_PANEL}`);
