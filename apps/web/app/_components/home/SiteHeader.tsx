@@ -38,9 +38,9 @@ const MOBILE_ROW_LINK = 'text-[var(--v2-ink-3)]! hover:text-[var(--v2-ink)]!';
 export const MAIN_ID = 'main';
 
 /**
- * Four destinations and one action, in the order the user reads them: what the
- * product is, what it has reviewed, how to add to it, where the code lives —
- * then the one thing that changes anything on their machine.
+ * Five destinations and one action, in the order the user reads them: what the
+ * product is, what it has reviewed, how to add to it, how it works, where the
+ * code lives — then the one thing that changes anything on their machine.
  *
  * `#how-it-works` and `#disputes` used to sit here. They are anchors into the
  * homepage, and this header now renders on every route, so from `/registry`
@@ -52,8 +52,17 @@ const HOW_IT_WORKS_ID = 'how-it-works';
 const DISPUTES_ID = 'disputes';
 
 /**
+ * The docs deployment root. Declared above `NAV_ITEMS` rather than beside
+ * `INSTALL_URL` below it because `NAV_ITEMS` is built at module load: a `const`
+ * read before its own declaration is a temporal-dead-zone throw, not a hoisted
+ * undefined. `INSTALL_URL` is only ever read inside the component, which is why
+ * it can sit where it reads best.
+ */
+const DOCS_URL = 'https://surex-docs.vercel.app';
+
+/**
  * `exact` for `/`, prefix for the rest — `/registry` has to stay lit while you
- * are reading `/r/<fingerprint>`, which is a registry entry and not a fifth
+ * are reading `/r/<fingerprint>`, which is a registry entry and not a sixth
  * destination, and the same holds for `/d/<fingerprint>` under submit's
  * sibling. `/` matched as a prefix would light HOME on every page there is.
  */
@@ -71,6 +80,7 @@ const NAV_ITEMS = [
     external: false,
     isActive: (p: string) => p.startsWith('/submit') || p.startsWith('/d/'),
   },
+  { href: DOCS_URL, label: COPY.nav.docs, external: true, isActive: () => false },
   { href: COPY.brand.repoUrl, label: COPY.nav.github, external: true, isActive: () => false },
 ] as const;
 

@@ -33,7 +33,7 @@ export const COPY = {
   },
 
   /**
-   * The chrome, on every route. Four destinations and one action.
+   * The chrome, on every route. Five destinations and one action.
    *
    * Lowercase throughout, because the header sets them in SUSE Mono at 11.5px
    * and the wordmark beside them is the only thing on the row entitled to
@@ -45,6 +45,13 @@ export const COPY = {
     home: 'home',
     registry: 'registry',
     submit: 'submit an mcp',
+    /**
+     * The docs deployment. It was reachable only from the footer, which is the
+     * wrong place for the one destination that explains how any of this works
+     * — the install action beside it already points into the same site, so the
+     * chrome was linking the docs without ever naming them.
+     */
+    docs: 'docs',
     /** The source. A trust registry that cannot be read is asking to be trusted twice. */
     github: 'github',
     /**
@@ -1008,10 +1015,10 @@ export const COPY = {
 
     hero: {
       headline: "MCPs are fun. Until they're not.",
-      lede: 'Making every MCP a reviewed experience.',
-      body: "An MCP server runs with your agent's permissions. Sees your files. Sees your secrets. Nothing checks it. SureX does. Before every tool call, in milliseconds, without ever running it.",
-      actionInstall: 'Install Surex',
-      actionBrowse: 'See all MCPs',
+      lede: 'Making the use of MCPs a safe experience.',
+      body: 'MCPs can see your files. See your secrets. We put a check in the path. Before your agent calls any tool, we look the server up, and tell you what we see so you can be SureX.',
+      actionInstall: 'Install Now',
+      actionBrowse: 'View Registry',
     },
 
     /**
@@ -1273,15 +1280,18 @@ export const COPY = {
     },
 
     /**
-     * The install band, immediately before the closer. It echoes the hero so
-     * the page ends where it began, then gives the one command.
+     * The install band, immediately before the closer.
+     *
+     * The `command`/`copyLabel`/`copiedLabel` trio behind a copy chip was cut:
+     * `Closer` sits directly below this band and prints the same command, so
+     * the page asked twice in a row. The lede stayed.
+     *
+     * The headline no longer echoes the hero, so `lede` is free to be the
+     * `<h2>` without the two competing — see the note in `InstallBand`.
      */
     install: {
-      headline: "MCPs are fun. Until they're not.",
-      lede: 'Read the verdict before the call, not after.',
-      command: '/plugin install surex@surex',
-      copyLabel: 'copy',
-      copiedLabel: 'copied',
+      headline: 'We check the MCPs so you can explore safely.',
+      lede: 'Be Surex before calling it, not after.',
     },
 
     closer: {

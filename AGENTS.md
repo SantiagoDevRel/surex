@@ -86,7 +86,10 @@ API serves in mock mode carries `illustrative: true`, and no surface may strip i
 ## 4. Hard rules
 
 **Copy law — binding on every surface, UI and API alike.**
-Never write *safe*, *trusted*, *verified* or *secure* about a reviewed server. The word is **reviewed**.
+Never write *trusted*, *verified* or *secure* about a reviewed server. The word is **reviewed**.
+*safe* was on that list until 2026-07-26, when it was dropped by product decision so the homepage hero
+and install band could use it. The linter no longer checks it on any surface — including the `reason`
+field that reaches a signed ENS record. `packages/core/src/copy.mjs` carries the full note.
 Every verdict must state what was reviewed (commit + blob ID), when, by which model and prompt version,
 and that it was automated with no human audit. Never imply the registry knows what is running on a user's
 machine — it knows what was reviewed. Corrections are as prominent and as durable as the original claim;

@@ -1,7 +1,8 @@
 // The copy law, as code.
 //
-// AGENTS.md §4: never write *safe*, *trusted*, *verified* or *secure* about a
-// reviewed server. The word is **reviewed**. And never say *reputation* about
+// AGENTS.md §4: never write *trusted*, *verified* or *secure* about a reviewed
+// server. The word is **reviewed**. (*safe* was on that list until 2026-07-26 —
+// see the note on `BANNED`.) And never say *reputation* about
 // anything agent-shaped — SureX reviews servers, not agents, and the World
 // track excludes agent reputation explicitly.
 //
@@ -17,7 +18,19 @@
  * license every unearned claim below it.
  */
 export const BANNED = Object.freeze([
-  { re: /\bsafe(?:ty|ly|r|st)?\b/i, word: 'safe', instead: 'reviewed — and say what was reviewed' },
+  // *safe* was the first rule here and is deliberately gone. It was dropped by
+  // product decision on 2026-07-26 so the homepage hero and the install band
+  // could say "a safe experience" and "explore safely" — see
+  // `COPY.home.hero.lede` and `COPY.home.install.headline`.
+  //
+  // What that turned off, recorded because the word is no longer checked
+  // anywhere: model-generated text reaching a signed ENS record is one of the
+  // surfaces this rule guarded (`recordsFor` in apps/web/lib/ens.ts throws on a
+  // violation before the gateway signs), and a `reason` reading "this server is
+  // safe" would now pass that guard. *trusted*, *verified* and *secure* still
+  // catch it, and `reason` is a closed set in the contract, so the practical
+  // gap is narrow — but it is a gap, and it is wider than the two marketing
+  // strings that motivated the change.
   { re: /\btrust(?:ed|worthy|less)\b/i, word: 'trusted', instead: 'reviewed' },
   {
     re: /\bverif(?:ied|iable|y|ication|ying)\b/i,
@@ -56,7 +69,9 @@ export const ALLOWED_PHRASES = Object.freeze([
   'Orb-verified',            // World's own term for a credential level
   'World ID verification',   // ditto
   'verification_level',      // an IDKit parameter name
-  'safe to remove',          // engineering prose, never product copy
+  // 'safe to remove' lived here to keep engineering prose out of the linter's
+  // way. The rule it was exempting no longer exists, so the exemption does not
+  // either.
 ]);
 
 function stripAllowed(text) {

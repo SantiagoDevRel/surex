@@ -172,7 +172,11 @@ test('copy law holds across every string the product can emit', () => {
 });
 
 test('the copy linter actually catches the banned words', () => {
-  assert.equal(copyViolations('this server is safe to use').length, 1);
+  // *safe* is no longer one of them — dropped by product decision on
+  // 2026-07-26 so the site could say "a safe experience". Asserted rather than
+  // deleted, so that removing the rule stays a deliberate act: if someone puts
+  // it back, this line tells them a homepage string depends on its absence.
+  assert.equal(copyViolations('this server is safe to use').length, 0);
   assert.equal(copyViolations('a trusted, verified and secure server')[0].word, 'trusted');
   assert.equal(copyViolations('agent reputation score').length, 1, 'never say reputation about an agent');
   assert.equal(copyViolations('proceeding unverified')[0].instead, 'unreviewed');

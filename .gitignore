@@ -16,4 +16,7 @@ dist/
 agent/
 skills-lock.json
 
+# Personal working notes kept beside the code they describe. Never source.
+*.local.md
+
 .vercel

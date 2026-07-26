@@ -8,5 +8,6 @@ Two things worth repeating because getting them wrong is expensive:
 
 - **This is design phase.** No service runs. Every number in `design/prototype.html` is placeholder
   content served behind a banner that says so. Do not quote them and do not remove the banner.
-- **Never write *safe*, *trusted*, *verified* or *secure*** about a reviewed server. The word is
-  **reviewed**. Full copy law in `AGENTS.md` §4.
+- **Never write *trusted*, *verified* or *secure*** about a reviewed server. The word is
+  **reviewed**. *safe* was dropped from the list on 2026-07-26 by product decision — the homepage
+  uses it. Full copy law in `AGENTS.md` §4.
