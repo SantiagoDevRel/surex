@@ -44,6 +44,8 @@ const COUNTER_TONE: Record<CounterTone, string> = {
 
 export function Stamp({
   state,
+  /** What to print. Defaults to the state, upper-cased. */
+  word,
   tier,
   /** The line under the state word: what the tier means, in five words. */
   impression,
@@ -56,6 +58,7 @@ export function Stamp({
   dashed,
 }: {
   state: RowStatus;
+  word?: string;
   tier?: Tier | '—';
   impression: string;
   counter?: string;
@@ -83,7 +86,7 @@ export function Stamp({
           className={cn('halftone pointer-events-none absolute inset-0 opacity-[0.14]', s.text)}
         />
         <div className={cn('relative text-stamp font-semibold tracking-[0.24em]', s.text)}>
-          {state.toUpperCase()}
+          {word ?? state.toUpperCase()}
         </div>
         <div className="relative mt-1.5 text-nano uppercase text-ink-2">{impression}</div>
       </div>

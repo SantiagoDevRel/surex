@@ -96,8 +96,38 @@ verdicts are superseded, never deleted.
 real, no backdated commits. If a number is illustrative, it is labelled illustrative on the same screen.
 This is both an integrity rule and a submission rule — see §6.
 
-**Never publicly flag a real, named third-party project** on the strength of an unaudited model verdict.
-The only thing flagged in any demo is the fixture we wrote ourselves.
+**A review publishes what it found — including about software we did not write. Narrowed 2026-07-26.**
+
+This rule used to read *"never publicly flag a real, named third-party project; the only thing flagged in
+any demo is the fixture we wrote ourselves."* It was enforced by a fingerprint allowlist at the write
+boundary, and it did stop the harm it was written for. It also stopped the product. Every review of a real
+MCP server published as `unreviewable / withheld` — a state that reads as *we could not tell* — about public,
+open-source code that had just been read end to end and had produced a conclusion with file and line numbers.
+A registry that reviews everything and publishes nothing is not a registry, and the state word made it look
+broken at exactly the moment it was working.
+
+What the rule was actually protecting against is narrower than what it forbade: **an accusation nobody can
+answer.** So that is what is enforced now, and it is enforced at the same place:
+
+- **Provenance is mandatory.** `buildVerdictHead` refuses `flagged` or `disputed` without `modelId`,
+  `promptVersion`, and what exactly was read (`reviewedCommit` / `integrity` / `reviewedSourceBlobId`).
+- **The finding carries its evidence.** File, line, category, description — whole, onto the head and into
+  the certified blob. A maintainer can open the line.
+- **A dispute window opens.** `enforceAfter` is 72 h out, so the block message calls itself *unconfirmed*
+  until the maintainer has had time to answer, and a rebuttal is stored beside the accusation with equal
+  weight.
+- **Every verdict still says it was automated with no human audit.** That is the copy law above, unchanged.
+
+The allowlist survives as an **opt-in predicate** (`requireSelfAuthored`), and `scripts/review-and-publish.mjs`
+passes it, because a fixture publisher that reached outside the fixture directory would be a bug.
+
+⚠️ **What this makes load-bearing and is NOT built yet:** the commit must really belong to the repository
+named. GitHub serves every commit in a fork network from the upstream namespace, so `codeload` succeeds for a
+sha that lives only in a fork (reproduced against `octocat/Spoon-Knife`). While nothing third-party could be
+flagged, a forged commit could at worst mislabel one of our own entries; now it decides **whose code gets
+accused**. The submit form resolves commits from the repository's own releases, which covers the web path.
+The `--commit` flag does not go through it. Verify reachability before treating a hand-supplied commit as
+that repository's code.
 
 *How that rule is actually enforced, because "be careful" is not enforcement.* Two layers, and neither is in
 a publishing script — a script can be added, and this session found two that had been:

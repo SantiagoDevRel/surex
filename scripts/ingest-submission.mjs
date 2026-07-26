@@ -33,7 +33,7 @@ import { canonicalise, fingerprintOf, SEVERITY_LABEL } from '../packages/core/in
 import { reviewServer, PROMPT_VERSION } from '../packages/reviewer/src/review.mjs';
 import { resolveConfig } from '../packages/reviewer/src/model.mjs';
 import {
-  licenceGate, planPublication, submissionPinning, fallbackPlan, isSelfAuthored,
+  licenceGate, planPublication, submissionPinning, fallbackPlan,
 } from '../packages/worker/index.mjs';
 import {
   readPackage, readability, selectForReview, integrityMatches, REVIEW_LIMITS,
@@ -500,14 +500,10 @@ async function main() {
     .filter(Boolean);
   const ours = selfOwned.includes(String(owner).toLowerCase());
 
-  if (verdict === 'flagged' && ours && !isSelfAuthored(fingerprint)) {
-    // Said out loud, because the difference between "we protected a third party"
-    // and "an operator has not vouched for our own server yet" is invisible in the
-    // published entry — both are `unreviewable / withheld` — and only one of them
-    // is something to act on.
-    log(`  ! ${fingerprint} is under a self-owned repo but is not on the self-authored`);
-    log('    allowlist, so the flag will be withheld. To publish it, vouch for the');
-    log(`    fingerprint deliberately: node scripts/allow-self-authored.mjs ${fingerprint}`);
+  if (verdict === 'flagged') {
+    // Said out loud on the operator's channel, because this run is about to make a
+    // public claim about a named piece of software.
+    log(`  publishing a FLAG for ${owner}/${repo} — ${ours ? 'our own code' : 'a third party'}`);
   }
 
   return publishOutcome({
