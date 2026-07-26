@@ -33,7 +33,7 @@ export const COPY = {
   },
 
   /**
-   * The chrome, on every route. Four destinations and one action.
+   * The chrome, on every route. Five destinations and one action.
    *
    * Lowercase throughout, because the header sets them in SUSE Mono at 11.5px
    * and the wordmark beside them is the only thing on the row entitled to
@@ -45,6 +45,13 @@ export const COPY = {
     home: 'home',
     registry: 'registry',
     submit: 'submit an mcp',
+    /**
+     * The docs deployment. It was reachable only from the footer, which is the
+     * wrong place for the one destination that explains how any of this works
+     * — the install action beside it already points into the same site, so the
+     * chrome was linking the docs without ever naming them.
+     */
+    docs: 'docs',
     /** The source. A trust registry that cannot be read is asking to be trusted twice. */
     github: 'github',
     /**
