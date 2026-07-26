@@ -402,10 +402,31 @@ async function main() {
     reason = 'partial-source';
   }
 
-  // A flag against a submitted third-party project is HELD, exactly as it is for
-  // the seeded ones. The maintainer submitted it; that is consent to a review,
-  // not consent to an unaudited model publishing an accusation about them.
-  if (state === 'flagged') {
+  /**
+   * A flag against a THIRD PARTY is held. A flag against our own code is not.
+   *
+   * AGENTS.md §4 forbids publicly flagging a real, named third-party project on
+   * the strength of an unaudited model verdict, and a maintainer submitting a
+   * repository consented to a review, not to an accusation. That rule stands.
+   *
+   * It has never applied to code we own. `review-and-publish.mjs` publishes real
+   * flags against our own fixtures for exactly this reason: we are the subject,
+   * so there is nobody to protect from us. The submit path was holding those too,
+   * which meant the owner could not get a flagged verdict about his own server —
+   * the model read `mcp-medellin-news`, returned severity 3 with 11 findings, and
+   * the entry published as `unreviewable / withheld` with none of them.
+   *
+   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags publish. It is a
+   * deliberate allowlist and not a heuristic: getting this wrong in the other
+   * direction publishes an accusation about somebody else.
+   */
+  const selfOwned = String(process.env.SUREX_SELF_OWNED ?? 'SantiagoDevRel')
+    .split(',')
+    .map((o) => o.trim().toLowerCase())
+    .filter(Boolean);
+  const ours = selfOwned.includes(String(owner).toLowerCase());
+
+  if (state === 'flagged' && !ours) {
     state = 'unreviewable';
     reason = 'withheld';
   }
