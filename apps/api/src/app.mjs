@@ -409,8 +409,47 @@ export function createApp(options = {}) {
       ...(Array.isArray(entry.sources) ? { sources: entry.sources.map((s) => withLinks(s, env)) } : {}),
       ...(Array.isArray(entry.reviews) ? { reviews: entry.reviews.map((r) => withLinks(r, env)) } : {}),
     };
+    /**
+     * `?findings=1` — the WHOLE finding list, fetched from the certified blob.
+     *
+     * The head carries one finding, deliberately: `topFinding` is what the gate
+     * prints in a block message, and a head is the hot path. But `/r/<fp>` is the
+     * page a developer reads to decide whether to install something, and it was
+     * showing "FINDING 1 OF 7" with no route to the other six except a raw JSON
+     * URL on a Walrus aggregator. A count with no account of the remainder is
+     * worse than no count — and on a registry whose neighbouring state is called
+     * `withheld`, six invisible findings is the worst ambiguity available.
+     *
+     * Opt-in rather than default, because it is a second network hop and the gate
+     * must never pay for it. The verdict page asks; nothing else does.
+     *
+     * The blob is content-addressed, so this is not a trust hop: `loadEvidence`
+     * refetches by blob id and reports which checks actually ran. A failure is
+     * reported as a failure — `findings` is absent, never an empty array, because
+     * an empty array reads as "the review found nothing" and that is the one
+     * thing it must not be mistaken for.
+     */
+    let findings;
+    if (c.req.query('findings') === '1') {
+      const review = Array.isArray(entry.reviews) ? entry.reviews[0] : null;
+      if (review?.evidence?.blobId) {
+        try {
+          const loaded = await loadEvidence(review.evidence, {
+            aggregators: env.SUREX_WALRUS_AGGREGATOR ? [env.SUREX_WALRUS_AGGREGATOR] : undefined,
+          });
+          findings = loaded.ok && Array.isArray(loaded.body?.findings)
+            ? { fetched: true, servedBy: loaded.servedBy, verification: loaded.verification, items: loaded.body.findings }
+            : { fetched: false, error: loaded.error ?? 'the certified record carries no findings array' };
+        } catch (err) {
+          findings = { fetched: false, error: String(err?.message ?? err).slice(0, 160) };
+        }
+      } else {
+        findings = { fetched: false, reason: 'no review record with a blob pointer for this entry' };
+      }
+    }
+
     cacheControl(c, { clientTtlMs: CACHE.positiveTtlMs });
-    return c.json(linked);
+    return c.json({ ...linked, ...(findings ? { findings } : {}) });
   });
 
   /** source and review differ only in which entity type they will accept. */
