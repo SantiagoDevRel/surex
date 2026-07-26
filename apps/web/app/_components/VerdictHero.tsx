@@ -1,12 +1,10 @@
 import { COPY } from '@/lib/copy.ts';
 import { shortFingerprint, splitName } from '@/lib/format.ts';
-import { stampView } from '@/lib/verdict-view.ts';
+import { stampView, summarySentence, concernSentence } from '@/lib/verdict-view.ts';
 import type { Entry } from '@/lib/types.ts';
 
 import { Panel, SectionLabel } from './Panel.tsx';
 import { Stamp } from './Stamp.tsx';
-
-const STATE_MEANING = COPY.stateMeaning as Record<string, string | undefined>;
 
 /**
  * The hero: one stamp, and the twenty-second version of the whole verdict
@@ -17,6 +15,7 @@ export function VerdictHero({ entry }: { entry: Entry }) {
   const { head } = entry;
   const view = stampView(head, entry);
   const { name, version } = splitName(head.name ?? head.fingerprint);
+  const concern = concernSentence(head);
 
   return (
     <div className="mt-7 flex flex-wrap items-start gap-x-9 gap-y-6">
@@ -41,14 +40,18 @@ export function VerdictHero({ entry }: { entry: Entry }) {
           fingerprint {shortFingerprint(head.fingerprint)}
         </p>
 
-        {/* With no summary on the record, say what the STATE means rather than
-            leaving the panel out or writing a summary nobody produced. The
-            state sentence is a fact about the model, not about this server. */}
+        {/* Prefer what the review actually SAID. rv-7 puts the reviewer's own
+            assessment on the head, and that is a fact about this server — the one
+            a reader came for. The state sentence is the fallback, and it is a fact
+            about the registry rather than about the code, so it goes second. */}
         <Panel className="mt-3.5 px-4 py-3.5">
           <SectionLabel>{COPY.verdict.summaryLabel}</SectionLabel>
-          <p className="mt-2 font-serif text-prose-lg text-ink-2">
-            {entry.summary ?? STATE_MEANING[head.state] ?? COPY.stateMeaning.unknown}
-          </p>
+          {concern ? (
+            <p className="mt-2 text-label text-ink-3">
+              {COPY.verdict.concernLabel} — {concern}
+            </p>
+          ) : null}
+          <p className="mt-2 font-serif text-prose-lg text-ink-2">{summarySentence(head, entry)}</p>
           {entry.options ? <p className="mt-2.5 text-meta text-ink-3">{entry.options}</p> : null}
         </Panel>
       </div>

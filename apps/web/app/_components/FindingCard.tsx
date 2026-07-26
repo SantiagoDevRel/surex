@@ -93,12 +93,51 @@ export function FindingCard({
   );
 }
 
-/** A clean verdict still has to say what "no findings" is a statement about. */
-export function NoFindings() {
+/**
+ * What an empty findings list means — and it does not always mean "none found".
+ *
+ * Three different situations reached this panel and all three read as the first:
+ *
+ *   · clean            — the review found nothing. "None recorded" is true.
+ *   · withheld         — the review found something and it is not published. Saying
+ *                        "none recorded" here states the opposite of what happened.
+ *   · flagged, no body — a head written before the pipeline carried the whole
+ *                        finding through. The verdict stands on a blob this page is
+ *                        not showing, and it must say so rather than imply the flag
+ *                        rests on nothing.
+ */
+export function NoFindings({ state, reason }: { state?: string; reason?: string }) {
+  // TOTAL over the states a head can carry. The first version handled `withheld`
+  // and `flagged`, and everything else fell through to "None recorded. That is a
+  // statement about what the model saw" — which, on an `unknown` entry, tells the
+  // reader a model looked at code that nothing has ever read. Seeded entries are
+  // written `unknown` and are most of the registry, so the default branch was the
+  // one most readers met.
+  const { label, body } = (() => {
+    if (reason === 'withheld') {
+      return { label: COPY.verdict.findingsWithheldLabel, body: COPY.verdict.findingsWithheld };
+    }
+    if (state === 'flagged' || state === 'disputed') {
+      // A flag whose finding is not on this record. Reachable only for heads
+      // written before the pipeline carried the whole finding through — but those
+      // are on chain, and the panel must not describe them as a clean review.
+      return { label: COPY.verdict.findingsNoneLabel, body: COPY.verdict.findingsMissing };
+    }
+    if (state === 'unknown') {
+      return { label: COPY.verdict.findingsNoneLabel, body: COPY.verdict.findingsNeverReviewed };
+    }
+    if (state === 'unreviewable' || state === 'stale') {
+      return { label: COPY.verdict.findingsNoneLabel, body: COPY.verdict.findingsNoVerdict };
+    }
+    // `clean`: a review ran and found nothing. The original sentence, in the one
+    // place where it is true.
+    return { label: COPY.verdict.findingsNoneLabel, body: COPY.verdict.findingsNone };
+  })();
+
   return (
     <Panel className="px-5 py-4">
-      <SectionLabel>{COPY.verdict.findingsNoneLabel}</SectionLabel>
-      <p className="mt-2 font-serif text-prose-lg text-ink-2">{COPY.verdict.findingsNone}</p>
+      <SectionLabel>{label}</SectionLabel>
+      <p className="mt-2 font-serif text-prose-lg text-ink-2">{body}</p>
     </Panel>
   );
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { getEntry } from '@/lib/api.ts';
 import { COPY } from '@/lib/copy.ts';
 import { splitName } from '@/lib/format.ts';
-import { evidenceExpiredOf } from '@/lib/verdict-view.ts';
+import { evidenceExpiredOf, stateBanner } from '@/lib/verdict-view.ts';
 
 import { ActionPanels, CleanMeans } from '../../_components/ActionPanels.tsx';
 import { Banner } from '../../_components/Banner.tsx';
@@ -72,6 +72,17 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
   const { head } = entry;
   const { name } = splitName(head.name ?? head.fingerprint);
   const findings = entry.findings ?? [];
+  const banner = stateBanner(head);
+  /**
+   * How many findings the verdict actually rests on.
+   *
+   * The page used `findings.length`, and `findings` is at most ONE — the API serves
+   * the head's `topFinding` and nothing else. So a five-finding review was captioned
+   * "FINDING 1 OF 1", which understates the verdict every time. `findingCount` is
+   * published on the head for exactly this, and it falls back to what is on screen
+   * when a head predates it.
+   */
+  const totalFindings = Math.max(head.findingCount ?? 0, findings.length);
   const blocking = BLOCKS.includes(head.state);
   const expired = evidenceExpiredOf(entry);
   const disputeHref = `/d/${head.fingerprint}`;
@@ -106,14 +117,9 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
               {COPY.banners.evidenceExpiredBody}
             </Banner>
           ) : null}
-          {head.state === 'stale' ? (
-            <Banner tone="stale" label="STALE">
-              {COPY.stateMeaning.stale}
-            </Banner>
-          ) : null}
-          {head.state === 'unreviewable' ? (
-            <Banner tone="neutral" label="UNREVIEWABLE">
-              {COPY.stateMeaning.unreviewable}
+          {banner ? (
+            <Banner tone={head.state === 'stale' ? 'stale' : 'neutral'} label={banner.label}>
+              {banner.body}
             </Banner>
           ) : null}
         </div>
@@ -128,15 +134,23 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
                 key={`${finding.file ?? 'finding'}:${finding.line ?? i}`}
                 finding={finding}
                 index={i + 1}
-                total={findings.length}
+                total={totalFindings}
                 state={head.state}
                 blobId={entry.source?.blob?.blobId ?? head.evidence?.blobId}
                 disputeHref={disputeHref}
               />
             ))
           ) : (
-            <NoFindings />
+            <NoFindings state={head.state} reason={head.reason} />
           )}
+          {/* A count with no account of the remainder is worse than no count. The
+              entry carries only the highest-severity finding, so "FINDING 1 OF 5"
+              would otherwise leave four findings nowhere on the page — and on a
+              registry whose neighbouring state is called `withheld`, four invisible
+              findings is the worst ambiguity available. */}
+          {totalFindings > findings.length ? (
+            <p className="text-meta text-ink-3">{COPY.verdict.findingsRemainder}</p>
+          ) : null}
         </div>
 
         {entry.dispute ? (

@@ -123,6 +123,12 @@ export interface VerdictHead {
   integrity?: string;
   capabilities?: Capabilities;
   topFinding?: Finding;
+  /** rv-7: the KIND of gap between what the server says and what it does. */
+  concern?: string;
+  /** rv-7: one or two sentences from the reading that decided the verdict. */
+  assessment?: string;
+  /** How many findings the verdict rests on. `topFinding` is the first of them. */
+  findingCount?: number;
   disputeSummary?: string;
   evidence?: BlobRef;
   arkivEntityKey?: string;

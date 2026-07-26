@@ -206,6 +206,12 @@ export const COPY = {
      */
     'no-agreement': 'the readings disagreed and no majority formed',
     /**
+     * Distinct from `no-agreement`, and the distinction is the whole point: there
+     * were no readings to disagree. Saying "the readings disagreed" about a run in
+     * which the reviewer was never reached is a fabricated account of what happened.
+     */
+    'no-reading': 'the reviewer could not be reached, so the code was never read',
+    /**
      * A review ran and its result is not published. Distinct from `unknown`
      * ("nobody has looked") on purpose: publishing only the clean results and
      * leaving everything else as unknown is publication bias, and it would make
@@ -231,6 +237,67 @@ export const COPY = {
     findingsNoneLabel: 'FINDINGS',
     findingsNone:
       'None recorded. That is a statement about what the model saw, at that commit, at that time. Read the capability surface below for what this code can reach. It is usually the more useful half.',
+    /**
+     * The same panel, for an entry whose result is HELD rather than empty.
+     *
+     * The sentence above says "none recorded", and on a withheld entry that is
+     * false: a review ran, it reached a conclusion, and the registry is choosing
+     * not to publish it. Saying "none recorded" there tells a reader the reviewer
+     * found nothing, which is the opposite of what happened — and it is the sort
+     * of quiet inaccuracy this project exists to make impossible.
+     */
+    findingsWithheldLabel: 'FINDINGS · NOT PUBLISHED',
+    findingsWithheld:
+      'A review ran and reached a conclusion. It is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else\'s code is not grounds for a public accusation. The maintainer who submitted this was given the result in full, and can publish it themselves.',
+    /**
+     * A flagged entry whose head carries no finding. Not reachable through the
+     * submit pipeline any more — it passes the whole finding through — but heads
+     * written before that do exist on chain, and the panel must not describe them
+     * as a review that found nothing.
+     */
+    findingsMissing:
+      'The finding behind this verdict is not on the record shown here. The certified blob under PROVENANCE is what the verdict was made from. Read that rather than this page.',
+    /**
+     * Nobody has reviewed this. Distinct from "a review found nothing", and it is
+     * most of the registry: seeded entries are written `unknown`, and the panel was
+     * telling every one of their readers that a model had looked at the code.
+     */
+    findingsNeverReviewed:
+      'Nobody has reviewed this entry. There are no findings because no review has run, not because one ran and found nothing. The gate treats this as unknown and warns rather than stopping the call.',
+    /** A review ran, reached no verdict, and so established nothing to publish. */
+    findingsNoVerdict:
+      'No finding is published. A review that reaches no verdict has established nothing, and anything raised along the way is not a claim this registry will stand behind.',
+    /** The rest of a multi-finding verdict lives in the certified record. */
+    findingsRemainder:
+      'Only the highest-severity finding is carried on the registry entry. The rest are in the certified review blob linked under PROVENANCE.',
+    /** rv-7. What KIND of gap this is, above the findings. */
+    concernLabel: 'WHAT KIND OF PROBLEM',
+    /**
+     * Every value describes a MECHANISM rather than a motive — and the one that
+     * did not is the one worth being careful about.
+     *
+     * `deliberate-concealment` read "it works to hide what it does". "works to"
+     * asserts purpose, on the strength of a reading no human audited, about
+     * somebody's real project. Its own definition in the reviewer schema says as
+     * much: that value "describes a person's purpose… a wrong one is an accusation
+     * about a person rather than about a program." The rendered string is the last
+     * place that can turn it back into a statement about the code, so it does.
+     *
+     * `runs-code-it-fetched` claimed the code "was never reviewed", which SureX
+     * cannot know — it knows the code is not in the blob it read. And
+     * `misleading-description` said the description "steers the calling model",
+     * which is what every tool description does; the concern is steering BEYOND
+     * what the tool needs, and the string now says that.
+     */
+    concerns: {
+      none: 'nothing found beyond what it says it does',
+      'does-not-do-what-it-claims': 'it does less than it says it does',
+      'undeclared-behaviour': 'it does more than its description accounts for',
+      'misleading-description': 'its description steers the calling model beyond what the tool does',
+      'data-leaves-the-machine': 'data leaves the machine to somewhere undeclared',
+      'runs-code-it-fetched': 'it fetches code at run time and runs it, and that code is not in the reviewed blob',
+      'deliberate-concealment': 'the code is written to be hard to read, and to hide what it did',
+    } as Record<string, string>,
     couldBeWrongLabel: 'Could this be wrong?',
     couldBeWrongBody:
       'Yes. This is a model reading the code, not a human. If you believe it misreads the code, contest it with evidence. The rebuttal is shown beside it, with equal weight.',
@@ -795,6 +862,56 @@ export const COPY = {
     reviewRunningLabel: 'REVIEW RUNNING',
     reviewRunningBody:
       'A verdict blob will be written when the run completes. Nothing is asserted until then.',
+    /**
+     * A withheld entry is NOT a failed review, and the banner must not say it is.
+     *
+     * `stateMeaning.unreviewable` reads "the source could not be read or could not
+     * be stored" — true for `licence`, `source-unavailable` and `remote-endpoint`,
+     * and FALSE for `withheld`, where the source was read, the model finished, and
+     * the registry chose not to publish the result. The page was telling a
+     * maintainer their code was unreadable while the stamp beside it said a review
+     * had run and was being held: two surfaces, opposite claims, on one screen.
+     */
+    withheldLabel: 'REVIEWED · RESULT NOT PUBLISHED',
+    withheldBody:
+      'The source was read and the review completed. Its result is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else’s code is not grounds for a public accusation.',
+    /** The short form, for the hero, so one page never prints the long one twice. */
+    withheldShort: 'A review ran and completed. Its result is not published.',
+
+    /**
+     * One body per reason, and no composition.
+     *
+     * The first version prefixed every reason with `stateMeaning.unreviewable` —
+     * "The source could not be read or could not be stored." — and appended the
+     * specific reason after it. For three reasons that reads correctly. For the
+     * rest it produced a banner that contradicts itself inside one sentence pair:
+     *
+     *   "The source could not be read or could not be stored. The gate warns.
+     *    Here: the readings disagreed and no majority formed."
+     *
+     * Sentence one says it was never read; sentence two says it was read twice.
+     * And `no-agreement` is the DEFAULT reason for every non-clean, non-flagged
+     * verdict, so that was the common case rather than the edge. Composition was
+     * the bug; these are written out, one per member of the closed set.
+     */
+    unreviewableLabel: 'UNREVIEWABLE',
+    unreviewableBody: {
+      licence:
+        'No licence permits us to store this source, so it was not reviewed. That is a fact about the licence, not about the code. The gate warns.',
+      'source-unavailable':
+        'The source could not be fetched at the named commit, so there was nothing to read. The gate warns.',
+      'remote-endpoint':
+        'This entry is a remote endpoint. There is no local code to read, so there is nothing a static review can say about it. The gate warns.',
+      'no-agreement':
+        'The source WAS read, more than once, and the readings did not converge, so no verdict is claimed. A disagreement is not a finding, and it is not a pass either. The gate warns.',
+      'no-reading':
+        'The reviewer could not be reached, so the code was never read. Nothing is claimed about it. The gate warns.',
+      'partial-source':
+        'Part of the source was not read, so no clean verdict can be given for it. The gate warns.',
+    } as Record<string, string>,
+    /** A reason nothing here knows. Never guess a cause on a reader's behalf. */
+    unreviewableUnknownReason:
+      'This entry has no verdict, and the record does not say which of the possible causes applies. The gate warns.',
   },
 
   states: {
