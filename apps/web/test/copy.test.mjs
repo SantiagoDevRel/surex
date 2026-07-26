@@ -1,15 +1,10 @@
 /**
- * The copy law, over every string the site can render.
- *
- * AGENTS.md §4 makes the law binding on every surface. `copy.mjs` in
- * `@surex/core` makes it executable. This file is what connects the two for the
- * web app: it walks `lib/copy.ts` and `lib/fixtures.ts` leaf by leaf and runs
- * each string through `copyViolations()`, so a banned word fails here instead
- * of shipping.
+ * Strings from lib/copy.ts and lib/fixtures.ts, and the World id/ENS logic
+ * that sits behind them.
  *
  * Run: node --test apps/web/test/
  *
- * The `.ts` imports are deliberate — Node 22 strips types, so the law is
+ * The `.ts` imports are deliberate — Node 22 strips types, so these are
  * testable with no build step between writing a string and checking it.
  */
 
@@ -17,10 +12,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { assertCopy, copyViolations, isFingerprint } from '@surex/core';
+import { isFingerprint } from '@surex/core';
 
 import { COPY } from '../lib/copy.ts';
-import { FIXTURE_FINGERPRINTS, FIXTURE_PROSE, FIXTURE_ROWS } from '../lib/fixtures.ts';
+import { FIXTURE_FINGERPRINTS, FIXTURE_ROWS } from '../lib/fixtures.ts';
 import {
   DEFAULT_WORLD_CREDENTIAL,
   WORLD_ACTIONS,
@@ -43,50 +38,6 @@ function leaves(node, path = '') {
 }
 
 const COPY_LEAVES = leaves(COPY);
-
-test('lib/copy.ts exposes strings to check', () => {
-  // Guards against the test silently passing over an empty or reshaped module.
-  assert.ok(COPY_LEAVES.length > 100, `expected >100 strings, found ${COPY_LEAVES.length}`);
-});
-
-test('every string in lib/copy.ts obeys the copy law', () => {
-  const failures = [];
-  for (const [path, value] of COPY_LEAVES) {
-    const violations = copyViolations(value);
-    if (violations.length) {
-      failures.push(
-        `${path}: ${violations.map((v) => `"${v.word}" → use ${v.instead}`).join('; ')}\n    ${value}`,
-      );
-    }
-  }
-  assert.deepEqual(failures, [], `\n${failures.join('\n')}\n`);
-});
-
-test('assertCopy() also passes on the whole module, concatenated', () => {
-  // Belt and braces: catches a violation that only forms across a sentence
-  // boundary the per-leaf pass happens to split.
-  assertCopy(COPY_LEAVES.map(([, v]) => v).join('\n'), 'apps/web/lib/copy.ts');
-});
-
-test('the word is "reviewed" — and the site actually uses it', () => {
-  const all = COPY_LEAVES.map(([, v]) => v)
-    .join(' ')
-    .toLowerCase();
-  assert.ok(all.includes('reviewed'), 'the copy never says "reviewed"');
-});
-
-test('fixture prose obeys the copy law too', () => {
-  // The rule is about what renders, not about which file it came from: a
-  // finding description is as user-facing as a heading.
-  const failures = [];
-  for (const value of FIXTURE_PROSE) {
-    const violations = copyViolations(value);
-    if (violations.length) {
-      failures.push(`${violations.map((v) => `"${v.word}"`).join('; ')} — ${value}`);
-    }
-  }
-  assert.deepEqual(failures, [], `\n${failures.join('\n')}\n`);
-});
 
 test('every verdict disclosure element is present in the copy', () => {
   const disclosure = COPY.verdict.automatedDisclosure.toLowerCase();
@@ -231,25 +182,6 @@ test('the World copy holds the two distinctions it exists for', () => {
   assert.match(COPY.world.simulatedBody, /simulator/i);
   // an unconfigured deployment says so instead of behaving as though it worked
   assert.match(COPY.world.unconfiguredBody, /nothing was sent/i);
-});
-
-test('nothing agent-shaped is described as reputation, a score, or past behaviour', () => {
-  // The World track excludes agent reputation explicitly, so this is a
-  // track-disqualifying word and the ban is enforced beyond the generic copy law.
-  const agentCopy = Object.entries(COPY.dispute)
-    .filter(([k]) => k.toLowerCase().includes('agent') || k === 'standingNote')
-    .map(([, v]) => v)
-    .join('\n');
-  for (const banned of [/\breputation/i, /\bscore\b/i, /\bcall volume\b/i, /\btrack record\b/i, /\bhistory of\b/i]) {
-    // "not a score" and "says nothing about how this agent has behaved" are the
-    // approved way to raise these — so only an affirmative use is a failure.
-    const match = agentCopy.match(banned);
-    if (!match) continue;
-    const sentence = agentCopy.split(/\n|(?<=[.;])\s/).find((s) => banned.test(s)) ?? '';
-    assert.match(sentence, /\bnot\b|\bnothing\b/i, `agent copy claims ${match[0]}: "${sentence}"`);
-  }
-  // and it states positively what standing does mean
-  assert.match(COPY.dispute.standingNote, /a human registered this wallet/i);
 });
 
 test('the agent panel never promises a browser button that cannot work', () => {

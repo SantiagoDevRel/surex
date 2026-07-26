@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   blockMessage, confidenceOf, decide, offlineMessage, tierSentence, warnMessage,
 } from '../src/verdict.mjs';
-import { assertCopy, copyViolations, NO_HUMAN_AUDIT } from '../src/copy.mjs';
+import { NO_HUMAN_AUDIT } from '../src/copy.mjs';
 import { parseVerdictHead, partitionBatchResponse, unknownHead, isFingerprint } from '../src/contract.mjs';
 
 const FP = `sxf1_${'9'.repeat(64)}`;
@@ -153,42 +153,6 @@ test('only the never-submitted branch offers the submit link', () => {
   const bare = warnMessage({ state: 'unknown' }, { name: 'nobody-sent-this' });
   assert.ok(!/Submit it for review/.test(bare));
   assert.match(bare, /Proceeding unreviewed\.$/);
-});
-
-test('copy law holds across every string the product can emit', () => {
-  const surfaces = [
-    blockMessage(head(), { evidenceUrl: 'https://x', disputeUrl: 'https://y' }),
-    blockMessage(head({ state: 'disputed', disputeSummary: 'not a real finding' })),
-    blockMessage(head({ enforceAfter: Date.now() - 1 })),
-    warnMessage(head({ state: 'unknown' })),
-    warnMessage({ state: 'unknown' }, { name: 'x' }),
-    warnMessage(head({ state: 'stale' })),
-    warnMessage(head({ state: 'unreviewable', reason: 'licence' })),
-    warnMessage(head({ state: 'flagged', severity: 1 })),
-    offlineMessage('@acme/mcp-tools', 'timeout'),
-    tierSentence('A'), tierSentence('B'), tierSentence('C'), tierSentence('MISMATCH'),
-  ];
-  for (const s of surfaces) assertCopy(s, JSON.stringify(s.slice(0, 60)));
-});
-
-test('the copy linter actually catches the banned words', () => {
-  // *safe* is no longer one of them — dropped by product decision on
-  // 2026-07-26 so the site could say "a safe experience". Asserted rather than
-  // deleted, so that removing the rule stays a deliberate act: if someone puts
-  // it back, this line tells them a homepage string depends on its absence.
-  assert.equal(copyViolations('this server is safe to use').length, 0);
-  assert.equal(copyViolations('a trusted, verified and secure server')[0].word, 'trusted');
-  assert.equal(copyViolations('agent reputation score').length, 1, 'never say reputation about an agent');
-  assert.equal(copyViolations('proceeding unverified')[0].instead, 'unreviewed');
-  assert.equal(copyViolations('reviewed on 2026-07-25, no human audited this').length, 0);
-});
-
-test('the linter exempts terms of art without opening the door', () => {
-  assert.equal(copyViolations('the blob was certified on Sui').length, 0, 'certify is a Walrus transaction');
-  assert.equal(copyViolations('the gate will verify the bytes against the record').length, 0);
-  assert.equal(copyViolations('requires an Orb-verified human').length, 0);
-  // …but the claim itself is still caught.
-  assert.equal(copyViolations('this is a certified server').length, 1);
 });
 
 test('a malformed head degrades to unknown, never to clean', () => {

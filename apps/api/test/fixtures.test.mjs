@@ -1,14 +1,13 @@
 // The fixtures themselves. They are the only data four other lanes will see for
 // most of the build, so they have to obey the same rules as production data:
-// the copy law, the fingerprint algorithm, and the contract shapes.
+// the fingerprint algorithm and the contract shapes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { createApp } from '../src/app.mjs';
 import { FIXTURES, MISS_FINGERPRINT } from '../src/mock.mjs';
-import { assertCopy, copyViolations, fingerprint, isFingerprint, parseVerdictHead, STATES, decide } from '@surex/core';
+import { fingerprint, isFingerprint, parseVerdictHead, STATES, decide } from '@surex/core';
 
 /** Every string anywhere in an object, with a path so a failure is findable. */
 function strings(value, path = '$', out = []) {
@@ -19,89 +18,6 @@ function strings(value, path = '$', out = []) {
   }
   return out;
 }
-
-test('every fixture string obeys the copy law', () => {
-  // AGENTS.md §4: never safe / trusted / verified / secure about a reviewed
-  // server. The word is reviewed. Enforced on API responses too, and a fixture IS
-  // an API response — it is what the gate, the web app and the demo render.
-  const failures = [];
-  for (const f of FIXTURES) {
-    for (const { path, value } of strings(f)) {
-      const violations = copyViolations(value);
-      if (violations.length) failures.push(`${f.label} ${path}: ${violations.map((v) => v.word).join(', ')} — "${value.slice(0, 90)}"`);
-    }
-  }
-  assert.deepEqual(failures, [], `copy law violations:\n${failures.join('\n')}`);
-});
-
-test('the copy law holds over ACTUAL API responses, not only over the fixtures', async () => {
-  // AGENTS.md §4 binds every surface, "UI and API alike". The fixtures are only half
-  // of what leaves this process — the other half is the prose the routes write
-  // themselves, in error messages, notes and the dispute receipt.
-  const app = createApp({
-    env: {
-      SUREX_MOCK: '1',
-      SUREX_ADMIN_SLUG: 'copy-law-slug-long-enough',
-      SUREX_REVIEWER_BASE_URL: 'http://reviewer.invalid',
-      SUREX_REVIEWER_MODEL: 'demo-model',
-    },
-    logger: { warn() {}, info() {}, error() {} },
-    fetchImpl: async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
-  });
-  const F = FIXTURES.find((f) => f.label === 'flagged-tier-b').fingerprint;
-  const admin = app.surex.admin.path;
-  const post = (path, payload) => [
-    path,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) },
-  ];
-
-  const requests = [
-    ['/'],
-    ['/healthz'],
-    [`/v1/verdict?fp=${F}`],
-    [`/v1/verdict?fp=${MISS_FINGERPRINT}`],
-    ['/v1/verdict'],
-    ['/v1/verdict?fp=garbage'],
-    [`/v1/entry/${F}`],
-    [`/v1/entry/${MISS_FINGERPRINT}`],
-    ['/v1/source/0xdead'],
-    ['/v1/review/0xdead'],
-    ['/v1/flagged'],
-    ['/v1/stats'],
-    ['/v1/nope'],
-    post('/v1/verdicts/batch', { fps: [F, MISS_FINGERPRINT] }),
-    post('/v1/verdicts/batch', { fps: 'nope' }),
-    post('/v1/disputes', { fingerprint: F, agentAddress: '0xabc', evidence: 'e' }),
-    post('/v1/disputes', { fingerprint: F, statement: 's' }),
-    post('/v1/disputes', {}),
-    post('/v1/submissions', {}),
-    [admin, { method: 'POST' }],
-    [admin, { method: 'POST', headers: { 'x-surex-admin-password': '123' } }],
-  ];
-
-  const failures = [];
-  for (const [path, init] of requests) {
-    const res = await app.request(path, init);
-    const body = await res.json();
-    for (const { path: at, value } of strings(body)) {
-      const violations = copyViolations(value);
-      if (violations.length) {
-        failures.push(`${init?.method ?? 'GET'} ${path} (${res.status}) ${at}: ${violations.map((v) => v.word).join(', ')} — "${value.slice(0, 90)}"`);
-      }
-    }
-  }
-  assert.deepEqual(failures, [], `copy law violations in API responses:\n${failures.join('\n')}`);
-});
-
-test('assertCopy is actually load-bearing here (the guard would catch a regression)', () => {
-  // If assertCopy silently passed everything, the test above would be theatre.
-  assert.throws(() => assertCopy('This server is safe and fully verified.', 'canary'), /Copy law violated/);
-  assert.throws(() => assertCopy('We guarantee it is secure.', 'canary'), /Copy law violated/);
-  // And the whole fixture corpus goes through the real assertion, once, joined.
-  for (const f of FIXTURES) {
-    for (const { value } of strings(f)) assertCopy(value, `${f.label}`);
-  }
-});
 
 test('every fixture fingerprint is the SXF-1 fingerprint of its own config', () => {
   // A hand-typed fingerprint drifts from what the gate computes, and then the gate

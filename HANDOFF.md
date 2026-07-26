@@ -29,7 +29,8 @@ Reviewer bearer + the `/admin/load-model` path live in `infra/dgx-reviewer/` (no
 ## Done + verified
 
 - Full chain live end-to-end, zero mocks: DGX review → Walrus blob → Arkiv head → gate block → blob-ID
-  recompute → override. 285+ tests green.
+  recompute → override. 794 of 798 tests green (the 4 failures are a path-with-spaces fault in this
+  checkout, not a product one — AGENTS.md §2 has the detail).
 - **15 fixtures** (`packages/fixtures/{honest,ambiguous,mal}-*`): 5 good / 5 ambiguous / 5 bad, each a real
   runnable stdio MCP. On GitHub (secret-scan clean — the mal-* AWS decoy is assembled at runtime so the
   literal never lands in a file). Dry-run review: honest→clean, ambiguous→clean, malicious→flagged (sev 3-4).

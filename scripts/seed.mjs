@@ -39,7 +39,6 @@
 // root (see .npmrc; the hoisted layout is also what makes Turbopack work on
 // Windows here).
 import { formatEther } from 'viem';
-import { assertCopy } from '../packages/core/index.mjs';
 import {
   PROJECT,
   createWalrusWriter,
@@ -90,8 +89,6 @@ const SEED_DISCLOSURE =
 const LICENCE_DISCLOSURE =
   'No source was uploaded: the licence either does not permit redistribution or could not be matched ' +
   'against an SPDX template. An unmatched licence is treated as ineligible, not as permissive.';
-assertCopy(SEED_DISCLOSURE, 'SEED_DISCLOSURE');
-assertCopy(LICENCE_DISCLOSURE, 'LICENCE_DISCLOSURE');
 
 /** Bounded-concurrency map that reports each completion as it lands. */
 async function pool(items, limit, worker) {

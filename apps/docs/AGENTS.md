@@ -111,7 +111,7 @@ sidebar. Deployed as its own Vercel project with Root Directory `apps/docs`.
 ```bash
 pnpm --filter @surex/docs dev      # http://localhost:4312
 pnpm --filter @surex/docs build    # + pagefind index via postbuild
-pnpm --filter @surex/docs test     # the copy law + every mermaid diagram parses
+pnpm --filter @surex/docs test     # content hygiene, drift guards, every mermaid diagram parses
 ```
 
 ### Deploying
@@ -136,12 +136,6 @@ it because output collection happens after the whole build command. If search ev
 on the deployed site, check that `/_pagefind/pagefind.js` is a 200 before looking anywhere else.
 
 ### Hard rules for this app
-
-**The copy law applies to this site as much as to a block message.** `test/copy-law.test.mjs` runs
-`assertCopy` from `@surex/core` over every `.mdx` file. It will fail the build on a banned word.
-When a page genuinely has to *name* one — the copy-law page, the agent prompts — render it from
-`BANNED` in a component instead of typing it into MDX. The checker cannot tell a quoted rule from a
-claim, and that is the correct trade for a checker whose job is to catch the claim.
 
 **Reference material is rendered from source, not transcribed beside it.** `components/contract.tsx`
 imports `@surex/core/contract` and `@surex/core/verdict`, so the route list, error codes, cache

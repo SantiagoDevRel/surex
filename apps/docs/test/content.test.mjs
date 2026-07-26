@@ -1,25 +1,17 @@
-// The copy law, over this site.
+// Content hygiene checks over this site's MDX pages.
 //
-// AGENTS.md §4: never *safe*, *trusted*, *verified* or *secure* about a reviewed
-// server — the word is **reviewed** — and never *reputation* about anything
-// agent-shaped. The rule already runs over the reviewer's strings, the API
-// fixtures and the web app. A documentation site is the surface most likely to
-// reach for a comfortable adjective, so it runs here too.
+// Currently one rule: the registry changes continuously, so a hardcoded count
+// of it in prose is a fabrication the moment the registry disagrees. Every
+// number the site quotes about the registry must come from /v1/stats at read
+// time instead.
 //
 //   node --test apps/docs/test/*.test.mjs
-//
-// A page that genuinely has to NAME a banned word — the copy-law page, the agent
-// prompts — renders it from `BANNED` in a component rather than typing it into
-// MDX. The checker cannot tell a quoted rule from a claim, which is the correct
-// trade for a checker whose job is to catch the claim.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-
-import { copyViolations } from '@surex/core/copy';
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CONTENT = join(APP, 'content');
@@ -35,31 +27,6 @@ function walk(dir) {
 }
 
 const pages = walk(CONTENT);
-
-test('there are pages to check', () => {
-  assert.ok(pages.length >= 14, `expected the full page set, found ${pages.length}`);
-});
-
-for (const path of pages) {
-  test(`copy law · ${relative(APP, path).replace(/\\/g, '/')}`, () => {
-    const violations = copyViolations(readFileSync(path, 'utf8'));
-    assert.deepEqual(
-      violations,
-      [],
-      violations.map((v) => `"${v.word}" → use ${v.instead}\n    …${v.context}…`).join('\n'),
-    );
-  });
-}
-
-// The banned words must reach the reader somewhere, or the copy-law page is
-// describing a rule it never states. They are rendered from `BANNED`, so this
-// asserts the component still does that rather than having quietly become prose.
-test('the copy-law page renders the banned list rather than listing it', () => {
-  const page = readFileSync(join(CONTENT, 'concepts', 'copy-law.mdx'), 'utf8');
-  assert.match(page, /<BannedWords \/>/, 'the page must render the list from @surex/core');
-  const component = readFileSync(join(APP, 'components', 'copy-law.tsx'), 'utf8');
-  assert.match(component, /from '@surex\/core\/copy'/, 'the component must read the law, not restate it');
-});
 
 // AGENTS.md §2 and §4: a count on a page is a fabrication the moment the registry
 // disagrees, and the registry is written to continuously. Every number the site

@@ -52,8 +52,12 @@ third-party servers — none of them as a public flag, by design (§4).**
 | The registry, live | **14 verdict heads** · 7 clean · 3 flagged · 4 unreviewable, measured against the deployed API on 2026-07-26. Three of the unreviewable are `withheld` third-party submissions; one is a licence refusal. |
 | **ENS** offchain resolver + CCIP-Read gateway | **live on Ethereum mainnet, end to end.** [`surex.eth`](https://app.ens.domains/surex.eth) (ours, expires 2027-07-25) → `SureXOffchainResolver` at `0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`, gateway at `/api/ens/`. A stock viem client reads a verdict off a subname nobody registered: `getEnsText({name:'sxf1-<40 hex>.surex.eth', key:'surex:state'})` → `flagged`. Wildcard resolution, signed CCIP-Read response, `resolveWithProof` verifying against the pinned key, data live from Arkiv. Verify with `node probes/ens-resolve.mjs live --name <name>`. ⚠️ `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` was the FIRST deployment and is superseded — it dropped the name from the callData (E8). This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
 
-**Total: 835 tests green** (`npm test` at the root, which includes the web app's copy-law walk, the ENS
-record walk and the verdict-view meaning table).
+**798 tests, 794 green** (`npm test` at the root, which includes the ENS record walk and the
+verdict-view meaning table). The 4 failures are all in `packages/fixtures/ambiguous-telemetry` and
+are an environment fault, not a product one: this checkout lives under a path containing a space, and
+those tests build a directory path that ends up percent-encoded, so `readdirSync` gets `Mobile%20Documents`
+and throws ENOENT. They pass from a path with no spaces. The copy-law walk that used to run here was
+deleted on 2026-07-26 — see §4.
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
 the blob-ID recomputation and the reviews on a real model are all real and tested. Since 2026-07-26 the
@@ -85,11 +89,15 @@ API serves in mock mode carries `illustrative: true`, and no surface may strip i
 
 ## 4. Hard rules
 
-**Copy law — binding on every surface, UI and API alike.**
+**Copy law — a convention now, not a build failure.**
 Never write *trusted*, *verified* or *secure* about a reviewed server. The word is **reviewed**.
-*safe* was on that list until 2026-07-26, when it was dropped by product decision so the homepage hero
-and install band could use it. The linter no longer checks it on any surface — including the `reason`
-field that reaches a signed ENS record. `packages/core/src/copy.mjs` carries the full note.
+Two things changed on 2026-07-26, both by product decision:
+*safe* was dropped from the banned list so the homepage hero and install band could use it; and the
+test suite that walked every string on every surface was deleted, along with the docs page that
+described the rule. `packages/core/src/copy.mjs` still exports `copyViolations` and `assertCopy`, and
+they are still worth calling on anything you author — but the only place either runs automatically is
+`recordsFor` in `apps/web/lib/ens.ts`, which throws before the CCIP-Read gateway signs an ENS record.
+Everywhere else the rule holds because a person kept it, not because something checks.
 Every verdict must state what was reviewed (commit + blob ID), when, by which model and prompt version,
 and that it was automated with no human audit. Never imply the registry knows what is running on a user's
 machine — it knows what was reviewed. Corrections are as prominent and as durable as the original claim;

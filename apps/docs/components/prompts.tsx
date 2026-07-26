@@ -1,19 +1,15 @@
 /**
  * The copy-paste install prompts, and the banned-word list they have to name.
  *
- * They are components rather than fenced text in the MDX for the same reason the
- * copy-law page is: `test/copy-law.test.mjs` runs `assertCopy` over every `.mdx`
- * source file, and a page that spelled the forbidden adjectives out would fail
- * its own build. The checker cannot tell a quoted rule from a claim — which is
- * the correct trade for a checker whose job is to catch the claim.
- *
- * So the words come from `BANNED` in `@surex/core/copy` at build time. The
- * prompt therefore names exactly the words the checker currently enforces, and
- * cannot fall behind it.
+ * They are components rather than fenced text in the MDX so the prompt always
+ * names exactly the adjectives `BANNED` in `@surex/core/copy` currently
+ * enforces, rather than a list transcribed by hand that can fall behind it.
  */
 import { BANNED } from '@surex/core/copy';
 
-/** `safe, trusted, verified or secure` — the four adjectives, from the law itself. */
+/** The subset of `BANNED` that reads as "this server is X" — `safe` was in this set once and was
+ *  dropped from `BANNED` itself on 2026-07-26, so filtering here rather than hardcoding the
+ *  sentence keeps this prompt from naming a word the checker no longer enforces. */
 const ADJECTIVES = (BANNED as readonly { word: string }[])
   .map((r) => r.word)
   .filter((w) => ['safe', 'trusted', 'verified', 'secure'].includes(w));

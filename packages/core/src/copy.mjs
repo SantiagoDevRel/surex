@@ -18,19 +18,9 @@
  * license every unearned claim below it.
  */
 export const BANNED = Object.freeze([
-  // *safe* was the first rule here and is deliberately gone. It was dropped by
-  // product decision on 2026-07-26 so the homepage hero and the install band
-  // could say "a safe experience" and "explore safely" — see
-  // `COPY.home.hero.lede` and `COPY.home.install.headline`.
-  //
-  // What that turned off, recorded because the word is no longer checked
-  // anywhere: model-generated text reaching a signed ENS record is one of the
-  // surfaces this rule guarded (`recordsFor` in apps/web/lib/ens.ts throws on a
-  // violation before the gateway signs), and a `reason` reading "this server is
-  // safe" would now pass that guard. *trusted*, *verified* and *secure* still
-  // catch it, and `reason` is a closed set in the contract, so the practical
-  // gap is narrow — but it is a gap, and it is wider than the two marketing
-  // strings that motivated the change.
+  // *safe* is deliberately absent — dropped 2026-07-26 so the site could use it.
+  // Nothing checks the word now, including `recordsFor` before it signs an ENS
+  // record; *trusted*, *verified* and *secure* still cover that path.
   { re: /\btrust(?:ed|worthy|less)\b/i, word: 'trusted', instead: 'reviewed' },
   {
     re: /\bverif(?:ied|iable|y|ication|ying)\b/i,

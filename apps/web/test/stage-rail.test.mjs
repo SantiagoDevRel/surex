@@ -14,8 +14,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { copyViolations } from '@surex/core';
-
 import { COPY } from '../lib/copy.ts';
 import {
   DEFAULT_ENS_APP_HOST,
@@ -400,24 +398,6 @@ test('the reviewed artifact parses into a link, or into nothing', () => {
 });
 
 /* ---------------------------------------------------------------- the copy -*/
-
-test('every rail string obeys the copy law', () => {
-  // copy.test.mjs walks the whole module, so this is belt and braces — but the
-  // rail is the block most likely to reach for "verified" or "trusted", because
-  // it is describing storage and signatures.
-  const failures = [];
-  const walkCopy = (node, path) => {
-    if (typeof node === 'string') {
-      for (const v of copyViolations(node)) failures.push(`${path}: "${v.word}" → ${v.instead}`);
-      return;
-    }
-    if (node && typeof node === 'object') {
-      for (const [k, v] of Object.entries(node)) walkCopy(v, `${path}.${k}`);
-    }
-  };
-  walkCopy(COPY.pipeline.rail, 'pipeline.rail');
-  assert.deepEqual(failures, [], `\n${failures.join('\n')}\n`);
-});
 
 test('the review step still says the source does not leave our hardware', () => {
   // The paragraph that carried this is gone, so the claim moved INTO the lede

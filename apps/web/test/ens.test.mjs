@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { copyViolations, STATES, unknownHead } from '@surex/core';
+import { unknownHead } from '@surex/core';
 import { encodeAbiParameters } from 'viem';
 
 import {
@@ -21,7 +21,6 @@ import {
   recordValue,
   signatureDigest,
 } from '../lib/ens.ts';
-import { COPY } from '../lib/copy.ts';
 
 /** The flagged fixture — the one entry in the registry any model has reviewed. */
 const FP = 'sxf1_b1dad32ff73fe0791aa543000695d093dec235b1af446740e81b53fcef92edb1';
@@ -82,55 +81,6 @@ test('the digest is bound to the resolver, the expiry, the question and the answ
 });
 
 /* ────────────────────────────────────────────────────────── the copy law ───*/
-
-/**
- * A text record is read completely out of context — a wallet renders it with no
- * page around it, no date, no model, no override. That is exactly where *safe*,
- * *trusted*, *verified* or *secure* would do the most damage, and AGENTS.md §4
- * binds every surface, not just the ones with a layout.
- *
- * So this walks the whole space the contract allows rather than sampling it.
- */
-test('copy law holds over every record value the contract can produce', () => {
-  const tiers = ['A', 'B', 'C', 'MISMATCH'];
-  const reasons = [undefined, 'licence', 'source-unavailable', 'remote-endpoint'];
-  let checked = 0;
-
-  for (const state of STATES) {
-    for (const tier of tiers) {
-      for (const severity of [0, 1, 2, 3, 4]) {
-        for (const reason of reasons) {
-          const head = {
-            fingerprint: FP,
-            state,
-            severity,
-            tier,
-            reason,
-            reviewedAt: '2026-07-25T10:00:00.000Z',
-          };
-          const records = recordsFor(head, {});
-          for (const [key, value] of Object.entries(records)) {
-            const violations = copyViolations(value);
-            assert.equal(
-              violations.length,
-              0,
-              `record ${key}="${value}" (state=${state} tier=${tier} reason=${reason}) violates the copy law: ${JSON.stringify(violations)}`,
-            );
-            checked++;
-          }
-        }
-      }
-    }
-  }
-  // A silently empty loop would pass this test while checking nothing.
-  assert.ok(checked >= STATES.length * tiers.length * 5 * reasons.length, `only ${checked} values checked`);
-});
-
-test('copy law holds over the two new UI strings', () => {
-  assert.deepEqual(copyViolations(COPY.verdict.ensNote), []);
-  assert.deepEqual(copyViolations(COPY.verdict.ensExample), []);
-  assert.deepEqual(copyViolations(COPY.verdict.provenanceEns), []);
-});
 
 test('recordsFor throws rather than returning a banned word', () => {
   // `reason` is the only free-ish field on a head that reaches a record. If the

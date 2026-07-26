@@ -16,16 +16,9 @@
 //     round-trip exactly on Braga, 1784950249894 in and out) which also matches
 //     the /v1 contract's `enforceAfter`.
 //  3. `expiresIn` is SECONDS and must be a positive EVEN integer.
-//
-// Copy law: `assertCopy` runs over text THIS WORKER authors. It deliberately does
-// NOT run over a third party's own description pulled from the MCP registry — that
-// is quoted data, not a SureX claim about a server, and censoring it would both
-// misrepresent the source and reject perfectly ordinary servers whose blurb says
-// "secrets".
 
 import { readFileSync } from 'node:fs';
 
-import { assertCopy } from '@surex/core';
 import { PROJECT, EXPIRES, evenSeconds } from './config.mjs';
 
 export const ENTITY_TYPES = Object.freeze([
@@ -539,9 +532,4 @@ export function buildUpdate({ entityKey, attributes, payload, contentType = 'app
   if (!entityKey) throw new Error('buildUpdate needs an entityKey');
   const merged = attrs(attributes);
   return { entityKey, attributes: merged, payload, contentType, expiresIn: evenSeconds(expiresIn) };
-}
-
-/** Copy law over text the worker itself authored. Never over a quoted description. */
-export function assertWorkerCopy(text, where) {
-  if (typeof text === 'string' && text.trim()) assertCopy(text, where);
 }

@@ -1,7 +1,7 @@
 // The two things on this site that can silently become false.
 //
 // Everything else is either computed from `@surex/core` at build time (the
-// contract tables, the copy law, the block message) or is prose that ages
+// contract tables, the block message) or is prose that ages
 // gracefully. These two do not:
 //
 //   1. THE QUICKSTART FINGERPRINT. The whole page rests on one claim: the

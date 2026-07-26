@@ -4,8 +4,9 @@
 // `pnpm sync:core`.
 // The copy law, as code.
 //
-// AGENTS.md §4: never write *safe*, *trusted*, *verified* or *secure* about a
-// reviewed server. The word is **reviewed**. And never say *reputation* about
+// AGENTS.md §4: never write *trusted*, *verified* or *secure* about a reviewed
+// server. The word is **reviewed**. (*safe* was on that list until 2026-07-26 —
+// see the note on `BANNED`.) And never say *reputation* about
 // anything agent-shaped — SureX reviews servers, not agents, and the World
 // track excludes agent reputation explicitly.
 //
@@ -21,7 +22,9 @@
  * license every unearned claim below it.
  */
 export const BANNED = Object.freeze([
-  { re: /\bsafe(?:ty|ly|r|st)?\b/i, word: 'safe', instead: 'reviewed — and say what was reviewed' },
+  // *safe* is deliberately absent — dropped 2026-07-26 so the site could use it.
+  // Nothing checks the word now, including `recordsFor` before it signs an ENS
+  // record; *trusted*, *verified* and *secure* still cover that path.
   { re: /\btrust(?:ed|worthy|less)\b/i, word: 'trusted', instead: 'reviewed' },
   {
     re: /\bverif(?:ied|iable|y|ication|ying)\b/i,
@@ -60,7 +63,9 @@ export const ALLOWED_PHRASES = Object.freeze([
   'Orb-verified',            // World's own term for a credential level
   'World ID verification',   // ditto
   'verification_level',      // an IDKit parameter name
-  'safe to remove',          // engineering prose, never product copy
+  // 'safe to remove' lived here to keep engineering prose out of the linter's
+  // way. The rule it was exempting no longer exists, so the exemption does not
+  // either.
 ]);
 
 function stripAllowed(text) {
