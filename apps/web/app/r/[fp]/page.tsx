@@ -35,7 +35,7 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
         <p className="mt-2 max-w-[70ch] font-serif text-prose text-ink-2">
           {COPY.errors.badFingerprintBody}
         </p>
-        <Link href="/" className="mt-4 inline-block text-row text-accent">
+        <Link href="/registry" className="mt-4 inline-block text-row text-accent">
           ← {COPY.browse.title}
         </Link>
       </main>

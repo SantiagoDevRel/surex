@@ -41,7 +41,7 @@ export const COPY = {
      * promising a file would be describing a different product.
      */
     install: 'get the plugin',
-    installTitle: 'Install the SureX gate into Claude Code — two slash commands, no npm install',
+    installTitle: 'Install the SureX gate into Claude Code: two slash commands, no npm install',
     skipToContent: 'Skip to content',
     themeToDark: 'switch to dark',
     themeToLight: 'switch to light',
@@ -54,10 +54,10 @@ export const COPY = {
    * text is the whole disclosure — it never gets shortened to a badge.
    */
   illustrative: {
-    fixtureLabel: 'ILLUSTRATIVE DATA — LOCAL FIXTURES',
+    fixtureLabel: 'ILLUSTRATIVE DATA · LOCAL FIXTURES',
     fixtureBody:
       'The registry API is not reachable, so this page is rendering local fixtures. Every server, verdict, finding, blob ID and transaction digest below is placeholder content. Nothing here is a real review of a real MCP server.',
-    mockLabel: 'ILLUSTRATIVE DATA — API MOCK MODE',
+    mockLabel: 'ILLUSTRATIVE DATA · API MOCK MODE',
     mockBody:
       'The registry API answered with records it marked illustrative. Every record below is placeholder content, not a review of a real MCP server.',
     rowMarker: 'illustrative',
@@ -98,7 +98,7 @@ export const COPY = {
     hiddenSuffix: 'not in this list',
     hiddenShowAll: 'show all',
     hiddenWhy:
-      'By default this list shows the entries where a review reached a verdict. Nothing is removed from the registry — an entry we could not review is a published answer about source that could not be read, and it keeps its own page.',
+      'By default this list shows the entries where a review reached a verdict. Nothing is removed from the registry. An entry we could not review is a published answer about source that could not be read, and it keeps its own page.',
 
     sortByState: 'by state',
     sortByName: 'name',
@@ -126,7 +126,7 @@ export const COPY = {
      * in design/tokens.html §05, where the linkage chain is specified; the chain
      * on the verdict page and this legend say the same thing on purpose.
      */
-    tierLegendLabel: 'TIER — HOW FAR THE LINKAGE REACHES',
+    tierLegendLabel: 'TIER · HOW FAR THE LINKAGE REACHES',
     tierLegendA: 'the reviewed bytes are the installed bytes (recorded digest matches yours)',
     tierLegendB: 'same version string, but the bytes were never compared',
     tierLegendC: 'nothing was checked; the verdict may be about code that is not your code',
@@ -146,13 +146,13 @@ export const COPY = {
      * No count, no example package name — a named example here would be a claim
      * about a real project that this file cannot keep true.
      */
-    axesLabel: 'HOW TO READ A VERDICT — TWO SEPARATE QUESTIONS',
+    axesLabel: 'HOW TO READ A VERDICT · TWO SEPARATE QUESTIONS',
     axesVerdictTerm: 'VERDICT',
     axesVerdictBody:
       'what the review found in the code it read: clean, flagged, disputed, unreviewable, or unknown when nobody has looked.',
     axesTierTerm: 'TIER',
     axesTierBody:
-      'whether the code it read is the code you will run. A, B or C — it says nothing about whether the review found anything.',
+      'whether the code it read is the code you will run. A, B or C. It says nothing about whether the review found anything.',
     axesIndependent:
       'They move independently. A clean verdict at tier C is a real review of a real package, of a version your machine may not resolve to. A flagged verdict at tier A is a finding in exactly the bytes you have.',
     /**
@@ -174,7 +174,7 @@ export const COPY = {
     tierB: 'TIER B · VERSION PINNED · BYTES NOT COMPARED',
     tierC: 'TIER C · NOTHING WAS CHECKED',
     tierMismatch: 'THE PUBLISHED ARTIFACT CHANGED AFTER THIS REVIEW',
-    notInRegistry: 'NO ENTRY — NOTHING WAS REVIEWED',
+    notInRegistry: 'NO ENTRY · NOTHING WAS REVIEWED',
     counterUncontested: 'UNCONTESTED',
     counterContested: 'CONTESTED · REBUTTAL ON FILE',
     counterEvidenceExpired: 'EVIDENCE NO LONGER RETRIEVABLE',
@@ -185,7 +185,7 @@ export const COPY = {
   reasons: {
     licence: 'no licence permits us to store this source',
     'source-unavailable': 'the source could not be fetched at the named commit',
-    'remote-endpoint': 'a remote endpoint — there is no local code to read',
+    'remote-endpoint': 'a remote endpoint: there is no local code to read',
     /**
      * The readings disagreed and a third did not break the tie. Measured, not
      * hypothetical: one honest fixture came back flagged, clean, clean on three
@@ -208,10 +208,10 @@ export const COPY = {
   verdict: {
     notFoundTitle: 'Not in the registry.',
     notFoundBody:
-      'No entry exists for this fingerprint. That means nobody has submitted this exact install configuration for review — it does not mean the code is fine, and it does not mean it is not. The gate treats this as unknown and warns rather than stopping the call.',
+      'No entry exists for this fingerprint. That means nobody has submitted this exact install configuration for review. It does not mean the code is fine, and it does not mean it is not. The gate treats this as unknown and warns rather than stopping the call.',
     notFoundAction: 'Submit a server for review',
     summaryLabel: 'IN TWENTY SECONDS',
-    linkageLabel: 'LINKAGE — WHAT THIS VERDICT IS ABOUT VS WHAT YOU INSTALLED',
+    linkageLabel: 'LINKAGE · WHAT THIS VERDICT IS ABOUT VS WHAT YOU INSTALLED',
     linkageNote:
       'the registry never sees your machine; the gate compares digests locally and keeps the answer there',
     reviewedBlob: 'REVIEWED BLOB',
@@ -219,15 +219,15 @@ export const COPY = {
     findingLabel: 'FINDING',
     findingsNoneLabel: 'FINDINGS',
     findingsNone:
-      'None recorded. That is a statement about what the model saw, at that commit, at that time — read the capability surface below for what this code can reach. It is usually the more useful half.',
+      'None recorded. That is a statement about what the model saw, at that commit, at that time. Read the capability surface below for what this code can reach. It is usually the more useful half.',
     couldBeWrongLabel: 'Could this be wrong?',
     couldBeWrongBody:
-      'Yes. This is a model reading the code, not a human. If you believe it misreads the code, contest it with evidence — the rebuttal is shown beside it, with equal weight.',
+      'Yes. This is a model reading the code, not a human. If you believe it misreads the code, contest it with evidence. The rebuttal is shown beside it, with equal weight.',
     capabilityLabel: 'CAPABILITY SURFACE',
     capabilityNote:
       'what the reviewed code can reach, from a static scan that does not ask the server what it does. Shown on clean verdicts too.',
     capabilityAbsent: 'not present in the reviewed blob',
-    provenanceLabel: 'PROVENANCE — WHAT WAS REVIEWED, WHEN, BY WHAT',
+    provenanceLabel: 'PROVENANCE · WHAT WAS REVIEWED, WHEN, BY WHAT',
     provenanceCommit: 'COMMIT',
     provenanceReviewed: 'REVIEWED',
     provenanceSourceBlob: 'SOURCE BLOB',
@@ -251,7 +251,7 @@ export const COPY = {
     cleanMeansLabel: 'WHAT CLEAN MEANS HERE',
     disagreeLabel: 'DISAGREE WITH THIS VERDICT?',
     disagreeBody:
-      'Anyone with standing can contest it — the maintainer, a user, or an agent that depends on this server. Rebuttals are stored as their own blob and shown beside the accusation with equal weight.',
+      'Anyone with standing can contest it: the maintainer, a user, or an agent that depends on this server. Rebuttals are stored as their own blob and shown beside the accusation with equal weight.',
     disagreeAction: 'File a dispute',
     overrideLabel: 'PROCEED ANYWAY',
     overrideBody:
@@ -281,12 +281,12 @@ export const COPY = {
     stageReviewBody:
       'A fresh model pass on a different prompt lineage is reading the contested path, and the maintainer response window is open. Both claims stand until it closes; neither is hidden.',
     stageUpheldBody:
-      'The flag stands. A second model pass and the maintainer window did not overturn the finding. The rebuttal remains on record with equal prominence — standing to disagree survives losing.',
+      'The flag stands. A second model pass and the maintainer window did not overturn the finding. The rebuttal remains on record with equal prominence. Standing to disagree survives losing.',
     stageOverturnedBody:
       'The rebuttal held. A superseding verdict was written. The original verdict and this dispute remain on chain, permanently readable. The correction is as durable as the accusation.',
-    fileLabel: 'FILE A DISPUTE — TWO KINDS OF STANDING, ONE BAR TO CLEAR',
+    fileLabel: 'FILE A DISPUTE · TWO KINDS OF STANDING, ONE BAR TO CLEAR',
     fileBody:
-      'A wrongly-flagged server hurts the humans who wrote it and the agents that depend on it. Both can defend it here — the requirements differ, the weight of the rebuttal does not.',
+      'A wrongly-flagged server hurts the humans who wrote it and the agents that depend on it. Both can defend it here. The requirements differ, the weight of the rebuttal does not.',
     humanTitle: 'You are a person',
     humanBadge: 'WORLD ID',
     /**
@@ -296,13 +296,13 @@ export const COPY = {
      * which renders only when the Orb is what was requested.
      */
     humanStep1:
-      'Prove personhood with World ID. How much that establishes depends on which credential this deployment requests — the button states which one it got, and what it does and does not settle.',
+      'Prove personhood with World ID. How much that establishes depends on which credential this deployment requests. The button states which one it got, and what it does and does not settle.',
     humanStep2: 'Write the rebuttal. Point at code: file, line, commit.',
     humanStep3:
-      'Attach evidence — repo link, test, config. Stored as a blob, hashed, and linked from the index.',
+      'Attach evidence: repo link, test, config. Stored as a blob, hashed, and linked from the index.',
     humanAction: 'Prove personhood with World ID',
     humanRebuttalLabel: 'THE REBUTTAL',
-    humanRebuttalPlaceholder: 'Which file, which line, which commit — and what the model got wrong about it.',
+    humanRebuttalPlaceholder: 'Which file, which line, which commit, and what the model got wrong about it.',
     humanFileAction: 'File the rebuttal',
     humanFilingNote:
       'The proof is checked by the registry, server-side, before the rebuttal is taken. Whatever the registry answers is shown below exactly as it arrives.',
@@ -310,22 +310,22 @@ export const COPY = {
     resultRefusedLabel: 'REFUSED BY THE REGISTRY',
     resultUnreachableLabel: 'REGISTRY UNREACHABLE',
     resultUnreachableBody:
-      'Nothing was filed. Whatever you typed stayed in this browser — the request never left it.',
+      'Nothing was filed. Whatever you typed stayed in this browser. The request never left it.',
     resultMissingBody: 'A rebuttal needs both a World ID proof and something to say.',
     agentTitle: 'You are an agent',
     agentBadge: 'WORLD AGENTKIT',
     agentStep1:
-      'A human registers this agent’s wallet in AgentBook once, from World App. That step needs an Orb-verified World ID, and it costs nothing — a hosted relay pays the transaction, so the wallet needs no balance.',
+      'A human registers this agent’s wallet in AgentBook once, from World App. That step needs an Orb-verified World ID, and it costs nothing, a hosted relay pays the transaction, so the wallet needs no balance.',
     agentStep2:
-      'The agent signs each dispute request with that wallet. SureX recovers the address from the signature — an address typed into the request body proves nothing — and then asks AgentBook whether a human stands behind it.',
+      'The agent signs each dispute request with that wallet. SureX recovers the address from the signature. An address typed into the request body proves nothing, and then asks AgentBook whether a human stands behind it.',
     agentStep3:
       'A non-null answer grants standing to be heard: same endpoint, same schema, same weight as a rebuttal a person filed.',
     agentAction: 'This step runs in the agent, not in this browser:',
     /** World track exclusion: never describe this as agent reputation. */
     standingNote:
-      'Standing means one thing: a human registered this wallet. It is not a score, it says nothing about how this agent has behaved, and it does not make the rebuttal right — SureX reviews servers.',
+      'Standing means one thing: a human registered this wallet. It is not a score, it says nothing about how this agent has behaved, and it does not make the rebuttal right. SureX reviews servers.',
     agentRefusedNote:
-      'If AgentBook has no registration for the wallet, the request is refused with 403 agent_not_human_backed. If the lookup itself could not be completed, the answer is 503 and standing is reported as unknown — an agent is never told a human does not stand behind it because a lookup failed.',
+      'If AgentBook has no registration for the wallet, the request is refused with 403 agent_not_human_backed. If the lookup itself could not be completed, the answer is 503 and standing is reported as unknown. An agent is never told a human does not stand behind it because a lookup failed.',
     filedBy: 'filed by',
     evidence: 'evidence',
     onChain: 'on-chain',
@@ -356,11 +356,11 @@ export const COPY = {
      * never seen), but it does not need a paragraph on the happy path either. So
      * `heldShort` is always on screen and `heldBody` sits behind `heldWhy`.
      */
-    heldShort: 'Proof in hand — the registry has not seen it yet.',
+    heldShort: 'Proof in hand: the registry has not seen it yet.',
     heldWhy: 'why that is not acceptance',
     heldBody:
       'World ID returned a proof to this browser. That is not acceptance: the registry checks the proof server-side when you submit, and only its answer decides anything.',
-    simulatedLabel: 'SIMULATED IDENTITY — NOT A PERSON',
+    simulatedLabel: 'SIMULATED IDENTITY · NOT A PERSON',
     simulatedBody:
       'This deployment points at a non-production World ID environment, where proofs come from a simulator rather than from a phone. Anything proven here is a test of the plumbing, not a human.',
 
@@ -386,17 +386,17 @@ export const COPY = {
      */
     credential: {
       face: {
-        short: 'Selfie Check — a live person answered. Not one person, one submission.',
+        short: 'Selfie Check: a live person answered. Not one person, one submission.',
         body:
-          'World App opens the camera on your phone, checks that a live face is there, and matches it against the face you enrolled — on a desktop that means scanning the QR first, and the camera is never opened by this browser. World rates its sybil resistance as "some", explicitly weaker than the Orb, and files it under lower-friction liveness rather than one-human-one-action. So it establishes that a live person answered. It does not establish that this person has not already answered under another World ID.',
+          'World App opens the camera on your phone, checks that a live face is there, and matches it against the face you enrolled. On a desktop that means scanning the QR first, and the camera is never opened by this browser. World rates its sybil resistance as "some", explicitly weaker than the Orb, and files it under lower-friction liveness rather than one-human-one-action. So it establishes that a live person answered. It does not establish that this person has not already answered under another World ID.',
       },
       orb: {
-        short: 'Proof of Human — Orb. The same person cannot come back as somebody else.',
+        short: 'Proof of Human: Orb. The same person cannot come back as somebody else.',
         body:
-          'This deployment requests Proof of Human: an Orb-checked World ID. That is the strong anti-sybil credential — the same person cannot come back as somebody else — so the per-person limits the registry applies actually hold. It is also the highest bar to clear, and a maintainer who has never been to an Orb cannot clear it.',
+          'This deployment requests Proof of Human: an Orb-checked World ID. That is the strong anti-sybil credential. The same person cannot come back as somebody else, so the per-person limits the registry applies actually hold. It is also the highest bar to clear, and a maintainer who has never been to an Orb cannot clear it.',
       },
       device: {
-        short: 'Device level — a World App account. Nothing biometric is checked.',
+        short: 'Device level: a World App account. Nothing biometric is checked.',
         body:
           'This deployment requests device level: the person holds a World App account. Nothing biometric is checked. It raises the cost of bulk automation and says nothing at all about a live person being present, which is the weakest of the three bars this app can ask for.',
       },
@@ -405,13 +405,13 @@ export const COPY = {
     /** The `<summary>` on the disclosure that holds `credential[…].body`. */
     credentialWhy: 'what that credential proves',
     /** Before the request is prepared, no credential is known — and that is said. */
-    credentialUnknown: 'World ID — the credential is named the moment the request is prepared.',
+    credentialUnknown: 'World ID: the credential is named the moment the request is prepared.',
   },
 
   submit: {
     title: 'Submit your server for review',
     lede:
-      'Submission is consent to a public record. Whatever the review concludes, the verdict blob publishes to the index when the run completes — and you are told first, so a rebuttal can ship with it from hour zero.',
+      'Submission is consent to a public record. Whatever the review concludes, the verdict blob publishes to the index when the run completes, and you are told first, so a rebuttal can ship with it from hour zero.',
     formLabel: 'THE RELEASE TO REVIEW',
     repoLabel: 'Repository',
     repoPlaceholder: 'github.com/acme/acme-mcp',
@@ -424,7 +424,7 @@ export const COPY = {
      * read it" is a fact about the request.
      */
     releaseEmpty: 'paste a repository first',
-    releaseDefaultBranch: 'default branch (moves — cannot pin bytes)',
+    releaseDefaultBranch: 'default branch (moves, cannot pin bytes)',
     action: 'Queue the review',
 
     /**
@@ -439,16 +439,16 @@ export const COPY = {
     inspectMcpYes: 'MCP server confirmed',
     inspectMcpNo: 'This does not look like an MCP server',
     inspectMcpNoBody:
-      'SureX reviews MCP servers against what they declare, so it needs a server to read: no MCP SDK dependency, framework, manifest or keyword was found in this repository\'s manifests. If this is an MCP server, the signal is somewhere we did not look — say so and it gets added.',
+      'SureX reviews MCP servers against what they declare, so it needs a server to read: no MCP SDK dependency, framework, manifest or keyword was found in this repository\'s manifests. If this is an MCP server, the signal is somewhere we did not look. Say so and it gets added.',
     inspectUnknownLabel: 'Could not read the repository',
     inspectUnknownBody:
-      'GitHub did not answer, so nothing was determined about this repository — this is a statement about the request, not about the code. The tag and commit can be typed by hand.',
+      'GitHub did not answer, so nothing was determined about this repository. This is a statement about the request, not about the code. The tag and commit can be typed by hand.',
     inspectPinnedLabel: 'PINNED TO',
     /** Why a commit and not just a tag. Tier language, deliberately. */
     inspectShaNote:
       'The commit is what the review is about. A tag can be moved or deleted, so a submission that names only a tag can never link a verdict to the bytes you shipped.',
     inspectNoShaNote:
-      'No commit was resolved, so this submission names a tag only — the verdict cannot be linked to specific bytes.',
+      'No commit was resolved, so this submission names a tag only. The verdict cannot be linked to specific bytes.',
     /**
      * One line, not a paragraph. It keeps the ordering fact (the proof is checked
      * first) and the one that stops a screen from over-claiming: a deployment with
@@ -460,13 +460,13 @@ export const COPY = {
     resultAcceptedLabel: 'ACCEPTED',
     resultAcceptedBody:
       'The registry queued the release. A verdict blob publishes to the index when the run completes.',
-    resultNotBuiltLabel: 'PROOF CHECKED — THE REST IS NOT BUILT',
+    resultNotBuiltLabel: 'PROOF CHECKED · THE REST IS NOT BUILT',
     resultNotBuiltBody:
-      'The registry checked the World ID proof and stopped there: the ingest path behind the gate does not exist in this deployment. Nothing was queued, no review will run, and the proof was not spent — the same person can submit once the pipeline is built.',
+      'The registry checked the World ID proof and stopped there: the ingest path behind the gate does not exist in this deployment. Nothing was queued, no review will run, and the proof was not spent. The same person can submit once the pipeline is built.',
     resultRefusedLabel: 'REFUSED BY THE REGISTRY',
     resultUnreachableLabel: 'REGISTRY UNREACHABLE',
     resultUnreachableBody:
-      'Nothing was submitted. Whatever you typed stayed in this browser — the request never left it.',
+      'Nothing was submitted. Whatever you typed stayed in this browser. The request never left it.',
     resultMissingLabel: 'INCOMPLETE',
     // Says what to DO, and no longer names a release tag as required — a repo with
     // no releases resolves to its default-branch commit, which is a complete
@@ -509,7 +509,7 @@ export const COPY = {
     runningLabel: 'RUNNING',
     doneLabel: 'RUN COMPLETE',
     doneBody:
-      'The run finished and its records are linked below. What it concluded is on the entry page — a completed run is not a clean result.',
+      'The run finished and its records are linked below. What it concluded is on the entry page. A completed run is not a clean result.',
     failedLabel: 'THE RUN STOPPED',
     failedBody:
       'It did not finish. Nothing partial is published: an entry appears only when a record is written, so a stopped run leaves the registry as it was.',
@@ -518,13 +518,13 @@ export const COPY = {
       'The process died mid-run, so it may have written some of what it intended. Whatever landed is linked below; anything not linked did not happen.',
     unknownIdLabel: 'NO SUCH SUBMISSION',
     unknownIdBody:
-      'The registry has no record of this id. That is an answer about the registry, not a failed request — the submission above is the one to trust.',
+      'The registry has no record of this id. That is an answer about the registry, not a failed request. The submission above is the one to trust.',
     notBuiltLabel: 'NOTHING TO REPORT ON',
     notBuiltBody:
       'This deployment has no writer, so it has no runs to report progress for.',
     lostLabel: 'STOPPED WATCHING',
     lostBody:
-      'The registry stopped answering, so this page has no idea what the run is doing now. Nothing about the run itself changed — reload to pick the watch back up.',
+      'The registry stopped answering, so this page has no idea what the run is doing now. Nothing about the run itself changed. Reload to pick the watch back up.',
 
     /** The reading panel's source line and its meta label. */
     readingLabel: 'reading',
@@ -577,7 +577,7 @@ export const COPY = {
      * "where" is the question a person watching a submission is actually asking:
      * whose machine is reading my code, what got written, and can I go and look at
      * it. So the rail names one technology per stage and puts a link next to it the
-     * moment the run reports an identifier — never before, which is why every
+     * moment the run reports an identifier, never before, which is why every
      * string in `fact` is a LABEL and not one of them carries a value.
      *
      * The phases are worded to claim as little as possible. The watch polls every
@@ -589,10 +589,10 @@ export const COPY = {
     rail: {
       label: 'THE FLOW',
       legend:
-        'Six steps, in order. Each one ticks when the run actually reports it, and a link appears the moment it reports an identifier — never before.',
+        'Six steps, in order. Each one ticks when the run actually reports it, and a link appears the moment it reports an identifier, never before.',
       /** Which stage the panel below is describing, and how it got chosen. */
       following: 'following the run',
-      picked: 'you picked this stage — choose it again to follow the run',
+      picked: 'you picked this stage, choose it again to follow the run',
       /**
        * Phases. `phaseDone` deliberately says the run moved on rather than that
        * the stage succeeded: a licence refusal jumps straight from the licence
@@ -603,7 +603,7 @@ export const COPY = {
       phaseDone: 'the run is past this',
       phaseStopped: 'the run stopped here',
       nothingReported:
-        'The run reported no identifiers for this stage. Whatever happened here, it did not say — so this panel does not say either.',
+        'The run reported no identifiers for this stage. Whatever happened here, it did not say, so this panel does not say either.',
 
       /**
        * The tile's NAME — a name, not a second description. `COPY.pipeline.stage`
@@ -672,7 +672,7 @@ export const COPY = {
         world: {
           lede: 'A person, checked by World ID, before the registry looks at anything.',
           body:
-            'Nothing is signed in this browser. The request is signed server-side and World App answers on a phone, so what the proof establishes depends on the credential this deployment asked for — which is named beside this step the moment the request is prepared, and again once a proof is in hand.',
+            'Nothing is signed in this browser. The request is signed server-side and World App answers on a phone, so what the proof establishes depends on the credential this deployment asked for, which is named beside this step the moment the request is prepared, and again once a proof is in hand.',
         },
         /**
          * Phase words for the World step. The pipeline's four do not fit it: there
@@ -703,7 +703,7 @@ export const COPY = {
           // being true when the licence became a recorded fact rather than a
           // gate. This path stores the REVIEW, never the source, so a missing
           // licence is published as `none` and the review runs.
-          lede: 'The licence is read and recorded — none is an answer, not a stop.',
+          lede: 'The licence is read and recorded. None is an answer, not a stop.',
         },
         fetching: {
           lede: 'The bytes that execute, not the bytes on the branch.',
@@ -764,7 +764,7 @@ export const COPY = {
        * and the screen has to stop saying it.
        */
       custodyWallet: 'our own wallet registered the blob',
-      custodyPublisher: 'a public publisher registered the blob — the Sui object is theirs',
+      custodyPublisher: 'a public publisher registered the blob: the Sui object is theirs',
 
       /** Why the name is not a link. An offchain resolver cannot enumerate keys. */
       ensAppNote: 'the ENS app renders an empty records tab for a name like this one',
@@ -777,7 +777,7 @@ export const COPY = {
       'The registry API did not answer. The gate fails open with a warning; it never silently blocks, and never silently clears something it had already flagged.',
     supersededLabel: 'SUPERSEDED',
     supersededBody:
-      'This verdict was replaced. It remains on record and on chain — verdicts are superseded, never deleted.',
+      'This verdict was replaced. It remains on record and on chain. Verdicts are superseded, never deleted.',
     evidenceExpiredLabel: 'EVIDENCE EXPIRED',
     evidenceExpiredBody:
       'The source blob behind this verdict is no longer retrievable. The finding stands as a historical record but can no longer be re-derived from evidence, so linkage is downgraded to C.',
@@ -799,16 +799,16 @@ export const COPY = {
   stateMeaning: {
     clean: 'Reviewed; no mismatch found between stated purpose and code, at the commit and time stated.',
     flagged: 'Reviewed; a mismatch or a malicious pattern was found. The gate stops the call, and you can override it.',
-    disputed: 'Flagged, and contested with evidence. Still stops the call — both claims are shown.',
+    disputed: 'Flagged, and contested with evidence. Still stops the call. Both claims are shown.',
     stale: 'An entry exists, but a newer release landed than the one reviewed. The gate warns.',
     unreviewable: 'The source could not be read or could not be stored. The gate warns.',
     unknown: 'Not in the registry. The gate warns and the call proceeds.',
   },
 
   confidence: {
-    unconfirmed: 'automated only — no human audit',
+    unconfirmed: 'automated only, no human audit',
     confirmed: 'uncontested',
-    disputed: 'rebuttal on file — both claims stand',
+    disputed: 'rebuttal on file, both claims stand',
   },
 
   footer: {
@@ -823,6 +823,310 @@ export const COPY = {
     badFingerprint: 'That is not a fingerprint this registry can read.',
     badFingerprintBody:
       'A SureX fingerprint looks like sxf1_ followed by 64 hexadecimal characters. It is computed from the install configuration, not from the server name.',
+  },
+
+  /** The homepage. Numbers on the stat band come from `lib/home-data.ts`, never from here. */
+  home: {
+    nav: {
+      registry: 'registry',
+      howItWorks: 'how it works',
+      disputes: 'disputes',
+      installCommand: '/plugin install surex@surex',
+      /** The mobile nav trigger and its dismiss, lowercase like the rest of the nav. */
+      menuOpen: 'menu',
+      menuClose: 'close',
+    },
+
+    hero: {
+      headline: "MCPs are fun. Until they're not.",
+      lede: 'Making every MCP a reviewed experience.',
+      body: "An MCP server runs with your agent's permissions. Sees your files. Sees your secrets. Nothing checks it. SureX does. Before every tool call, in milliseconds, without ever running it.",
+      actionInstall: 'Install Surex',
+      actionBrowse: 'See all MCPs',
+    },
+
+    /**
+     * Keyed by `StatKey` in lib/home-data.ts, so the band can render
+     * `COPY.home.stats[tile.key]`. Labels only — the counts are derived from
+     * the rows actually returned, and a count written here would be a
+     * fabrication the moment the registry disagreed.
+     *
+     * The mock had a fourth tile, END-TO-END CHAIN CHECKS at 13/13. It is
+     * dropped: that figure comes from the test suite, not the registry, so
+     * nothing on this page could derive it — and the design system's own
+     * website kit shows three tiles, not four.
+     */
+    stats: {
+      entriesIndexed: 'MCPS ANALYZED',
+      reviewed: 'REVIEWED',
+      flagged: 'FLAGGED',
+    },
+
+    /**
+     * The pipeline — design system screen 12. Six steps in order, plus the
+     * dispute branch that comes off step 05.
+     *
+     * This replaced a three-step "how it works" told on a
+     * milliseconds/minutes/days axis. The three gate outcomes it carried
+     * survive in step 06 below, in the design system's own words.
+     */
+    pipeline: {
+      title: 'How it works',
+      steps: [
+        {
+          index: '01',
+          label: 'THE CODE',
+          body: 'Published source, at one exact version.',
+          chip: 'mcp-server-postgres 0.6.2',
+        },
+        {
+          index: '02',
+          label: 'SEALED',
+          body: 'An exact copy goes under seal. Change one character and it breaks.',
+          chipLabel: 'CODE RECORD',
+          chip: '0x8e4c\u20269c41',
+        },
+        {
+          index: '03',
+          label: 'THE READING',
+          body: 'A model reads the code against what the server says it does.',
+          chip: 'fs \u00b7 net \u00b7 env \u00b7 exec',
+        },
+        {
+          index: '04',
+          label: 'THE VERDICT',
+          body: 'One judgement, sealed on its own, apart from the code it judges.',
+          chip: 'clean',
+        },
+        {
+          index: '05',
+          label: 'THE INDEX',
+          body: 'One entry, the only thing the check reads. It points at both sealed records.',
+          chip: '\u2192 code \u00b7 \u2192 verdict',
+          tier: 'TIER B',
+        },
+        {
+          index: '06',
+          label: 'THE CHECK',
+          body: 'Runs before the tool call, on your machine.',
+          outcomes: [
+            { state: 'clean', gate: 'silent', because: 'bytes match' },
+            { state: 'unknown', gate: 'a caution', because: 'no entry' },
+            { state: 'flagged', gate: 'stopped', because: 'a finding' },
+          ],
+        },
+      ],
+      dispute: {
+        label: 'THE DISPUTE',
+        branch: 'BRANCHES OFF 05',
+        body: 'A verdict can be contested by a person, or by an agent a real human registered. Standing is checked first.',
+        markers: [
+          '\u25cc STANDING CHECKED',
+          'DISPUTED \u00b7 STANDING OPEN',
+          'SUPERSEDED, NEVER DELETED',
+        ],
+      },
+    },
+
+    /**
+     * The roadmap \u2014 design system screen 09. Three views over the work.
+     *
+     * Progress is carried by form, never by hue: filled means done, outlined
+     * means committed and not done, dashes mean there is nothing to check yet.
+     * The design system is explicit that a milestone tinted sage would read as
+     * a clean verdict on something that does not exist.
+     *
+     * `phase` drives the marker, so the two never disagree.
+     *
+     * Each view is listed exactly as the design system draws it. Note that its
+     * own rule \u2014 no item appears in two themes at once \u2014 is not quite what its
+     * markup does: "Support for other agent frameworks and harnesses" here and
+     * "SureX integrates with other coding agents beyond Claude Code" under
+     * adoption carry identical bodies, as do the Walrus Seal and private-MCP
+     * items. Left as drawn rather than merged, because deciding which title is
+     * canonical is a product call.
+     */
+    roadmap: {
+      title: 'Roadmap',
+      views: {
+        timeline: {
+          tab: 'timeline',
+          heading: 'Timeline',
+          milestones: [
+            {
+              phase: 'BUILDING',
+              when: 'IN FLIGHT',
+              title: 'Disputes with standing',
+              body: 'Humans rebut with World ID, agents with AgentKit. A fresh flag stays unconfirmed for 72 hours so the maintainer can answer first.',
+            },
+            {
+              phase: 'NEXT',
+              when: 'NOT STARTED',
+              title: 'Train the MCP reviewer for accuracy',
+              body: 'The model that reads code gets measured against labelled servers, and the prompt version that scored a verdict stays recorded next to it.',
+            },
+            {
+              phase: 'NEXT',
+              when: 'NOT STARTED',
+              title: 'Dispute on context about why it was flagged',
+              body: 'A rebuttal argues the reading, not only the result. The maintainer answers the exact line the model cited.',
+            },
+            {
+              phase: 'NEXT',
+              when: 'NOT STARTED',
+              title: 'Support for other agent frameworks and harnesses',
+              body: 'The gate is a pre-call hook, so anything with a pre-call hook can read the registry. Each harness needs its own way to identify a server from config alone.',
+            },
+            {
+              phase: 'LATER',
+              when: 'NO DATE',
+              title: 'Enterprise access controls',
+              body: 'Permissioned access for organisations that need a private lane: who may submit, who may override, and a record of both.',
+            },
+            {
+              phase: 'LATER',
+              when: 'NO DATE',
+              title: 'Encryption for closed-source MCPs with Walrus Seal',
+              body: 'Closed source is unreviewable today. Sealed blobs would let a model read what nobody else can, and the record would say that is what happened.',
+            },
+          ],
+        },
+        adoption: {
+          tab: 'adoption',
+          heading: 'Adoption',
+          milestones: [
+            {
+              phase: 'NEXT',
+              when: 'NOT STARTED',
+              title: 'SureX integrates with other coding agents beyond Claude Code',
+              body: 'The gate is a pre-call hook, so anything with a pre-call hook can read the registry. Each harness needs its own way to identify a server from config alone.',
+            },
+            {
+              phase: 'LATER',
+              when: 'NO DATE',
+              title: 'Enterprise support',
+              body: 'A company builds a permissioned registry, encrypted with Seal, and runs it over its own internal tooling. Who may submit and who may override are recorded, and the record stays inside.',
+            },
+          ],
+        },
+        scaling: {
+          /** Shortened on the tab strip so three chips fit 390pt; full in the heading. */
+          tab: 'scaling',
+          heading: 'Data scaling',
+          milestones: [
+            {
+              phase: 'BUILDING',
+              when: 'IN FLIGHT',
+              title: 'Users challenge or validate a SureX decision',
+              body: 'Feedback argues the reading, not only the result. A rebuttal answers the exact line the model cited. Humans sign with World ID, agents with AgentKit.',
+            },
+            {
+              phase: 'LATER',
+              when: 'NO DATE',
+              title: 'A human review as final escalation',
+              body: 'The last step for a challenged verdict or an uncertain score. Until it exists, a flag stands or it is disputed, and nothing else moves it.',
+            },
+            {
+              phase: 'LATER',
+              when: 'NO DATE',
+              title: 'Analysis of private MCPs',
+              body: 'Closed source is unreviewable today. A sealed blob would let a model read what nobody else can, and the record would say that is what happened.',
+            },
+          ],
+        },
+      },
+    },
+
+    /**
+     * The terminal window \u2014 design system screen 10. One window, three
+     * surfaces: the hook that blocks a call, the plugin that asks before one,
+     * and the ENS text records that hold the same verdict with no pixels.
+     *
+     * All three are transcripts, quoted verbatim. Nothing here is live, and
+     * none of it is allowed to say more than the registry knows.
+     */
+    terminal: {
+      /** The accessible name for the transcript, and the tab strip's label. */
+      label: 'Recorded gate transcript',
+      tabsLabel: 'Which surface printed this',
+      tabs: {
+        plugin: { tab: 'plugin' },
+        ens: { tab: 'ens' },
+      },
+
+      plugin: {
+        source: 'surex plugin \u00b7 confirm',
+        elapsed: 'awaiting answer',
+        state: 'flagged',
+        /**
+         * Six blocks: question \u00b7 recommendation \u00b7 finding and capability \u00b7
+         * provenance and linkage \u00b7 the way out \u00b7 the command. One blank line
+         * between blocks, never two. It never says blocked \u2014 the plugin asks,
+         * and an answer the reader did not give is not a decision.
+         */
+        lines: {
+          question: 'Are you sureX you want to use @surex/mal-tool-shadow?',
+          recommendation: 'SureX does not recommend proceeding.',
+          finding:
+            'Finding (moderate): exfiltration gated on an env var that no tool description mentions (src/telemetry.mjs:48)',
+          capability: 'This code can reach: network \u00b7 filesystem \u00b7 env vars \u00b7 credentials',
+          provenance: 'Reviewed 2026-07-25 by qwen3-coder-next. No human audited this.',
+          linkage: 'Link to your install (C): nothing was checked.',
+          evidence: 'Evidence: arkiv-surex.vercel.app/r/sxf1_ceacc357\u2026',
+          wayOut: 'You can proceed anyway, at your own risk:',
+          command: 'surex allow sxf1_ceacc357\u2026',
+        },
+      },
+
+      /**
+       * Five text records are the whole verdict at this route. The values below
+       * are the ones actually published for this fingerprint \u2014 the state word
+       * keeps its hue wherever it is rendered, including here, because it is
+       * the one thing the three surfaces must agree on.
+       *
+       * A text record cannot carry a meter or a border style, so tier is the
+       * letter and severity is the integer. Those are the canonical values the
+       * pixels elsewhere render.
+       */
+      ens: {
+        source: 'ens resolver \u00b7 text records',
+        elapsed: 'surex.eth',
+        state: 'flagged',
+        name: 'sxf1-ceacc357115421177295dd5b183871b3192c17b1.surex.eth',
+        records: [
+          { key: 'surex:state', value: 'flagged', isState: true },
+          { key: 'surex:severity', value: '3' },
+          { key: 'surex:tier', value: 'C' },
+          { key: 'surex:reviewed', value: '2026-07-25' },
+          { key: 'url', value: 'arkiv-surex.vercel.app/r/sxf1_ceacc357\u2026' },
+        ],
+      },
+    },
+
+    /**
+     * The install band, immediately before the closer. It echoes the hero so
+     * the page ends where it began, then gives the one command.
+     */
+    install: {
+      headline: "MCPs are fun. Until they're not.",
+      lede: 'Read the verdict before the call, not after.',
+      command: '/plugin install surex@surex',
+      copyLabel: 'copy',
+      copiedLabel: 'copied',
+    },
+
+    closer: {
+      installCommand: '/plugin install surex@surex',
+    },
+
+    footer: {
+      registry: 'registry',
+      api: 'api',
+      docs: 'docs',
+      ens: 'surex.eth',
+      github: 'github',
+      builtAt: 'built at ETHGlobal Lisbon 2026',
+    },
   },
 } as const;
 

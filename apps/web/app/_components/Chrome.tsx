@@ -10,7 +10,11 @@ import { ThemeToggle } from './ThemeToggle.tsx';
 import { SplitRule, Wordmark } from './Wordmark.tsx';
 
 const LINKS = [
-  { href: '/', label: COPY.nav.registry, match: (p: string) => p === '/' || p.startsWith('/r/') },
+  {
+    href: '/registry',
+    label: COPY.nav.registry,
+    match: (p: string) => p.startsWith('/registry') || p.startsWith('/r/'),
+  },
   { href: '/submit', label: COPY.nav.submit, match: (p: string) => p.startsWith('/submit') },
 ];
 
@@ -40,6 +44,10 @@ const INSTALL_URL = 'https://surex-docs.vercel.app/guides/install';
  */
 export function Chrome() {
   const pathname = usePathname() ?? '/';
+
+  // The v2 homepage carries its own header — this is the registry/dossier
+  // chrome, and the two must never stack.
+  if (pathname === '/') return null;
 
   return (
     <>

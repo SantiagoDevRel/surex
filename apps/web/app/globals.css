@@ -1295,3 +1295,173 @@
   }
 }
 /* =================== end SUREX MOTION v1 ================================== */
+
+/* ============================================================================
+   SUREX v2 — homepage token layer.
+
+   Everything below is scoped under [data-sx="v2"]. The v1 layer above this
+   comment is untouched — this is a second, independent system, not a v2 of
+   the same tokens, because the two disagree on fundamentals: v1 themes
+   (light/dark) and uses brand hues at reduced strength for surfaces; v2 is
+   dark-only by design (design system screen 01 — "nothing here themes") and
+   keeps the three brand hues out of every surface, using them only as large
+   mass (display wordmark, the hero rule, the mark).
+
+   A component opts in by rendering inside `<div data-sx="v2">` — see
+   `app/page.tsx` — and reads a token as a CSS custom property, e.g.:
+
+     <div className="bg-[var(--v2-panel)] text-[var(--v2-ink)] border border-[var(--v2-line)]">
+
+   These are plain custom properties, NOT `@theme` entries. `@theme` in
+   Tailwind v4 always registers a real, global utility class — there is no
+   scoped variant of it — so putting `--v2-clean` etc. through `@theme` would
+   hand the registry pages a `text-v2-clean` class they could reach for by
+   accident. A plain custom property that only exists under [data-sx="v2"]
+   cannot be picked up outside it: reference it from outside the scope and
+   the `var()` resolves to nothing. Spacing and measure tokens follow the
+   same pattern for consistency, even though the leak risk there is lower.
+
+   Because nothing here reads `--sx-*` or `[data-theme]`, `[data-theme="light"]`
+   on <html> has no effect inside this scope — v2 does not theme, full stop.
+   ============================================================================ */
+
+[data-sx="v2"] {
+  font-family: var(--font-suse);
+
+  /* surfaces — near-black, warm, never pure */
+  --v2-page: #0a0908;
+  --v2-panel: #0e0c0b;
+  --v2-well: #141110;
+  --v2-line: #1e1b1a;
+  --v2-line-2: #242020;
+  --v2-border: #2a2624;
+
+  /* ink — four steps, hover is a step up */
+  --v2-ink: #f0ebea;
+  --v2-ink-2: #a39a98;
+  --v2-ink-3: #8a8280;
+  --v2-faint: #625b59; /* borders/outlines only — never text */
+  --v2-ghost: #242020; /* oversized ordinals only */
+
+  /* state hues — the only place colour is allowed to mean something */
+  --v2-clean: #7fb79a;
+  --v2-flagged: #ff6a5c;
+  --v2-disputed: #c4a2b8;
+  --v2-stale: #ffe900;
+  --v2-unknown: #9c9391;
+  /* unreviewable — a FILL at 55%, and a solid ink for text.
+     The design system draws this state as `#9C9391 at 55%`, which is correct
+     for the 64px swatch it draws it as. Composited on the page that measures
+     2.71:1, so it cannot carry text: the system's own floor is 4.5:1 and its
+     palette screen says of the inks it raised to clear it, "do not lower them
+     again." The ink below is dimmer than `unknown` — keeping the hierarchy the
+     55% was there to express — and clears the floor on the worst surface it
+     can land on (5.43:1 on `well`, 5.75:1 on `page`). */
+  --v2-unreviewable: rgb(156 147 145 / 55%);
+  --v2-unreviewable-ink: #918885;
+
+  /* accent — achromatic on purpose. Links, focus, primary action. A link
+     tinted a state hue reads as a verdict, so the one token that must never
+     be mistaken for one does not get a state's colour. */
+  --v2-accent: #f0ebea;
+
+  /* brand, full strength — mass only. Too dark to carry text on near-black:
+     the display wordmark, the hero rule, the mark. Never text-sized. */
+  --v2-brand-emerald: #046a38;
+  --v2-brand-tangerine: #da291c;
+
+  /* the disclosure band — same sunbeam as the `stale` verdict, deliberately a
+     token of its own. A band saying "this data is illustrative" is not a
+     verdict about a server, and pointing it at --v2-stale would mean a future
+     change to the stale hue silently restyled every disclosure on the site.
+     v1 draws the same distinction (--sx-band). Like v1's, this is a fill: it
+     carries near-black ink, never ink-on-dark. */
+  --v2-band: #ffe900;
+  --v2-band-ink: #0a0908;
+
+  /* space */
+  --v2-space-1: 4px;
+  --v2-space-2: 8px;
+  --v2-space-3: 14px;
+  --v2-space-4: 20px;
+  --v2-space-5: 28px;
+  --v2-space-6: 44px;
+  --v2-space-7: 64px;
+  --v2-space-8: 88px;
+  --v2-space-9: 110px;
+
+  /* measure — desktop */
+  --v2-gutter: 64px;
+  --v2-rhythm: 88px;
+  --v2-column: 860px;
+  --v2-prose: 52ch;
+
+  /* measure — mobile, screen 07 */
+  --v2-gutter-mobile: 20px;
+  --v2-rhythm-mobile: 32px;
+}
+
+/* Nothing in this system is rounded. */
+[data-sx="v2"],
+[data-sx="v2"] *,
+[data-sx="v2"] *::before,
+[data-sx="v2"] *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+/* The live site's `a { color:#7FB79A }` is the one place this rule is
+   currently broken — a link tinted sage reads as a verdict. Not repeated
+   here: v2 links are ink with a border-colour underline, full stop. */
+[data-sx="v2"] a {
+  color: var(--v2-ink);
+  border-bottom: 1px solid var(--v2-border);
+  text-decoration: none;
+}
+[data-sx="v2"] a:hover {
+  color: var(--v2-accent);
+  border-bottom-color: var(--v2-accent);
+}
+
+/* Focus ring — screen 03. One rule, so every interactive element in scope
+   (buttons, links, the mobile nav trigger) gets it for free. */
+[data-sx="v2"] :focus-visible {
+  outline: 2px solid var(--v2-ink);
+  outline-offset: 2px;
+}
+
+@keyframes sx-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes sx-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Durations are the design system's, not a guess — screen 03's MOTION spec:
+   "blink 1.1s step-end … marquee 36s … nothing else moves." */
+[data-sx="v2"] .sx-marquee {
+  animation: sx-marquee 36s linear infinite;
+}
+[data-sx="v2"] .sx-blink {
+  animation: sx-blink 1.1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sx="v2"] .sx-marquee,
+  [data-sx="v2"] .sx-blink {
+    animation: none !important;
+  }
+}
+/* =================== end SUREX v2 ========================================== */

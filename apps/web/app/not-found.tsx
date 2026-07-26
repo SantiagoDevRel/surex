@@ -10,7 +10,7 @@ export default function NotFound() {
         A record lives at <code className="font-mono text-ink">/r/&lt;fingerprint&gt;</code> and its
         dispute at <code className="font-mono text-ink">/d/&lt;fingerprint&gt;</code>.
       </p>
-      <Link href="/" className="mt-4 inline-block text-row text-accent">
+      <Link href="/registry" className="mt-4 inline-block text-row text-accent">
         ← {COPY.browse.title}
       </Link>
     </main>
