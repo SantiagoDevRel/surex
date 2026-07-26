@@ -25,7 +25,8 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 
 ## 2. Status — read this before assuming anything exists
 
-**Building. The chain runs end to end. The registry is not yet populated from real reviews.**
+**Building. The chain runs end to end, and the submit pipeline has now published real reviews of real
+third-party servers — none of them as a public flag, by design (§4).**
 
 | Area | State |
 |---|---|
@@ -44,22 +45,25 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 | `packages/worker` + seeding | **done** — 50 real servers seeded from the official MCP registry into one certified Walrus quilt, resume tested twice |
 | World **AgentKit / AgentBook** | **built and live** — `SUREX_WORLD=1` on the deployed API. The agent path recovers the address from the signature locally, then reads AgentBook on World Chain 480. Exercised against a real third-party registration. **Nobody is registered as our agent yet** — that is the Orb step. |
 | World **ID** (human disputes) | **built, not provable yet** — needs a Developer Portal app (`WORLD_RP_ID`, `RP_SIGNING_KEY`, `NEXT_PUBLIC_WORLD_APP_ID`). Unset gives an explicit configuration error that says it is *our* misconfiguration and not a judgement about the contestant. Never a pass. |
-| Any **real** review of a real third-party server | **none** — the only thing reviewed is our own fixture |
+| Any **real** review of a real third-party server | **yes, five, through the submit pipeline end to end** (2026-07-26): `openbnb-org/mcp-server-airbnb`, `anaisbetts/mcp-installer` (npm path), `financial-datasets/mcp-server` (Python → `unreviewable / source-unavailable`), and `SantiagoDevRel/mcp-medellin-news` twice. Every one exited 0 and published an honest entry. **None of the third-party reviews is published as a flag** — all came back flagged from the model and are held as `unreviewable / withheld` (§4). Worth knowing and not yet explained: **none of them came back clean**, and the likely cause is that this path reads the README only and never starts the server, so more behaviour reads as undeclared than on the `review-known.mjs` path that enumerates `tools/list`. |
 | Deployed | **yes** — web `arkiv-surex.vercel.app`, API `arkiv-surex-api.vercel.app`, both on `santiago-prod`, both reading live Braga. Git-connected to this repo, so every push to `main` redeploys. |
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | **Reviewer calibration** | **built and measured** — `scripts/calibrate.mjs` scores every fixture against the ground truth its own specification recorded *before* any review ran, and exits non-zero on a regression. It is the precondition for reviewing anyone else's code: §7 carries the numbers. |
-| The registry, live | **85 entries** · 10 clean · 7 flagged · 10 unreviewable(licence) · 58 unknown. Every clean and every flag is one of our own fixtures; the 58 unknowns are real servers nobody has reviewed yet — `scripts/review-known.mjs` is the pass that changes that. |
+| The registry, live | **14 verdict heads** · 7 clean · 3 flagged · 4 unreviewable, measured against the deployed API on 2026-07-26. Three of the unreviewable are `withheld` third-party submissions; one is a licence refusal. |
 | **ENS** offchain resolver + CCIP-Read gateway | **live on Ethereum mainnet, end to end.** [`surex.eth`](https://app.ens.domains/surex.eth) (ours, expires 2027-07-25) → `SureXOffchainResolver` at `0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`, gateway at `/api/ens/`. A stock viem client reads a verdict off a subname nobody registered: `getEnsText({name:'sxf1-<40 hex>.surex.eth', key:'surex:state'})` → `flagged`. Wildcard resolution, signed CCIP-Read response, `resolveWithProof` verifying against the pinned key, data live from Arkiv. Verify with `node probes/ens-resolve.mjs live --name <name>`. ⚠️ `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` was the FIRST deployment and is superseded — it dropped the name from the callData (E8). This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
 
-**Total: 520 tests green** (`pnpm test`), plus 66 in the web app including the copy-law
-walk and the ENS record walk.
+**Total: 835 tests green** (`npm test` at the root, which includes the web app's copy-law walk, the ENS
+record walk and the verdict-view meaning table).
 
 **What is real and what is not, right now.** The gate, the fingerprint, the block message, the Walrus fetch,
-the blob-ID recomputation and the review of our own fixture on a real model are all real and tested. The
-*verdict content* in the demo is a hand-written head pointing at a real certified blob — the mechanism is
-genuine, the finding is about our own fixture, and **no third-party server has been reviewed by anything**.
-Say it that way. Anything the API serves in mock mode carries `illustrative: true` and the web app renders a
-banner derived from that flag, not from a setting someone could forget.
+the blob-ID recomputation and the reviews on a real model are all real and tested. Since 2026-07-26 the
+submit pipeline has run end to end against real third-party repositories and published their entries — so
+"no third-party server has been reviewed" is no longer the honest sentence. The honest sentence is:
+**every third-party review so far came back flagged from the model and NONE is published as a flag** — they
+are held as `unreviewable / withheld`, which is what §4 requires and what the entry says. The only
+publicly flagged servers are ones we wrote. Anything the API serves in mock mode carries
+`illustrative: true` and the web app renders a banner derived from that flag, not from a setting someone
+could forget.
 
 Everything numeric in `design/prototype.html` is **placeholder content** served behind a banner. Never
 remove that banner while the data is fake, and never quote those numbers as if they were real. Anything the
@@ -189,10 +193,9 @@ unresolved — test it, do not guess.
 - Installable from a plain git repo: `/plugin marketplace add <owner>/<repo>` then `/plugin install <name>@<owner>`. Minimum manifest is `.claude-plugin/marketplace.json` with a name and a repository.
 - On install, Claude Code shows the user a "Will install" list naming the hooks and MCP servers, behind a trust gate. Plugin hooks run **unsandboxed** — say so in the README.
 
-**The reviewer, calibrated** — `scripts/calibrate.mjs`, measured 2026-07-25 against
-`qwen3-coder-next:surex32k`, prompt `rv-1`/`rv-2` (the two are byte-identical for any server whose tools
-enumerate, which every fixture does — see the version log at the top of `prompt.mjs`). Re-run it before
-trusting the reviewer with anything new; it exits non-zero on a regression and writes a report to `Downloads/`.
+**The reviewer, calibrated** — `scripts/calibrate.mjs`, measured **2026-07-26** against
+`qwen3-coder-next:surex32k`, prompt **`rv-7`**. Re-run it before trusting the reviewer with anything new; it
+exits non-zero on a regression and writes a report to `Downloads/`.
 
 The ground truth is not invented by the harness. It is what the fixtures' own specifications
 (`packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md`) recorded **before any review ran**, which is the only
@@ -202,14 +205,22 @@ blocking** (`decide()` blocks at severity 3, so a flag at severity 2 is a warnin
 harness also checks the finding points at the real mechanism, because a flag for the wrong reason is a flag by
 luck, and luck does not transfer to code we did not write.
 
-**48 readings — 16 fixtures, 3 runs each:**
+**51 readings — 17 fixtures, 3 runs each, on the prompt that ships:**
 
 | | |
 |---|---|
 | honest | **15/15 clean · 0 accused** |
 | malicious | **18/18 flagged · 18/18 actually BLOCK · 18/18 mechanism identified** |
-| ambiguous | **15/15 landed on the predicted verdict** |
-| | recall **100%** · precision **100%** |
+| ambiguous | **18/18 landed on the predicted verdict · 0 off-book** |
+| | recall **100%** · precision **100%** · 0/51 readings needed a tie-break |
+
+**rv-7 was measured, not assumed, and the first measurement failed.** Two fields were added — `concern` and
+`assessment` — and the run that followed came back `honest 0/5 clean · abstained 5`: both readings of every
+honest fixture were being thrown away, because asking for a second piece of prose made the model stop
+producing the first and the validator required it. Fixed in the prompt and in the validator (FRICTION-LOG
+D12). The re-run then lost one malicious reading to severity 2 — a rule written about the concern LABEL was
+being applied to severity — which is scoped explicitly now. The numbers above are one coherent run of the
+exact prompt in the tree, not a best-of.
 
 **What calibration changed, and it is not cosmetic.** Before the tie-break, `honest-sqlite` — a fixture written
 to be well behaved — returned **flagged, clean, clean** across three identical inputs while the other fifteen
