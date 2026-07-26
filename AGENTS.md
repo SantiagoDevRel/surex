@@ -5,6 +5,25 @@ duplicate rules across the two files.
 
 ---
 
+## 0. If you are here for ONE thing, it is probably one of these
+
+Read this section, take the branch that applies, and stop. The rest of this file is for someone changing
+the code.
+
+| You are… | Go to | And nothing else |
+|---|---|---|
+| **a sponsor team** (Sui/Walrus · World · ENS) or **Arkiv/MCP/Vercel/ollama** | [`docs/FEEDBACK.md`](./docs/FEEDBACK.md) — grouped by whose codebase can act on it, with per-team anchors | it is self-contained. Every `[VERIFIED]` entry carries a repro command and version numbers; anything unverified says so and is never rounded up. IDs index into [`FRICTION-LOG.md`](./FRICTION-LOG.md) |
+| **a judge** asking what is real | [§2 Status](#2--status--read-this-before-assuming-anything-exists) | it lists what is built, what is deployed, and what is **not** built, by name |
+| **a developer** installing the gate | [`README.md`](./README.md) → the docs site, machine-readable at `/llms.txt` | two slash commands, no npm install |
+| **a maintainer** whose server got a verdict | the verdict page `/r/<fingerprint>` → **File a dispute** | the finding carries file, line, model and prompt version, so it is answerable. A rebuttal is stored as its own blob and shown beside the accusation with equal weight |
+| **an agent changing this code** | §3 onward, and §4 before anything else | §4 is the rule set; breaking one of those is worse than shipping nothing |
+
+**Sponsor feedback is submission material and it has a one-way street.** New findings go into
+`FRICTION-LOG.md` **first**, with the measurement, and only then get carried into `docs/FEEDBACK.md` — never
+the other way round, and never upgraded from *observed* to `[VERIFIED]` in the crossing.
+
+---
+
 ## 1. What this is
 
 **SureX is a trust registry for MCP servers, plus a gate that reads it.**

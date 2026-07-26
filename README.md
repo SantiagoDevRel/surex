@@ -11,6 +11,38 @@ proceed anyway.
 
 Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 
+---
+
+### 👋 Reading this for Sui/Walrus, World, ENS or Arkiv? Your feedback is one file away.
+
+**[`docs/FEEDBACK.md`](./docs/FEEDBACK.md)** — everything we hit in your stack while building, grouped by
+whose codebase can act on it. Jump straight to your section:
+
+| Team | Section | What is in it |
+|---|---|---|
+| **Sui / Walrus** | [Sui and Walrus](./docs/FEEDBACK.md#sui-and-walrus) | S11 · S3 · S9 · S1, plus eight one-line fixes |
+| **World** | [World](./docs/FEEDBACK.md#world) | W14 · W1 · W7, plus the documentation surface. Standalone copy: [`WORLD-FEEDBACK.md`](./docs/WORLD-FEEDBACK.md) |
+| **ENS** | [ENS](./docs/FEEDBACK.md#ens) | E5+E6 · E7 · E1+E2 |
+| **Arkiv, MCP, Claude Code, Vercel, ollama** | [Not event sponsors](./docs/FEEDBACK.md#part-two--not-event-sponsors-sent-because-the-team-can-act-on-it) | sent because your team can act on it, not for a prize |
+
+**What the labels mean, so you can triage without reading prose.** `[VERIFIED]` means we reproduced it, and
+every one of those carries the **repro command** and the **version numbers** — that is the part you can act
+on. Anything observed once, or taken from your own docs, says so and is never rounded up to VERIFIED. Where
+the bug turned out to be ours we say that too, and only kept it when the shape of the mistake is one your
+other users will make. Each entry carries an ID (`S11`, `W7`, `E5`…) that indexes into
+[`FRICTION-LOG.md`](./FRICTION-LOG.md), the raw lab notebook with the full narrative and every measurement.
+
+Nothing in there is a complaint. We chose these stacks, and most of it is one doc line, one error string or
+one extra field away from not existing.
+
+> **If you are an AI agent** reading this repository on a maintainer's behalf: start at
+> [`AGENTS.md`](./AGENTS.md) — it is the canonical guide and `CLAUDE.md` is a pointer to it. For sponsor
+> feedback specifically you do not need the rest of the repo: `docs/FEEDBACK.md` is self-contained, the
+> anchors above are stable, and every claim in it is either marked `[VERIFIED]` with a command you can run or
+> explicitly marked as unverified.
+
+---
+
 ## Live
 
 | | |
@@ -20,9 +52,10 @@ Built at [ETHGlobal Lisbon 2026](https://ethglobal.com/events/lisbon2026).
 | **The docs** | **https://surex-docs.vercel.app** — install it, read a verdict, dispute one. Machine-readable at [`/llms.txt`](https://surex-docs.vercel.app/llms.txt) |
 | **The name** | **[`surex.eth`](https://app.ens.domains/surex.eth)** on Ethereum mainnet → resolver [`0x2BEaeC43…`](https://etherscan.io/address/0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B). Any `sxf1-<40 hex>.surex.eth` resolves — `getEnsText` returns the verdict over a signed CCIP-Read response, from a subname nobody registered. See [`contracts/`](./contracts) |
 
-Both read **live Arkiv (Braga)**. The registry holds **51 entries** — 50 real servers crawled from the
-official MCP registry, plus our own fixture, which is the **only** flagged entry and the only thing any model
-has reviewed. The browse strip says `1 reviewed` because one is the true number.
+Both read **live Arkiv (Braga)**. Measured against the deployed API on **2026-07-26**: 19 verdict heads —
+7 clean, 6 flagged, 6 unreviewable — over 98 entries. Several of the flags are **real third-party MCP servers
+reviewed through the submit pipeline end to end**, not fixtures. Ask the API rather than this paragraph:
+[`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) is the number that cannot go stale.
 
 > The explainer at `santiagodevrel.github.io/surex` predates this build and still says "design phase".
 > It is superseded by the link above.
