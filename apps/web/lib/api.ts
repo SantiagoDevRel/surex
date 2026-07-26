@@ -46,9 +46,16 @@ export { apiBase } from './api-base.ts';
 /**
  * More generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on purpose: that
  * budget exists because the gate sits in front of every tool call. A page
- * render can afford to wait a little longer before giving up on live data.
+ * render can afford to wait longer before giving up on live data.
+ *
+ * 2500 ms was not longer enough. Six consecutive `/v1/entry` reads against the
+ * deployed API measured 2.7-3.2 s warm, so the budget was under the ordinary
+ * case and every read fell back to fixtures; a cold function is slower still.
+ * The failure is silent and asymmetric — the page loses live data and shows
+ * placeholder content in its place — so the budget is set above the cold case
+ * rather than beside the warm one.
  */
-const TIMEOUT_MS = 2500;
+const TIMEOUT_MS = 8000;
 
 type Fetched<T> =
   | { ok: true; data: T }
