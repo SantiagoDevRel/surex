@@ -28,24 +28,35 @@ export const COPY = {
     /** The one-line description of the mechanism, used in metadata. */
     description:
       'A public registry of automated reviews of MCP servers, and the linkage between what was reviewed and what you installed.',
+    /** Named once. The chrome links it and the docs quote it. */
+    repoUrl: 'https://github.com/SantiagoDevRel/surex',
   },
 
+  /**
+   * The chrome, on every route. Four destinations and one action.
+   *
+   * Lowercase throughout, because the header sets them in SUSE Mono at 11.5px
+   * and the wordmark beside them is the only thing on the row entitled to
+   * shout. "submit an mcp" over "submit a server": the registry reviews MCP
+   * servers specifically, and "a server" is the one word in that phrase a
+   * visitor could read as any server at all.
+   */
   nav: {
+    home: 'home',
     registry: 'registry',
-    submit: 'submit a server',
+    submit: 'submit an mcp',
+    /** The source. A trust registry that cannot be read is asking to be trusted twice. */
+    github: 'github',
     /**
      * The one thing a visitor can do that changes anything on their machine, so
      * it is the one thing in the chrome styled as an action rather than a
-     * destination. "Get the plugin" over "download": nothing is downloaded — the
-     * install is two slash commands pasted into Claude Code, and a button
+     * destination. "Install plugin" over "download": nothing is downloaded —
+     * the install is two slash commands pasted into Claude Code, and a button
      * promising a file would be describing a different product.
      */
-    install: 'get the plugin',
+    install: 'install plugin',
     installTitle: 'Install the SureX gate into Claude Code: two slash commands, no npm install',
     skipToContent: 'Skip to content',
-    themeToDark: 'switch to dark',
-    themeToLight: 'switch to light',
-    themeLabel: 'Theme',
   },
 
   /**
@@ -827,11 +838,18 @@ export const COPY = {
 
   /** The homepage. Numbers on the stat band come from `lib/home-data.ts`, never from here. */
   home: {
+    /**
+     * What is left of the homepage's own nav copy now that the header is the
+     * site's and reads from `COPY.nav`: the mobile trigger and its dismiss.
+     *
+     * `registry`, `howItWorks`, `disputes` and `installCommand` lived here and
+     * are gone. The first duplicated `COPY.nav.registry`; the two anchors point
+     * into this page and the header now renders on five routes, so from four of
+     * them they pointed at ids that are not on the page; and the command chip
+     * is a button now. Both sections still exist and still carry their ids —
+     * `Pipeline` owns them — they are just not linked from the chrome.
+     */
     nav: {
-      registry: 'registry',
-      howItWorks: 'how it works',
-      disputes: 'disputes',
-      installCommand: '/plugin install surex@surex',
       /** The mobile nav trigger and its dismiss, lowercase like the rest of the nav. */
       menuOpen: 'menu',
       menuClose: 'close',

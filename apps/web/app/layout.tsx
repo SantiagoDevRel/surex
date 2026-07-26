@@ -1,37 +1,27 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Source_Serif_4, SUSE } from 'next/font/google';
+import { SUSE } from 'next/font/google';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
 
 import { Chrome } from './_components/Chrome.tsx';
+import { SiteFooter } from './_components/SiteFooter.tsx';
 import './globals.css';
 
 /**
- * design/tokens.html §02 — two typefaces, one job each.
- *   IBM Plex Mono   → structure: rows, labels, stamps, commands, terminals
- *   Source Serif 4  → evidence prose: findings, rebuttals, long-form
+ * Two typefaces, one job each — the rule design/tokens.html §02 states, with
+ * the pair the v2 design system names:
+ *   SUSE Mono → structure: rows, labels, stamps, commands, terminals
+ *   SUSE      → voice: findings, rebuttals, long-form
  * Nothing else. A third face would blur which of the two a block of text is.
- */
-const mono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-plex-mono',
-  display: 'swap',
-});
-
-const serif = Source_Serif_4({
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  variable: '--font-source-serif',
-  display: 'swap',
-});
-
-/**
- * v2 homepage only — SUSE (voice) and SUSE Mono (structure). Registry pages
- * stay on `mono`/`serif` above; these two are additive, not a replacement.
+ *
+ * IBM Plex Mono and Source Serif 4 were that pair until the whole site moved to
+ * the v2 language, and they are loaded here no longer. `--font-mono` and
+ * `--font-serif` in globals.css now resolve to these two, so every screen reads
+ * them under the names the components already use — which is why no component
+ * changed. Leaving the old two declared would have downloaded two families
+ * nothing renders.
  *
  * SUSE Mono is real and live on Google Fonts, but this Next version's bundled
  * `next/font/google` metadata predates it — `SUSE` resolves, `SUSE_Mono`
@@ -77,26 +67,37 @@ export const metadata: Metadata = {
 };
 
 /**
- * Applied before first paint so a reader who chose light does not get a frame
- * of dark. Dark stays the default: with no stored choice this script does
- * nothing and the CSS decides.
+ * No theme bootstrap script, and no `suppressHydrationWarning` that existed to
+ * cover it. Both were there to apply a stored light/dark choice before first
+ * paint; nothing themes any more (see the header of `globals.css`), so the
+ * script had nothing to apply and the warning had nothing to suppress. Two
+ * fewer things running before the first byte of content renders.
  */
-const THEME_BOOTSTRAP =
-  "try{var t=localStorage.getItem('surex-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}";
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${mono.variable} ${serif.variable} ${suse.variable} ${suseMono.variable}`}
-      suppressHydrationWarning
+      className={`${suse.variable} ${suseMono.variable}`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-      </head>
       <body className="font-mono">
         <Chrome />
-        {children}
+        {/*
+          This wrapper is load-bearing, and not for layout reasons you can see.
+
+          `body` is a flex column so the footer can sit at the bottom of short
+          routes. Page content is a `<main className="mx-auto max-w-[...]">`,
+          and a flex ITEM with auto inline margins does not stretch to the
+          container — it sizes to max-content. The registry's widest table row
+          is about 1060px, so at a 375px viewport `main` became 1060px wide and
+          the whole document scrolled sideways. Measured, not theorised.
+
+          Wrapping restores a block formatting context: this div is the flex
+          item and stretches, `main` is an ordinary block inside it, and
+          `mx-auto max-w-*` means what it has always meant. `flex-1` is what
+          actually pushes the footer down.
+        */}
+        <div className="flex-1">{children}</div>
+        <SiteFooter />
       </body>
     </html>
   );

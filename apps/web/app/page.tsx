@@ -7,16 +7,17 @@ import { Hero } from './_components/home/Hero.tsx';
 import { InstallBand } from './_components/home/InstallBand.tsx';
 import { Pipeline } from './_components/home/Pipeline.tsx';
 import { Roadmap } from './_components/home/Roadmap.tsx';
-import { MAIN_ID, SiteHeader } from './_components/home/SiteHeader.tsx';
 import { StatBand } from './_components/home/StatBand.tsx';
 import { TerminalWindow } from './_components/home/TerminalWindow.tsx';
 import { Ticker } from './_components/home/Ticker.tsx';
 
 /**
  * The homepage. `data-sx="v2"` scopes the whole tree to the token layer at the
- * end of globals.css — dark-only, achromatic accent, nothing rounded. The
- * global chrome is suppressed on this route (see `_components/Chrome.tsx`);
- * the header here is the page's own.
+ * end of globals.css — dark-only, achromatic accent, nothing rounded.
+ *
+ * The header is no longer rendered here. `Chrome` renders it on every route
+ * including this one, because it is the site's header now and not this page's
+ * — see `_components/Chrome.tsx`.
  *
  * Dynamic for the same reason the registry is: the API is a separate lane and
  * may come up after this page is deployed. Prerendering would freeze whichever
@@ -57,8 +58,6 @@ export default async function HomePage() {
         </p>
       ) : null}
 
-      <SiteHeader />
-
       {/*
         Order is deliberate. `Pipeline` ends on "06 THE CHECK — runs before the
         tool call, on your machine", and `TerminalWindow` is a transcript of
@@ -66,7 +65,7 @@ export default async function HomePage() {
         `Roadmap` is the only section about work not yet done, so it sits last,
         immediately before the closer's install command.
       */}
-      <main id={MAIN_ID}>
+      <main>
         <Hero />
         <Ticker items={items} />
         <StatBand tiles={tiles} />
