@@ -4,12 +4,8 @@ import { useState } from 'react';
 
 import { COPY } from '@/lib/copy.ts';
 
-/**
- * A command block with a copy affordance top-right (design/tokens.html §08).
- *
- * The terminal rules apply here too: the command stands alone with nothing
- * after it on the line, so a triple-click selects exactly the command.
- */
+/** A command block with a copy affordance top-right. The command stands alone
+ *  with nothing after it on the line, so a triple-click selects exactly it. */
 export function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 

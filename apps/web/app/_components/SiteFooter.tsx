@@ -7,16 +7,9 @@ import { COPY } from '@/lib/copy.ts';
 const MUTED_LINK =
   'border-b-0! text-[var(--v2-ink-3)]! hover:text-[var(--v2-ink)]! -my-[14px] inline-flex min-w-[44px] items-center justify-center py-[14px]';
 
-/**
- * Destinations, not copy, so they have no COPY key — same reasoning as
- * `SiteHeader`'s pinned `INSTALL_URL`. Labels come from `COPY.home.footer`.
- *
- * The registry entry is a relative `/registry`, and it is the one that changed:
- * it used to be the absolute site root, which was the registry table until the
- * landing page took that route. Absolute is also just wrong for a link to the
- * page you are already on — it left the deployment and came back, losing client
- * navigation and pinning a preview build to production.
- */
+// Destinations, not copy, so no COPY key; labels come from `COPY.home.footer`.
+// `/registry` is relative — absolute would leave the deployment and lose
+// client navigation for a link to a page already on this site.
 const FOOTER_LINKS = [
   { href: '/registry', label: COPY.home.footer.registry, external: false },
   {
@@ -30,19 +23,10 @@ const FOOTER_LINKS = [
 ] as const;
 
 /**
- * The site's footer, on every route — the counterpart to `Chrome` at the other
- * end of the page.
- *
- * It is lifted verbatim out of `Closer`, which is why it looks like the
- * homepage: the homepage was the only route that had a footer of the site at
- * all. The other four ended on `Footer`, a one-line provenance strip naming
- * where blobs and the verdict index live — which is a statement about the
- * record on that page, not a way out of it, and it is still there doing that
- * job. Ending four routes on a technical strip and one on a signed-off site
- * footer was the same "two people built this" tell as the two headers were.
- *
- * `data-sx="v2"` for the same reason `Chrome` sets it: `--v2-*` exist only
- * inside that scope, and outside it every one of them resolves to nothing.
+ * The site's footer, on every route — the counterpart to `Chrome`. `Footer`
+ * (a one-line provenance strip) still runs alongside it on the other routes,
+ * naming where blobs and the verdict index live. `data-sx="v2"` for the same
+ * reason `Chrome` sets it — `--v2-*` only exists inside that scope.
  */
 export function SiteFooter() {
   return (

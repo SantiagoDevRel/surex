@@ -233,10 +233,8 @@ test('loadModel times out instead of hanging a demo', async () => {
 });
 
 test('loadModel leaves no pending timer behind', async () => {
-  // Regression: the abort timer was not cleared on the success path, so every call
-  // left a 120-second timer holding the event loop open. It kept `node --test`
-  // alive for a hundred seconds after the last assertion, and on a serverless
-  // invocation it keeps the function alive long after it has answered.
+  // An uncleared abort timer holds the event loop open for its full 120 seconds —
+  // `node --test` hangs, and a serverless invocation stays alive after answering.
   const timers = () => process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
   const before = timers();
   await loadModel({

@@ -3,29 +3,16 @@ import { stateStyle } from '@/lib/state-styles.ts';
 import type { RowStatus, Tier } from '@/lib/types.ts';
 
 /**
- * The linkage chain. LOCKED as the PRIMARY tier display — design/tokens.html
- * §05, option 2c. Not decoration: this is how the tier is read.
- *
- * The tier is drawn as the bridge between the reviewed blob and the local
- * install, and **the missing segments are drawn as gaps**:
- *
- *   filled          → checked
- *   outlined        → asserted but unchecked
- *   flowing dashes  → nothing to check
- *
- * Hue is the state. The right-hand well tells the truth about the local side —
- * and the truth is often "we cannot see your machine", which is exactly what it
- * has to say.
+ * The linkage chain — the primary tier display, not decoration. Filled means
+ * checked, outlined means asserted but unchecked, flowing dashes mean nothing
+ * to check. Hue is the state; the right-hand well tells the truth about the
+ * local side, often "we cannot see your machine".
  */
 
 const SEGMENT = 'h-[9px] w-[46px] rounded-input mx-1 origin-left shrink-0';
 
-/**
- * §03 — the chain draws with a ~250ms stagger. Expressed as three DURATIONS
- * rather than three delays: all segments start at t=0 and finish in sequence,
- * so none of them is ever held invisible by a delay + `both` fill-mode. The
- * chain is the tier display, and it has to be legible in a screenshot.
- */
+// Expressed as three durations rather than delays — all segments start at
+// t=0 and finish in sequence, so none is held invisible in a screenshot.
 const DRAW = [
   '[animation-duration:400ms]',
   '[animation-duration:650ms]',

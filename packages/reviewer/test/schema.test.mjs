@@ -17,10 +17,6 @@ const GOOD = {
   statedIntentSummary: 'Claims to search notes.',
 };
 
-// ---------------------------------------------------------------------------
-// getting JSON out of a real-world completion
-// ---------------------------------------------------------------------------
-
 test('extractJson parses a bare object', () => {
   const r = extractJson(JSON.stringify(GOOD));
   assert.equal(r.ok, true);
@@ -54,10 +50,6 @@ test('extractJson fails on prose with no object at all', () => {
 test('extractJson refuses a JSON array — the contract is an object', () => {
   assert.equal(extractJson('[1,2,3]').ok, false);
 });
-
-// ---------------------------------------------------------------------------
-// validating one model run
-// ---------------------------------------------------------------------------
 
 test('a well-formed run validates and keeps only contract fields', () => {
   const r = validateModelOutput({ ...GOOD, capabilities: { network: { present: false } } });
@@ -123,10 +115,6 @@ test('a non-object response is rejected', () => {
   for (const raw of [null, undefined, 'clean', 42, []]) assert.equal(validateModelOutput(raw).ok, false);
 });
 
-// ---------------------------------------------------------------------------
-// the assembled record
-// ---------------------------------------------------------------------------
-
 const RECORD = {
   verdict: 'flagged', reason: null, severity: 3, findings: GOOD.findings,
   statedIntentSummary: 'x', capabilities: emptyCapabilities(),
@@ -157,8 +145,8 @@ test('a record must name a model and a prompt version', () => {
 });
 
 test('agreementRuns is bounded by the panel — at most four readings', () => {
-  // Two paraphrased readings, plus one more of each when those two disagree.
-  // Five would mean a panel nothing in the reviewer can produce.
+  // Two paraphrased readings, plus one more of each when those two disagree. Five
+  // would mean a panel nothing in the reviewer can produce.
   assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: 5 }).ok, false);
   assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: -1 }).ok, false);
   for (const n of [0, 1, 2, 3, 4]) assert.equal(validateReviewRecord({ ...RECORD, agreementRuns: n }).ok, true);
@@ -191,10 +179,6 @@ test('clampSeverity keeps severity inside the contract', () => {
   assert.equal(clampSeverity('2'), 2);
   assert.equal(clampSeverity('nonsense'), 0);
 });
-
-// ---------------------------------------------------------------------------
-// the transport, where the real gotchas were
-// ---------------------------------------------------------------------------
 
 test('a reasoning model that spent its whole budget on thinking is an empty response, not a verdict', () => {
   // Verbatim shape from the DGX: gpt-oss:20b with max_tokens 8 returned the
@@ -239,14 +223,10 @@ test('a nonsense timeout falls back to the default rather than to zero', () => {
   assert.equal(resolveConfig({ SUREX_REVIEWER_TIMEOUT_MS: '5000' }).timeoutMs, 5000);
 });
 
-// ---------------------------------------------------------------------------
-// rv-7: the concern, and what a single reading may claim with it
-// ---------------------------------------------------------------------------
-
 test('one usable reading cannot publish the concern that accuses a person', () => {
-  // The severity merge already caps a lone reading. Publishing
+  // The severity merge already caps a lone reading, so publishing
   // `deliberate-concealment` — the only value asserting purpose rather than
-  // mechanism — from that same reading, uncapped, was the asymmetry.
+  // mechanism — uncapped from that same reading is an asymmetry.
   const one = mergeRuns([
     { parsed: { verdict: 'flagged', reason: null, severity: 4, concern: 'deliberate-concealment',
                 assessment: 'It base64-encodes the destination.', findings: [], statedIntentSummary: 's' } },

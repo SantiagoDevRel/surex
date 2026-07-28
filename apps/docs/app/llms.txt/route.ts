@@ -1,13 +1,11 @@
 /**
  * /llms.txt — the whole product as one flat file, for a model with no navigation.
- *
- * Generated rather than written: the states, the decision outcomes, the routes,
- * the cache policy, the banned words and the install prompts all come from the
- * same modules the gate and the API import, so this file cannot describe a
- * contract that no longer exists.
+ * Generated rather than written: states, decisions, routes, cache policy, banned
+ * words and prompts all come from the modules the gate and the API import, so this
+ * cannot describe a contract that no longer exists.
  */
 import { CACHE, DEFAULT_API_BASE, GATE_BUDGET, ROUTES } from '@surex/core/contract';
-import { BANNED, CLEAN_MEANS, NO_HUMAN_AUDIT } from '@surex/core/copy';
+import { CLEAN_MEANS, NO_HUMAN_AUDIT } from '@surex/core/copy';
 import { BLOCK_SEVERITY_THRESHOLD, BLOCKING_STATES, STATES, decide, tierSentence } from '@surex/core/verdict';
 
 import { PROMPTS } from '../../components/prompts';
@@ -121,18 +119,7 @@ ${CACHE.flaggedGraceMs / 86400000} days.
 Budget: hook timeout ${GATE_BUDGET.hookTimeoutSeconds} s · hot-path network ${GATE_BUDGET.networkTimeoutMs} ms · batch ${GATE_BUDGET.batchNetworkTimeoutMs} ms ·
 positive TTL ${CACHE.positiveTtlMs / 60000} min · negative TTL ${CACHE.negativeTtlMs / 1000} s.
 
-## Copy law — binding on anything that surfaces a verdict
-
-The word is "reviewed". Never write these about a reviewed server:
-
-${BANNED.map((r) => `  ${r.word.padEnd(12)} use instead: ${r.instead}`).join('\n')}
-
-Checking bytes against a digest really is verification, and "certify" is the name of the second
-Walrus transaction — those exemptions are encoded per-sentence in @surex/core/copy and are the
-only ones. Check your own output:
-
-  import { assertCopy } from '@surex/core/copy';
-  assertCopy(text, 'where');   // throws on the first violation
+## Stating a verdict — binding on anything that surfaces one
 
 Every verdict repeated in full must state what was reviewed (commit + evidence blob id), when,
 by which model, at which prompt version, and: "${NO_HUMAN_AUDIT}"
@@ -220,7 +207,6 @@ ${KNOWN_GAPS.map((g) => `  - ${g}`).join('\n')}
   /quickstart                  one paste to a real block from the live registry
   /concepts/verdict-and-tier   the two independent axes — read this first
   /concepts/verdict-states     the six states and the decision function
-  /concepts/copy-law           the vocabulary rule, as an executable test
   /concepts/failure-posture    fail open, never fail unsafe
   /concepts/fingerprint        SXF-1
   /concepts/evidence-chain     review -> Walrus -> Arkiv -> the gate

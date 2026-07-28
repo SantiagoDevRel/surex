@@ -1,23 +1,15 @@
 /**
- * ENS, server side only.
+ * ENS, server side only, and not by accident: `SUREX_ENS_SIGNING_KEY` signs
+ * verdicts a contract believes, so leaking it lets someone else sign in
+ * SureX's name. Never import this from a client component; the key must never
+ * become `NEXT_PUBLIC_*`.
  *
- * SERVER ONLY, and not by accident: `SUREX_ENS_SIGNING_KEY` is the key an ENS
- * client checks a CCIP-Read response against, and the mainnet resolver pins
- * its address. Anything that leaks it lets someone else sign a verdict in
- * SureX's name — and unlike an HTTP response, a signed one is meant to be
- * believed by a contract. Nothing here may ever be imported by a client
- * component, and the key must never become `NEXT_PUBLIC_*`.
+ * This file holds everything pure (label encoding, text-record table, digest);
+ * the route next door does IO and signing.
  *
- * What lives here is everything pure: the label encoding, the text-record
- * table, and the digest. The route next door does IO and signing and nothing
- * else, so all of the logic worth testing is testable without a server.
- *
- * ⚠️ `signatureDigest()` is duplicated in Solidity — `makeSignatureHash()` in
- * `contracts/src/SureXOffchainResolver.sol`. The gateway signs what this
- * computes and the resolver checks what that computes; if the two ever disagree
- * every lookup fails `resolveWithProof` with no clue why. The same fixed vector
- * is pinned in BOTH suites (`apps/web/test/ens.test.mjs` and
- * `contracts/test/SureXOffchainResolver.t.sol`), so drift breaks a test.
+ * ⚠️ `signatureDigest()` is duplicated in `makeSignatureHash()`
+ * (`contracts/src/SureXOffchainResolver.sol`) — if the two disagree every lookup
+ * fails `resolveWithProof` silently. Pinned in both test suites so drift breaks a test.
  */
 
 import { copyViolations, isFingerprint } from '@surex/core';
@@ -25,23 +17,14 @@ import { encodePacked, keccak256, type Address, type Hex } from 'viem';
 
 import type { VerdictHead } from './types.ts';
 
-/**
- * The label prefix. Deliberately NOT `sxf1_`: ENSIP-15 normalisation rejects a
- * mid-label underscore (`underscore allowed only at start`), so the fingerprint
- * is not a legal ENS label as written. FRICTION-LOG E1.
- */
+/** Deliberately not `sxf1_`: ENSIP-15 rejects a mid-label underscore. */
 export const LABEL_PREFIX = 'sxf1-';
 
 /**
- * How much of the fingerprint the label carries. 40 hex chars = 160 bits, which
- * makes the label 45 characters.
- *
- * 45 and not 69 because clients disagree above 63: viem's `packetToBytes`
- * accepts up to 255 bytes per label, ethers' `dnsEncode` throws above 63. A
- * 69-char label would resolve in one and fail in the other. FRICTION-LOG E2.
- *
- * The truncation is a naming convenience, never the identity — `surex:fingerprint`
- * carries all 64 hex characters so a caller matches exactly rather than by prefix.
+ * 40 hex chars (160 bits) → a 45-char label, not 69: clients disagree above the
+ * 63-byte ENS label limit (viem accepts up to 255, ethers' `dnsEncode` throws).
+ * The truncation is a naming convenience, not the identity — `surex:fingerprint`
+ * carries all 64 hex characters for exact matching.
  */
 export const LABEL_HEX_LENGTH = 40;
 
@@ -51,13 +34,7 @@ export function labelFor(fingerprint: string): string | null {
   return LABEL_PREFIX + fingerprint.slice('sxf1_'.length, 'sxf1_'.length + LABEL_HEX_LENGTH);
 }
 
-/**
- * `sxf1-<40 hex>` → the 40 hex characters, or `null`.
- *
- * The inverse of `labelFor` only as far as it can be: 24 hex characters were
- * dropped, so this returns a PREFIX to search with, never a fingerprint. Naming
- * it `fingerprintPrefixOf` rather than `fingerprintOf` is the point.
- */
+/** `sxf1-<40 hex>` → the 40 hex characters, or `null`. Returns a prefix to search with, never a full fingerprint — 24 hex characters were dropped. */
 export function fingerprintPrefixOf(label: string): string | null {
   const lower = String(label ?? '').toLowerCase();
   if (!lower.startsWith(LABEL_PREFIX)) return null;
@@ -72,13 +49,7 @@ export function fingerprintMatchesPrefix(fingerprint: string, prefix: string): b
   return fingerprint.slice('sxf1_'.length).startsWith(prefix);
 }
 
-/**
- * The full ENS name for a fingerprint, or `null` when no parent is configured.
- *
- * `null` is load-bearing on the UI side: with no parent there is no name, and
- * `apps/api/src/links.mjs` already sets the rule — a dead link that looks alive
- * is worse than no link. The row is omitted rather than rendered grey.
- */
+/** The full ENS name for a fingerprint, or `null` when no parent is configured — the row is then omitted rather than rendered as a dead link. */
 export function ensNameFor(fingerprint: string, env: NodeJS.ProcessEnv = process.env): string | null {
   const parent = (env.NEXT_PUBLIC_SUREX_ENS_PARENT ?? env.SUREX_ENS_PARENT)?.trim();
   if (!parent) return null;
@@ -97,24 +68,16 @@ export function ensAppUrl(name: string, env: NodeJS.ProcessEnv = process.env): s
 /* ─────────────────────────────────────────────────────── the DNS wire name ─*/
 
 /**
- * Undo the DNS wire encoding ENSIP-10 passes `name` in: a length byte, that many
- * bytes of label, repeated, terminated by a zero byte.
- *
- * Only the leftmost label is wanted — it carries the fingerprint prefix. The
- * parent is whatever the resolver was set on, and the gateway does not get to
- * have an opinion about it.
- *
- * Lives here rather than in the route because it is pure, and because the route
- * imports `next/server`, which bare Node cannot resolve — anything left in there
- * is untestable by the suite this repo actually runs.
+ * Undo the DNS wire encoding ENSIP-10 passes `name` in (a length byte, that many
+ * bytes of label, repeated). Only the leftmost label is wanted — it carries the
+ * fingerprint prefix.
  */
 export function leftmostLabel(dnsEncoded: string): string | null {
   const bytes = dnsEncoded.startsWith('0x') ? dnsEncoded.slice(2) : dnsEncoded;
   if (bytes.length < 2) return null;
   const length = Number.parseInt(bytes.slice(0, 2), 16);
-  // 0xfe is the ENSIP-10 encoded-label form: the label is a 32-byte hash, not
-  // text, so there is no prefix to read out of it. Our labels are 45 characters
-  // and never take that path, and guessing would be worse than declining.
+  // length > 63 rejects the ENSIP-10 encoded-label form (0xfe): a 32-byte hash,
+  // not text. SureX labels never take that path.
   if (!Number.isFinite(length) || length === 0 || length > 63) return null;
   const hex = bytes.slice(2, 2 + length * 2);
   if (hex.length !== length * 2) return null;
@@ -124,18 +87,10 @@ export function leftmostLabel(dnsEncoded: string): string | null {
 /* ────────────────────────────────────────────────────────── text records ───*/
 
 /**
- * The records a lookup answers with.
- *
- * Every value is a closed enum, a number, an ISO date, a hash, or a URL this
- * file builds. Nothing model-generated is ever emitted — no `topFinding`, no
- * `disputeSummary`. Two reasons, and the second is the real one:
- *
- *   1. A text record is read completely out of context, which is exactly where
- *      a banned word does the most damage (AGENTS.md §4 binds every surface).
- *      Model prose cannot be copy-checked ahead of time; an enum can.
- *   2. A finding is an accusation about a named project. It belongs on a page
- *      that carries the evidence, the date, the model, and the override — not
- *      in a 32-byte-keyed record a wallet renders on its own.
+ * The records a lookup answers with. Every value is a closed enum, a number, an
+ * ISO date, a hash, or a URL — never model-generated prose: a text record is
+ * read out of context (AGENTS.md §4), and a finding belongs on the evidence
+ * page, not a 32-byte-keyed record a wallet renders on its own.
  *
  * `url` is the standard ENS key rather than a `surex:` one, so a client that
  * already knows how to render a name's website lands on the evidence page.
@@ -159,13 +114,10 @@ export function webBase(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
- * Build the record table for one head.
- *
- * Runs the copy law over every value before returning, and THROWS rather than
- * returning a violating set. The test in `test/ens.test.mjs` walks the whole
- * enum space, but the test is the guard, not the only defence: a head arrives
- * from a network call at runtime, and the one thing this must never do is put a
- * banned word inside something signed.
+ * Build the record table for one head. Runs the copy law over every value and
+ * throws on a violation, rather than signing a banned word — the test suite is
+ * the guard, not the only defence, since a head arrives from a network call at
+ * runtime.
  */
 export function recordsFor(head: VerdictHead, env: NodeJS.ProcessEnv = process.env): Record<RecordKey, string> {
   const records: Record<RecordKey, string> = {
@@ -209,16 +161,13 @@ export interface DigestInput {
 }
 
 /**
- * The exact hash `SureXOffchainResolver.makeSignatureHash()` computes.
+ * The exact hash `SureXOffchainResolver.makeSignatureHash()` computes. `0x1900`
+ * is EIP-191 "data with intended validator" — the standard ENS CCIP-Read
+ * construction, unchanged.
  *
- * `0x1900` is EIP-191 version `0x00` — "data with intended validator", the
- * validator being the resolver address that follows it. This is the ENS
- * reference construction, unchanged, so any standard CCIP-Read client verifies
- * a response without knowing anything about SureX.
- *
- * ⚠️ Signed RAW. `privateKeyToAccount().sign({ hash })`, never `signMessage()` —
- * the latter would wrap this in a second EIP-191 personal-message prefix and
- * `ecrecover` would return a stranger's address.
+ * ⚠️ Sign this raw with `privateKeyToAccount().sign({ hash })`, never
+ * `signMessage()` — the latter adds a second EIP-191 prefix and `ecrecover`
+ * returns a stranger's address.
  */
 export function signatureDigest({ resolver, expires, callData, result }: DigestInput): Hex {
   return keccak256(
@@ -247,12 +196,9 @@ export type EnsConfigResult = { ok: true; config: EnsConfig } | { ok: false; mis
 export const DEFAULT_TTL_SECONDS = 300;
 
 /**
- * Read the gateway's configuration, or say precisely what is missing.
- *
- * There is no fallback and no demo mode, for the same reason `worldConfig()` has
- * none: the failure mode of a signing route with a default is a signature over
- * something nobody chose. Missing configuration is a 503 that names the
- * variables, never a manufactured answer.
+ * Read the gateway's configuration, or say precisely what is missing. No
+ * fallback, no demo mode (same reason as `worldConfig()`) — missing config is a
+ * 503 that names the variables, never a manufactured answer.
  */
 export function ensConfig(env: NodeJS.ProcessEnv = process.env): EnsConfigResult {
   const resolver = env.SUREX_ENS_RESOLVER_ADDRESS?.trim() ?? '';

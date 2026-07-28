@@ -45,9 +45,8 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
   const result = await getEntry(decoded);
   const entry = result.data;
 
-  /* Reachable registry, no entry. A real fact, and a different screen from a
-     registry we could not reach — absence of a verdict is absence of
-     knowledge, not a clean bill of health. */
+  // Reachable registry, no entry — a different screen from a registry we
+  // couldn't reach. Absence of a verdict is absence of knowledge.
   if (!entry) {
     return (
       <>
@@ -73,15 +72,8 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
   const { name } = splitName(head.name ?? head.fingerprint);
   const findings = entry.findings ?? [];
   const banner = stateBanner(head);
-  /**
-   * How many findings the verdict actually rests on.
-   *
-   * The page used `findings.length`, and `findings` is at most ONE — the API serves
-   * the head's `topFinding` and nothing else. So a five-finding review was captioned
-   * "FINDING 1 OF 1", which understates the verdict every time. `findingCount` is
-   * published on the head for exactly this, and it falls back to what is on screen
-   * when a head predates it.
-   */
+  // `findings` is at most one (the API serves only the head's `topFinding`);
+  // `findingCount` is the real total, falling back to what's on screen.
   const totalFindings = Math.max(head.findingCount ?? 0, findings.length);
   const blocking = BLOCKS.includes(head.state);
   const expired = evidenceExpiredOf(entry);
@@ -143,11 +135,8 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
           ) : (
             <NoFindings state={head.state} reason={head.reason} />
           )}
-          {/* A count with no account of the remainder is worse than no count. The
-              entry carries only the highest-severity finding, so "FINDING 1 OF 5"
-              would otherwise leave four findings nowhere on the page — and on a
-              registry whose neighbouring state is called `withheld`, four invisible
-              findings is the worst ambiguity available. */}
+          {/* The entry only carries the highest-severity finding, so the remainder
+              needs its own line rather than vanishing silently. */}
           {totalFindings > findings.length ? (
             <p className="text-meta text-ink-3">{COPY.verdict.findingsRemainder}</p>
           ) : null}

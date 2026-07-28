@@ -8,10 +8,7 @@ import type { RegistryRow, RowStatus } from '@/lib/types.ts';
 
 import { FilterChip } from './Chip.tsx';
 
-/**
- * Filters as links and a plain GET form. No client JavaScript: the registry is
- * a table of facts, and a table of facts should survive with scripting off.
- */
+// Filters as links and a plain GET form — no client JavaScript.
 
 export interface RegistryQuery {
   q: string;
@@ -38,22 +35,11 @@ const STATES: RowStatus[] = [
   'running',
 ];
 
-/**
- * A URL for the query, with the defaults left out.
- *
-/**
- * The registry's own route. Every control on this screen is a link back to it
- * with different query parameters, so the path is written once — it used to be
- * `/`, and when the homepage took that route each of these controls silently
- * became a link off the registry entirely.
- */
+// The registry's own route, written once so every control links back to it.
 const REGISTRY_PATH = '/registry';
 
-/**
- * `state` is omitted at `DEFAULT_STATE`, not at `all` — the bare path is the
- * default view, so `?state=all` has to be written down. Getting this backwards
- * would make "show all" produce a link back to the filtered list.
- */
+// `state` is omitted at `DEFAULT_STATE`, not at `all` — the bare path is the
+// default view, so "show all" must write `?state=all` down explicitly.
 function href(query: RegistryQuery, patch: Partial<RegistryQuery>): string {
   const next = { ...query, ...patch };
   const params = new URLSearchParams();
@@ -65,19 +51,8 @@ function href(query: RegistryQuery, patch: Partial<RegistryQuery>): string {
   return s ? `${REGISTRY_PATH}?${s}` : REGISTRY_PATH;
 }
 
-/**
- * What the default view is not showing, said out loud, with the way back.
- *
- * Renders ONLY while the default view is the active one. Every other state
- * filter is something the reader clicked, and its chip is already lit — a second
- * announcement there would be noise. This one exists because the default filters
- * without being asked, and a filter nobody asked for has to declare itself or it
- * is just a shorter list with no explanation.
- *
- * The breakdown is per state (`25 unreviewable`, and `· 3 unknown` beside it if
- * there are any) rather than one lump, because "held back" covers three
- * different facts and the reader deserves to know which one applies.
- */
+/** What the default view is not showing, said out loud, with the way back.
+ *  Renders only while the default view is active. */
 function HiddenNotice({ query, rows }: { query: RegistryQuery; rows: RegistryRow[] }) {
   const groups = hiddenFromDefault(rows);
   if (query.state !== DEFAULT_STATE || groups.length === 0) return null;
@@ -102,17 +77,8 @@ function HiddenNotice({ query, rows }: { query: RegistryQuery; rows: RegistryRow
   );
 }
 
-/**
- * A filter group: its label and its own chips, and nothing else.
- *
- * One flex container per group, because the alternative — one long wrapping row
- * — lets the wrap fall between a label and the chips it names, which is how
- * `TIER` ended up stranded at the end of the STATE row with `all A B C` on the
- * line below. A label can no longer be separated from what it labels.
- *
- * `w-[44px]` on a leading label is the width of the longest of them at this
- * size, so the chips of STATE and TIER start at the same x.
- */
+// One flex container per group so a wrap can't fall between a label and its
+// own chips. `w-[44px]` on a leading label aligns the STATE and TIER chip columns.
 function FilterGroup({
   label,
   lead,
@@ -158,9 +124,7 @@ export function RegistryFilters({
           placeholder={COPY.browse.searchPlaceholder}
           className="w-[280px] rounded-input border border-line bg-panel-2 px-3 py-2 text-data text-ink placeholder:text-faint"
         />
-        {/* The active view has to survive a search, so it rides along as a hidden
-            field whenever it is not the default one — including `all`, which is
-            now a choice rather than the absence of one. */}
+        {/* The active view has to survive a search, so it rides along as a hidden field. */}
         {query.state !== DEFAULT_STATE ? (
           <input type="hidden" name="state" value={query.state} />
         ) : null}
@@ -175,9 +139,6 @@ export function RegistryFilters({
       </form>
 
       <FilterGroup label={COPY.browse.filterState} lead>
-        {/* The default view and the whole registry, adjacent and both counted, so
-            the difference between them is arithmetic the reader can do at a
-            glance rather than a claim they have to take. */}
         <FilterChip
           href={href(query, { state: DEFAULT_STATE })}
           active={query.state === DEFAULT_STATE}
@@ -200,10 +161,8 @@ export function RegistryFilters({
       </FilterGroup>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
-        {/* The tier chips are gone with the tier column — filtering a list by a
-            value every row shares is a control that can only ever return the
-            list. `query.tier` is still parsed and still round-trips through the
-            URL, so a bookmarked ?tier=A keeps working and nothing 404s. */}
+        {/* Tier chips are gone with the tier column; `query.tier` still
+            round-trips through the URL so a bookmarked ?tier=A keeps working. */}
         <FilterGroup label={COPY.browse.filterSort} lead>
           <FilterChip href={href(query, { sort: 'state' })} active={query.sort === 'state'}>
             {COPY.browse.sortByState}

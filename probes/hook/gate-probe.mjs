@@ -4,7 +4,7 @@
 // docs:
 //
 //   1. does permissionDecision:"deny" actually stop a real mcp__ tool call?
-//   2. does a ~12-line permissionDecisionReason survive to the user AND the model?
+//   2. does a ~12-line permissionDecisionReason survive to the user and the model?
 //   3. what does the hook input actually contain (there is no server-name field)?
 //   4. when a blocking hook exceeds its timeout, does the call fail open or closed?
 //
@@ -32,8 +32,8 @@ try {
   /* record the raw text below either way */
 }
 
-// Every invocation appends one line, so a run can be replayed afterwards:
-// this is how we learn whether session_id survives /clear and /compact.
+// One line per invocation, so a run can be replayed — and so it is visible whether
+// session_id survives /clear and /compact.
 appendFileSync(
   join(OUT, 'hook-invocations.jsonl'),
   JSON.stringify({
@@ -44,7 +44,7 @@ appendFileSync(
     tool_name: input.tool_name ?? null,
     permission_mode: input.permission_mode ?? null,
     cwd: input.cwd ?? null,
-    // Everything else, verbatim — we want to see the fields nobody documented.
+    // Everything else, verbatim, so the fields nobody documented are visible.
     keys: Object.keys(input).sort(),
     raw_len: raw.length,
   }) + '\n',
@@ -56,9 +56,8 @@ function emit(obj) {
   process.exit(0);
 }
 
-// A realistic block message: the whole evidence payload lives in this one
-// string, because permissionDecisionReason is the only channel that reaches
-// both the user's terminal and the model.
+// The whole evidence payload lives in this one string: permissionDecisionReason is
+// the only channel that reaches both the user's terminal and the model.
 function blockReason() {
   return [
     'SureX blocked this call — @acme/mcp-tools@2.1.0',
@@ -130,11 +129,10 @@ switch (mode) {
   }
 
   case 'warn-only':
-    // The important variant. The spec's "unknown" path emits
-    // permissionDecision:"allow", which SKIPS the normal permission prompt —
-    // meaning SureX would auto-approve a server it knows nothing about, i.e.
-    // make the user LESS safe. This emits the notice with no decision at all,
-    // to check the warning still shows while the normal flow stays in charge.
+    // permissionDecision:"allow" skips the normal permission prompt, so an "unknown"
+    // path that emits it auto-approves the servers SureX knows nothing about. This
+    // emits the notice with no decision, to check the warning still shows while the
+    // normal flow stays in charge.
     emit({
       systemMessage: '⚠ SureX: probe server is not in the registry. Proceeding unverified.',
     });

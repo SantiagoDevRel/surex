@@ -4,31 +4,29 @@
 // `pnpm sync:core`.
 // The copy law, as code.
 //
-// AGENTS.md §4: never write *safe*, *trusted*, *verified* or *secure* about a
-// reviewed server. The word is **reviewed**. And never say *reputation* about
-// anything agent-shaped — SureX reviews servers, not agents, and the World
-// track excludes agent reputation explicitly.
+// AGENTS.md §4: never write *trusted*, *verified* or *secure* about a reviewed
+// server. The word is **reviewed**. And never say *reputation* about anything
+// agent-shaped — SureX reviews servers, not agents.
 //
-// A rule that only lives in a document drifts. This makes it testable, so a
-// banned word in a block message or a page fails the build instead of shipping.
+// Testable here, so a banned word in a block message or a page fails the build
+// instead of shipping.
 
 /**
  * Each entry: the pattern, what to say instead, and optionally the context that
  * makes the word a term of art rather than a claim.
  *
- * `unless` is checked against the SENTENCE containing the match, not the whole
+ * `unless` is checked against the sentence containing the match, not the whole
  * text — otherwise one legitimate mention of Walrus at the top of a page would
  * license every unearned claim below it.
  */
 export const BANNED = Object.freeze([
-  { re: /\bsafe(?:ty|ly|r|st)?\b/i, word: 'safe', instead: 'reviewed — and say what was reviewed' },
+  // *safe* is deliberately absent — dropped 2026-07-26 by product decision.
   { re: /\btrust(?:ed|worthy|less)\b/i, word: 'trusted', instead: 'reviewed' },
   {
     re: /\bverif(?:ied|iable|y|ication|ying)\b/i,
     word: 'verified',
     instead: 'reviewed',
-    // Checking bytes against a digest really is verification; a server is never
-    // "verified".
+    // Checking bytes against a digest really is verification; a server never is.
     unless: /\b(bytes|blob|digest|integrity|sha256|signature|nullifier|proof|orb|world\s*id)\b/i,
   },
   { re: /\bunverified\b/i, word: 'unverified', instead: 'unreviewed' },
@@ -38,8 +36,7 @@ export const BANNED = Object.freeze([
     re: /\bcertif(?:ied|y|ies|ication)\b/i,
     word: 'certified',
     instead: 'reviewed (Walrus blobs are certified; servers are not)',
-    // "certify" is the name of the second Walrus transaction. It is a fact about
-    // storage, not a claim about code.
+    // "certify" is the second Walrus transaction — a storage fact, not a code claim.
     unless: /\b(blob|walrus|sui|quilt|storage node|epoch)\b/i,
   },
   { re: /\bguarantee(?:d|s)?\b/i, word: 'guarantee', instead: 'nothing — do not promise an outcome' },
@@ -60,7 +57,6 @@ export const ALLOWED_PHRASES = Object.freeze([
   'Orb-verified',            // World's own term for a credential level
   'World ID verification',   // ditto
   'verification_level',      // an IDKit parameter name
-  'safe to remove',          // engineering prose, never product copy
 ]);
 
 function stripAllowed(text) {
@@ -116,11 +112,7 @@ export function assertCopy(text, where = 'copy') {
   throw new Error(`Copy law violated in ${where}:\n${detail}`);
 }
 
-/**
- * The sentence that must appear wherever a verdict is presented in full. It is
- * the whole disclosure obligation in one line, so it cannot be forgotten in one
- * surface and remembered in another.
- */
+/** The sentence that must appear wherever a verdict is presented in full. */
 export const NO_HUMAN_AUDIT = 'No human audited this.';
 
 /** What `clean` actually means. Stated in full on any page that renders one. */

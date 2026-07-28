@@ -1,20 +1,20 @@
 /**
- * Probe: write ONE blob to Walrus testnet, certify it, capture BOTH Sui tx digests,
+ * Probe: write one blob to Walrus testnet, certify it, capture both Sui tx digests,
  * then read the bytes back and prove they round-trip.
  *
- * Throwaway verification script for the SureX build (ETHGlobal Lisbon 2026). Not product code.
+ * Throwaway verification script. Not product code.
  *
  *   node probes/walrus-write.mjs
  *
  * Deps live in probes/package.json: @mysten/sui 2.22.1 + @mysten/walrus 1.2.9 (exact peer pairing).
  *
- * Design constraints this probe deliberately honours (see AGENTS.md §7):
- *  - No Walrus package / object / exchange IDs hardcoded here. Everything is read at runtime from
+ * Constraints this probe honours (AGENTS.md §7):
+ *  - No Walrus package / object / exchange IDs hardcoded. Everything is read at runtime from
  *    the SDK's network config + the on-chain type of the object it points at.
  *  - Blob mode is owned + permanent (deletable: false).
  *  - Epoch count is the on-chain maximum, read from the system object's future-accounting ring
- *    buffer length -- NOT a constant copied out of a doc.
- *  - The private key is read from a file OUTSIDE this repo. Nothing secret is ever written here.
+ *    buffer length -- not a constant copied out of a doc.
+ *  - The private key is read from a file outside this repo. Nothing secret is written here.
  */
 
 import { readFileSync } from 'node:fs';
@@ -77,10 +77,8 @@ let walBalance = balOf('::wal::WAL');
 log('  SUI:', suiBalance.toString(), 'MIST | WAL:', walBalance.toString(), 'FROST');
 if (suiBalance === 0n) throw new Error('wallet has no SUI - fund it at https://faucet.sui.io first');
 
-// ---------------------------------------------------------------------------
 // 1. WAL. The SDK ships the testnet SUI->WAL exchange object IDs; the exchange package ID is
-//    derived from the on-chain TYPE of that object, so nothing here is pinned by hand.
-// ---------------------------------------------------------------------------
+//    derived from the on-chain type of that object, so nothing here is pinned by hand.
 if (walBalance === 0n) {
   log('\n# 1. no WAL -> swapping 0.5 SUI for WAL');
   const exchangeId = TESTNET_WALRUS_PACKAGE_CONFIG.exchangeIds[0];
@@ -105,9 +103,7 @@ if (walBalance === 0n) {
   log('\n# 1. WAL already held, skipping swap');
 }
 
-// ---------------------------------------------------------------------------
 // 2. Epochs. Read the real maximum off chain instead of trusting a doc.
-// ---------------------------------------------------------------------------
 const systemState = await client.walrus.systemState();
 const maxEpochs = systemState.future_accounting.length;
 const currentEpoch = systemState.committee.epoch;
@@ -117,11 +113,9 @@ log('  walrus epoch:', currentEpoch, '| max epochs ahead (on chain):', maxEpochs
 const { storageCost, writeCost, totalCost } = await client.walrus.storageCost(PAYLOAD.length, maxEpochs);
 log(`  quote for ${PAYLOAD.length} B x ${maxEpochs} epochs: storage=${storageCost} write=${writeCost} total=${totalCost} FROST`);
 
-// ---------------------------------------------------------------------------
 // 3. The write, one step at a time, so both transactions are ours to capture.
-//    flow.executeRegister/executeCertify exist but executeCertify DISCARDS the digest, so the
+//    flow.executeRegister/executeCertify exist but executeCertify discards the digest, so the
 //    register()/certify() transaction builders are used and executed by hand instead.
-// ---------------------------------------------------------------------------
 log('\n# 3. write');
 const flow = client.walrus.writeBlobFlow({ blob: PAYLOAD });
 
@@ -145,9 +139,7 @@ const blob = await flow.getBlob();
 log('  certified epoch:', blob.blobObject.certified_epoch);
 log('  deletable:', blob.blobObject.deletable, '| storage epochs:', blob.blobObject.storage.start_epoch, '->', blob.blobObject.storage.end_epoch);
 
-// ---------------------------------------------------------------------------
 // 4. Is the blob ID just a hash of the bytes? (A later feature depends on the answer.)
-// ---------------------------------------------------------------------------
 log('\n# 4. blob id vs sha256');
 const sha256Hex = createHash('sha256').update(PAYLOAD).digest('hex');
 const sha256B64Url = createHash('sha256').update(PAYLOAD).digest('base64url');
@@ -156,9 +148,7 @@ log('  sha256 (hex)    :', sha256Hex);
 log('  sha256 (b64url) :', sha256B64Url);
 log('  blobId === sha256(bytes)?', encoded.blobId === sha256B64Url ? 'YES' : 'NO');
 
-// ---------------------------------------------------------------------------
 // 5. Read back and compare bytes. Aggregator can 404 right after certification.
-// ---------------------------------------------------------------------------
 log('\n# 5. read back');
 const viaSdk = await client.walrus.readBlob({ blobId: encoded.blobId });
 const sdkMatches = Buffer.from(viaSdk).equals(Buffer.from(PAYLOAD));
@@ -177,9 +167,7 @@ for (let i = 1; i <= 8; i++) {
   await sleep(2000 * i);
 }
 
-// ---------------------------------------------------------------------------
 // 6. Identical bytes should dedupe rather than pay again.
-// ---------------------------------------------------------------------------
 log('\n# 6. rewrite the same bytes (dedup check)');
 const flow2 = client.walrus.writeBlobFlow({ blob: PAYLOAD });
 const encoded2 = await flow2.encode();

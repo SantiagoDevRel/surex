@@ -1,34 +1,15 @@
 /**
- * `GET /api/ens/<sender>/<data>.json` — the ERC-3668 (CCIP-Read) gateway.
+ * `GET /api/ens/<sender>/<data>.json` — the ERC-3668 (CCIP-Read) gateway. The
+ * resolver on Sepolia reverts with `OffchainLookup` pointing here; the client
+ * fetches it and hands what comes back to `resolveWithProof`, which rejects
+ * anything not signed by the key the resolver pins. So this route is the only
+ * thing standing between the registry and a signature a contract will trust.
  *
- * The resolver on Sepolia reverts with `OffchainLookup` pointing at this URL. The
- * client fetches it, and hands what comes back to `resolveWithProof`, which
- * rejects anything not signed by the key the resolver pins. So this route is the
- * only thing standing between the registry and a signature an Ethereum contract
- * is entitled to believe.
- *
- * It lives in `apps/web` and NOT in `apps/api` on purpose. `apps/api/src/app.mjs`
- * opens by stating the read API has no wallet and no key and that this is a
- * property to preserve — the reason a compromise of the read path cannot rewrite
- * the registry. `apps/web` already holds one signing key with an established
- * shape (`app/api/world/rp-signature/route.ts`), so this follows that file rather
- * than putting a key where one has never been.
- *
- * THE THREE REFUSALS matter more here than the happy path, because the failure
- * mode of a signing route is not an error — it is a believable lie:
- *
- *   · a `sender` that is not our resolver         → 400, no signature
- *     Without this the route is an oracle that signs responses for anyone else's
- *     resolver, using our key, against their gateway URL.
- *   · the registry is unreachable, or truncated   → 500, no signature
- *     `lib/api.ts` falls back to fixtures when the API is down; that is right for
- *     a page carrying an illustrative banner and catastrophic for a signature. A
- *     manufactured `unknown` is a fabricated fact (AGENTS.md §4).
- *   · the head is illustrative, or ambiguous      → 500, no signature
- *
- * A label with no match is different from all three: it is a real answer, and it
- * is `unknown`. Nobody has submitted that install configuration. Same rule the
- * gate and `lib/api.ts` already follow — degrade to `unknown`, never to `clean`.
+ * The failure mode of a signing route is not an error, it's a believable lie,
+ * so three cases refuse rather than sign: a `sender` that isn't our resolver
+ * (400), the registry unreachable or truncated (500), or an illustrative/
+ * ambiguous head (500). A label with no match is different from all three —
+ * that's a real, honest `unknown`.
  */
 
 import { NextResponse } from 'next/server';
@@ -69,14 +50,8 @@ interface RegistryListing {
   truncated: boolean;
 }
 
-/**
- * The whole registry, cached briefly.
- *
- * A prefix search needs the list, and the list is 51 entries. `/v1/registry`
- * clamps `limit` at 500 and reports `truncated` when it had more — which is why
- * `truncated` is carried rather than dropped: on a truncated listing, "no match"
- * is not something this route knows.
- */
+// `truncated` is carried rather than dropped — on a truncated listing, "no
+// match" is not something this route can know.
 const CACHE_MS = 60_000;
 let cache: { at: number; listing: RegistryListing } | null = null;
 
@@ -181,8 +156,7 @@ export async function GET(
 
   const { sender, data: rawData } = await params;
 
-  // ERC-3668 clients substitute {sender} and {data} into the template and the
-  // template ends `.json`, so the segment arrives with the suffix attached.
+  // ERC-3668 clients' template ends `.json`, so the segment arrives with the suffix attached.
   const callData = rawData.replace(/\.json$/i, '') as Hex;
 
   if (sender.toLowerCase() !== cfg.config.resolver.toLowerCase()) {
@@ -216,9 +190,8 @@ export async function GET(
 
   const selector = inner.slice(0, 10).toLowerCase();
 
-  /* Anything we do not answer resolves to empty rather than to an error. An
-     unsupported record type is not a failure of the lookup — the name exists and
-     simply has nothing under that key, which is what ENS clients expect. */
+  // Anything we don't answer resolves to empty, not an error — an unsupported
+  // record type just has nothing under that key.
   let result: Hex = '0x';
 
   if (selector === TEXT_SELECTOR) {
@@ -251,7 +224,7 @@ export async function GET(
   const expires = BigInt(Math.floor(Date.now() / 1000) + cfg.config.ttlSeconds);
   const digest = signatureDigest({ resolver: cfg.config.resolver, expires, callData, result });
 
-  // RAW hash, never `signMessage` — that would add a second EIP-191 prefix and
+  // Raw hash, never `signMessage` — that would add a second EIP-191 prefix and
   // the resolver's `ecrecover` would return an address nobody holds.
   const signature = await privateKeyToAccount(cfg.config.signingKey).sign({ hash: digest });
 
@@ -266,14 +239,8 @@ export async function GET(
   );
 }
 
-/**
- * The records for a name with no entry.
- *
- * `unknown` is a state the contract already defines, and it is the honest answer
- * to "nobody has submitted this". The fingerprint record is empty rather than
- * echoing the label back, because we do not know the other 24 hex characters and
- * inventing them would be inventing an identity.
- */
+/** The records for a name with no entry. `unknown` is the honest answer to
+ *  "nobody has submitted this". */
 function unknownRecordValue(key: string): string {
   switch (key) {
     case 'surex:state':

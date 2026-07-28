@@ -28,45 +28,13 @@ import {
 import { SectionLabel, Well } from './Panel.tsx';
 
 /**
- * THE FLOW. Six steps, in order, ticking as each one actually reports.
+ * The flow. Six steps, in order, ticking as each one actually reports. The four
+ * source stages (`resolving`, `licence`, `fetching`, `starting`) fold into one
+ * step here since they answer one question — see `lib/submission.ts`, "the flow".
  *
- * This started as a rail of the pipeline's eight stages, mounted underneath the
- * form once a submission had been accepted — so the page read as a form and then,
- * separately, a progress log. It is one sequence: a person is checked, a release
- * is resolved, a model reads it, two records land, a name answers. So the World
- * step is step one of the same flow, before submission, and the whole thing is
- * the page rather than an appendix to it.
- *
- * ── what is folded, and what is not ────────────────────────────────────────
- * The four source stages (`resolving`, `licence`, `fetching`, `starting`) are one
- * step here, because they answer one question. The fold is presentational: the
- * panel names whichever of the four the run is on, `flowFacts` merges the facts
- * each stage reported rather than inventing any, and a stage this pipeline never
- * emits is still never drawn. See `lib/submission.ts`, "the flow".
- *
- * ── the encoding ───────────────────────────────────────────────────────────
- * Colour in this product means VERDICT (`globals.css`: the three loud hues are
- * accents on state chips and the stamp, never decoration), so kind is carried by
- * the BORDER — the grammar `Chip.tsx` established: solid for something measured,
- * dashed for something we did not measure ourselves, dotted for absence.
- *
- *   dotted        the flow has not reached this step
- *   solid accent  the step it is on now
- *   solid line    it is past it
- *   dashed        reported, with something provisional about it — today that is
- *                 exactly one case: a Walrus blob a public publisher registered,
- *                 where the Sui object and any digest belong to them
- *   clean hue     a gate that answered and let the run through. The licence gate
- *                 is the one thing that can END a run, and when it refuses the
- *                 entry publishes as unreviewable — so the hue is a verdict here
- *                 rather than decoration, which is what makes it allowed
- *   flagged hue   the flow stopped on this step
- *
- * The tick is a word as well as a glyph. The version of this screen the owner
- * threw out had a column of `◌` characters with no state behind them; a marker
- * that never changes is decoration, and decoration on a progress screen reads as
- * a claim. Every step here says where it is in words, and every word comes from
- * something reported.
+ * Colour means verdict (`globals.css`); kind is carried by the border, the
+ * grammar `Chip.tsx` established: solid for measured, dashed for unmeasured,
+ * dotted for absence. Each tick is also a word, never a glyph alone.
  */
 
 const DETAIL_ID = 'sx-step-detail';
@@ -109,26 +77,9 @@ function phaseWord(step: FlowStep, phase: StagePhase): string {
 /* ---------------------------------------------------------------- the marks */
 
 /**
- * The real mark of each technology, inlined.
- *
- * Inlined and not linked: a page that hotlinks someone's CDN for a logo makes a
- * request to them on every render, from every reader, and leaks who is looking at
- * a verdict. Every path below was taken from the project's own asset or from a
- * published brand collection, never drawn by hand — a wrong logo is worse than a
- * word, so anything unobtainable would have been a text chip instead. None was.
- *
- *   world   world.org/icons/worldcoin-orb-world-logo.svg — the orb, first path of
- *           the lockup; the wordmark beside it is dropped and the mark kept
- *   source  the GitHub mark (simple-icons `github`, CC0)
- *   dgx     the NVIDIA eye (simple-icons `nvidia`, CC0)
- *   walrus  docs.wal.app/img/logo.svg — Walrus's own mark
- *   arkiv   golem-project/brand/guidelines/assets/official/logo-pack/[ A ]/SVG —
- *           the official `[ A ]` mark, one of the three approved sources
- *   ens     the ENS mark (simple-icons `ens`, CC0)
- *
- * `currentColor` throughout, because these sit inside a tile whose colour is the
- * phase. Recolouring an official mark is normally a brand violation; a monochrome
- * rendition is the one form every one of these brands publishes itself.
+ * Each technology's mark, inlined (not hotlinked, to avoid leaking readers to a
+ * third-party CDN on every render). `currentColor` throughout so the mark tints
+ * with the tile's phase — a monochrome rendition each brand publishes itself.
  */
 const MARK_BOX: Record<StageTech, string> = {
   world: 'h-[22px] w-[22px]',
@@ -209,9 +160,6 @@ export function StageRail({
 
   return (
     <section aria-label={COPY.pipeline.rail.label} className="grid gap-2.5">
-      {/* The label alone, centred over the rail it names. The sentence that used
-          to sit beside it described what the reader is about to watch happen —
-          which the rail then does, one tile at a time. */}
       <div className="flex justify-center">
         <SectionLabel className="text-faint">{COPY.pipeline.rail.label}</SectionLabel>
       </div>
@@ -220,8 +168,6 @@ export function StageRail({
         <ol className="flex flex-col gap-1 md:flex-row md:items-start md:gap-0">
           {FLOW_STEPS.map((step, i) => (
             <Fragment key={step}>
-              {/* A rule, not an arrow: the steps are ordered, and an arrowhead per
-                  gap would be five arrowheads saying one thing. */}
               {i > 0 ? (
                 <li
                   aria-hidden="true"
@@ -282,8 +228,7 @@ function StepTile({
       type="button"
       onClick={() => onPick(step)}
       aria-controls={DETAIL_ID}
-      // `step` and not `true`: this is a position in an ordered process, which is
-      // what the attribute's `step` token exists for.
+      // `step` (not `true`): this is a position in an ordered process.
       aria-current={phase === 'active' ? 'step' : undefined}
       className={cn(
         'flex w-full items-center gap-3 rounded-input px-2 py-1.5 text-left transition-colors duration-[140ms] ease-out',
@@ -291,19 +236,8 @@ function StepTile({
         selected ? 'bg-accent-t' : 'hover:bg-accent-t',
       )}
     >
-      {/*
-        `key={phase}` is what makes the tile light up.
-
-        React reuses this node across polls, so a CSS animation attached to it
-        would run once on mount and never again — the step would change colour
-        with no moment attached to the change. Keying on the phase makes React
-        replace the node when the phase changes, which restarts the animation on
-        the TRANSITION and not on a re-render that changed nothing.
-
-        Only on the way IN to a landed state: `pending` is where every step sits
-        before the run reaches it, and flashing six tiles on first paint would
-        announce five things that have not happened.
-      */}
+      {/* `key={phase}` forces React to remount on phase change, so the land
+          animation replays per transition instead of firing once on mount. */}
       <span
         key={phase}
         className={cn(
@@ -318,33 +252,20 @@ function StepTile({
       <span className="min-w-0 md:w-full">
         <span className="flex items-baseline justify-start gap-1 md:justify-center">
           <span
-            /* `ink-3`, not `faint`, for a step that has not started.
-               `faint` measured 4.32:1 on the dark surface — under AA for text —
-               and the design system is explicit that faint is for borders and
-               outlines, never type. A step nobody has reached still has to be
-               readable; that is the whole point of showing six of them before
-               anything happens. */
+            // `ink-3`, not `faint` — `faint` is 4.32:1 on dark, under AA for text.
             className={cn('text-row font-semibold', phase === 'pending' ? 'text-ink-3' : 'text-ink')}
           >
             {COPY.pipeline.rail.flow.name[step]}
           </span>
-          {/* The one moving thing in the flow, and it moves only on the step the
-              run is actually on. */}
           {phase === 'active' ? (
             <span aria-hidden="true" className="animate-blink text-accent">
               ▍
             </span>
           ) : null}
         </span>
-        {/* Same correction as the name above: this caption is type, at 4.32:1
-            on dark under `faint`. It says what the step is for, which is the
-            one line a first-time reader actually needs. */}
         <span className="mt-0.5 block text-mini leading-snug text-ink-3">
           {COPY.pipeline.rail.flow.caption[step]}
         </span>
-        {/* The tick, in words. The border already carries the phase, but a border
-            is not a statement — and this is the line the whole screen exists to
-            move. */}
         <span className="mt-1 flex items-baseline justify-start gap-1 md:justify-center">
           {phase === 'done' ? (
             <span aria-hidden="true" className="text-mini text-clean">
@@ -380,9 +301,7 @@ const SUB_GLYPH: Record<StagePhase, string> = {
 };
 
 const SUB_INK: Record<StagePhase, string> = {
-  // `ink-3` rather than `faint`: this is the phase IN WORDS, and the comment on
-  // the tick below says it exists because a border is not a statement. A
-  // statement nobody can read is not one either — `faint` is 4.32:1 on dark.
+  // `ink-3`, not `faint` — `faint` is 4.32:1 on dark, under AA for text.
   pending: 'text-ink-3',
   active: 'text-accent',
   done: 'text-ink-2',
@@ -409,19 +328,14 @@ function StepDetail({
   const tech = FLOW_TECH[step];
   const facts = flowFacts(step, trace, status);
 
-  /**
-   * What the panel says. The World step has copy of its own; every other step
-   * borrows the copy of the STAGE the run is on inside it, so there is one
-   * description per thing rather than a second vocabulary for the fold.
-   */
+  // The World step has copy of its own; every other step borrows the copy of
+  // the stage the run is on inside it.
   const focus = flowFocusStage(step, status, trace);
   const copy =
     step === 'world'
       ? COPY.pipeline.rail.flow.world
       : COPY.pipeline.rail.stage[focus ?? FLOW_STAGES[step][0]];
 
-  /* Only worth listing when there is more than one — otherwise it restates the
-     tile. Today that means the source step, and only the source step. */
   const subStages = flowSubStages(step, trace);
 
   return (
@@ -429,8 +343,7 @@ function StepDetail({
       <div
         className={cn(
           'grid gap-x-7 gap-y-3',
-          // The World step has no identifiers to put in a second column, and an
-          // empty one would read as a column of things that failed to arrive.
+          // World has no identifiers for a second column.
           step === 'world' ? null : 'md:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]',
         )}
       >
@@ -439,26 +352,10 @@ function StepDetail({
             <span className={tone.ink}>{COPY.pipeline.rail.flow.name[step]}</span>
             <span className="text-faint"> · {COPY.pipeline.rail.tech[tech]}</span>
           </p>
-          {/*
-            The World step shows its TITLE and its claim, and no prose.
-
-            It is the first thing on the page and it was spending two paragraphs
-            on how the request is signed before the reader had seen the six
-            steps — so the flow and the section under it did not fit on one
-            screen, which is the whole reason the flow replaced an essay.
-
-            `WorldClaim` below is not prose and does not go: it is the one line
-            §5 requires, naming what the configured credential actually proves,
-            with the long form behind its own disclosure. A step that asks for a
-            biometric while saying nothing about what it establishes is the
-            failure that rule exists to prevent.
-          */}
+          {/* World shows its title and claim only, no prose — see `WorldClaim`
+              below (AGENTS.md §5). */}
           {step === 'world' ? null : (
             <>
-              {/* The lede and nothing else. Each stage used to carry a paragraph
-                  under it explaining the mechanism, and six of those turned a
-                  flow you watch back into a page you read. What survives is the
-                  one sentence that says what the step IS. */}
               <p className="mt-1.5 text-data font-semibold text-ink">{copy.lede}</p>
             </>
           )}
@@ -479,16 +376,11 @@ function StepDetail({
                 ))}
               </ul>
             ) : (
-              /* No placeholder row and no ellipsis. A step that reported nothing
-                 says so in words — the same rule the receipts follow. */
               <p className="max-w-[52ch] text-mini leading-relaxed text-faint">
                 {COPY.pipeline.rail.nothingReported}
               </p>
             )}
 
-            {/* Only when a name was actually rendered. The note explains why THAT
-                row is not a link, so with no row it explains nothing and is one
-                more sentence between a reader and the ids. */}
             {facts.some((f) => f.label === COPY.pipeline.rail.fact.ensName) ? (
               <p className="mt-2 text-mini text-faint">{COPY.pipeline.rail.ensAppNote}</p>
             ) : null}
@@ -506,15 +398,10 @@ function StepDetail({
 }
 
 /**
- * WHAT THE CREDENTIAL ACTUALLY PROVES — one line, always, with the rest one
- * disclosure away.
- *
- * AGENTS.md §5: the three credentials this app can request do not prove the same
- * thing, and the default (Selfie Check) is liveness whose sybil resistance World
- * itself rates "some". A screen that says nothing here is a screen where the
- * reader supplies the strongest bar they can imagine, so the claim is compressed
- * and never dropped. Before the server has answered, no credential is known — and
- * that is what it says, rather than naming the likely one.
+ * What the credential actually proves — one line, always, with the rest one
+ * disclosure away (AGENTS.md §5: the three credentials do not prove the same
+ * thing). Before the server answers, no credential is known, and it says so
+ * rather than guessing.
  */
 export function WorldClaim({ credential }: { credential: WorldCredential | null }) {
   if (!credential) {
@@ -567,13 +454,8 @@ function FactRow({ fact, ink }: { fact: StageFact; ink: string }) {
       <span aria-hidden="true" className={cn('shrink-0 text-mini', ink)}>
         ▸
       </span>
-      {/*
-        `break-words` and not `break-all`, which is what ids elsewhere on the site
-        use. These rows carry BOTH: a 44-character blob id that has to break
-        somewhere, and a sentence about custody that must not. `break-all` split
-        "object" across two lines the first time this rendered; `break-words`
-        breaks a run only when it cannot fit, which is right for both.
-      */}
+      {/* `break-words`, not `break-all`: these rows mix long ids with prose,
+          and `break-all` splits ordinary words mid-word. */}
       <span className="min-w-0 text-mini">
         <span className="text-faint">{fact.label} </span>
         {fact.href ? (

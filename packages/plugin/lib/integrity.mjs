@@ -1,20 +1,15 @@
 // Tier A: is the code about to run the code that was reviewed?
 //
-// This is the answer to the product's deepest structural weakness — a config
-// fingerprint identifies an *install instruction*, not the bytes it resolves
-// to. npm publishes a per-version `dist.integrity` (sha512 of the published
-// tarball); the worker records it at review time and the gate compares it to
-// what is actually installed. Agreement is Tier A. Absence is Tier B, honestly
-// labelled. Disagreement is a MISMATCH, which downgrades and warns and
-// deliberately does NOT block (FR-19): it is far more often a registry quirk or
-// a local rebuild than an attack, and blocking on it would train users to turn
-// the gate off.
+// A config fingerprint identifies an *install instruction*, not the bytes it
+// resolves to. npm publishes a per-version `dist.integrity` (sha512 of the
+// published tarball); the worker records it at review time and the gate compares
+// it to what is installed. Agreement is Tier A, absence is Tier B, disagreement is
+// a MISMATCH — which downgrades and warns and does not block (FR-19).
 //
-// failure-modes §1.1 flags the hard part: `npx -y pkg` never creates a local
-// node_modules — it resolves into ~/.npm/_npx/<hash>/ — and pnpm, yarn and bun
-// all lay things out differently again. So this searches every layout it can,
-// and reports WHERE it found the digest, because "we could not check" and "we
-// checked and it matched" must never look the same to a user.
+// `npx -y pkg` never creates a local node_modules (it resolves into
+// ~/.npm/_npx/<hash>/), and pnpm, yarn and bun each lay things out differently, so
+// every layout is searched. Where the digest was found is reported: "could not
+// check" and "checked and it matched" must never look the same.
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -61,9 +56,8 @@ function fromNpmLock(root, name, version) {
 }
 
 /**
- * pnpm's lockfile is YAML. Rather than take a YAML dependency — this package
- * must stay zero-dep — pull the one field we need with a scoped regex, and
- * return null rather than guess if the shape is not what we expect.
+ * pnpm's lockfile is YAML, scraped with a scoped regex rather than through a YAML
+ * dependency — this package must stay zero-dep. Returns null rather than guess.
  */
 function fromPnpmLock(root, name, version) {
   const path = join(root, 'pnpm-lock.yaml');
@@ -82,7 +76,7 @@ function fromPnpmLock(root, name, version) {
   return { integrity: m[1], source: path, layout: 'pnpm-lock.yaml' };
 }
 
-/** yarn berry keeps a `checksum`, which is NOT an npm integrity string. */
+/** yarn berry keeps a `checksum`, which is not an npm integrity string. */
 function fromYarnLock(root, name, version) {
   const path = join(root, 'yarn.lock');
   if (!existsSync(path)) return null;
@@ -99,11 +93,9 @@ function fromYarnLock(root, name, version) {
 }
 
 /**
- * The case that actually matters: `npx -y pkg@1.2.3`.
- *
- * npx materialises the package under ~/.npm/_npx/<hash>/node_modules, with no
- * project node_modules anywhere. Each hash directory is a different arg set, so
- * we scan them and take the one whose version matches.
+ * `npx -y pkg@1.2.3`: npx materialises the package under
+ * ~/.npm/_npx/<hash>/node_modules with no project node_modules anywhere. Each hash
+ * directory is a different arg set, so scan them and take the matching version.
  */
 function fromNpxCache(name, version, home) {
   const root = join(home, '.npm', '_npx');
@@ -147,10 +139,7 @@ export function findLocalIntegrity(name, version, opts = {}) {
   return { integrity: null, source: null, layout: null, searched };
 }
 
-/**
- * The honest sentence for a verdict, given what we could and could not check.
- * Never says a check passed that did not run.
- */
+/** The honest sentence for a verdict — never says a check passed that did not run. */
 export function integrityNote(result) {
   if (!result?.integrity) {
     return 'no integrity digest is readable for this install, so the bytes were not compared';

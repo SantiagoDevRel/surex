@@ -1,37 +1,16 @@
 'use client';
 
 /**
- * The World ID step, on both screens that need it: `/submit` (a maintainer offers a
- * release) and `/d/[fp]` (a person contests a verdict).
- *
- * Four rules this component exists to keep:
- *
- * 1. NOTHING IS SIGNED IN THE BROWSER. The relying-party signature and the signal
- *    come from `POST /api/world/rp-signature`, on the server. If that route says the
- *    relying party is unconfigured, this renders the configuration error verbatim.
- *    There is no demo mode and no fallback that behaves as though a proof existed.
- *
- * 2. A PROOF IN HAND IS NOT AN ACCEPTED CLAIM. IDKit returning a result means World
- *    produced a proof; it does not mean the registry took it. The registry checks it
- *    server-side, and only its answer is shown as an outcome. This used to be a
- *    four-line banner and is now one line with the reasoning behind a disclosure —
- *    compressed, never dropped, because a screen that goes quiet here lets a reader
- *    assume the registry accepted something it has never seen.
- *
- * 3. A STAGING OR SANDBOX PROOF SAYS SO, LOUDLY. Those come from a simulator, not
- *    from a person. A screen that looked identical either way would be the most
- *    misleading thing on the site, so this one stayed a banner.
- *
- * 4. THE SCREEN NAMES THE CREDENTIAL, AND STATES WHAT THAT CREDENTIAL PROVES.
- *    The three credentials this app can request do not prove the same thing — the
- *    Orb is the one-human-one-action bar, Selfie Check is liveness that World rates
- *    as "some" sybil resistance, device level is an account with no biometric at all
- *    — so a single sentence about "personhood" would be a false claim under two of
- *    the three. `WorldClaim` makes it, from the credential the SERVER chose, and it
- *    renders both here at the button and on the World step of the flow.
- *
- * It also reports where it is (`onPhase`), because World is step one of the flow on
- * `/submit` and that step happens in this browser — there is no run to poll for it.
+ * The World ID step, on `/submit` and `/d/[fp]`. Four rules it exists to keep:
+ * 1. Nothing is signed in the browser — the RP signature comes from
+ *    `POST /api/world/rp-signature`, server-side, with no demo-mode fallback.
+ * 2. A proof in hand is not an accepted claim — only the registry's own
+ *    server-side check, shown as an outcome, means it was taken.
+ * 3. A staging or sandbox proof says so, loudly (banner).
+ * 4. The screen names the credential and what it actually proves —
+ *    `WorldClaim`, from the credential the server chose.
+ * It also reports its phase via `onPhase`, since World runs entirely in this
+ * browser and there is no run to poll for it.
  */
 
 import {
@@ -54,26 +33,15 @@ export type WorldIdContext =
   | { action: 'maintainer-submit'; repo: string }
   | { action: 'contest-verdict'; verdictKey: string; evidence: string };
 
-/**
- * `WorldCredential` comes from `lib/submission.ts` and NOT from the server-only
- * World module: that module reads the relying-party signing key, so a client
- * component importing it would be one bundler decision away from shipping that key
- * to the browser. A test asserts this file never imports it — and that same test
- * greps this file for the key's variable name, so do not name it here even in a
- * comment.
- */
+// `WorldCredential` comes from `lib/submission.ts`, not the server-only World
+// module — that module reads the RP signing key, and a client import of it is
+// one bundler decision from shipping that key to the browser. A test asserts
+// this file never imports it and never names the key's variable, even in a
+// comment — so don't.
 
-/**
- * The credential → preset map, and the reason each one is what it is.
- *
- * `selfieCheckLegacy` is the CURRENT name of the Face Check preset in IDKit 4.x —
- * `@worldcoin/idkit` re-exports it from `@worldcoin/idkit-core`, and it returns a
- * World ID 3.0 Face proof, which is why `allow_legacy_proofs` below is not
- * optional. Selfie Check is beta and gated per app (`enable_face_check`); if the
- * app is not enabled for it the flow simply never starts, so a silent no-op here
- * means the app, not the code.
- * → https://docs.world.org/world-id/idkit/credentials#selfie-check
- */
+// `selfieCheckLegacy` is the current name of the Face Check preset in IDKit
+// 4.x; it returns a World ID 3.0 Face proof, which is why `allow_legacy_proofs`
+// below is required. → https://docs.world.org/world-id/idkit/credentials#selfie-check
 const PRESET_FOR = {
   face: selfieCheckLegacy,
   orb: proofOfHuman,
@@ -96,16 +64,11 @@ type Phase =
   | { kind: 'unconfigured'; detail: string; missing?: string[] }
   | { kind: 'failed'; detail: string }
   | { kind: 'ready'; rp: RpResponse }
-  // The credential survives into `held`: the statement of what was proven has to
-  // stay on screen next to the proof, not disappear the moment one arrives.
+  // The credential survives into `held` so what was proven stays on screen.
   | { kind: 'held'; environment: RpResponse['environment']; credential: WorldCredential };
 
-/**
- * The local phase, as the flow reads it. `loading` and `ready` are one thing from
- * out here — the reader is waiting — and both configuration errors land on
- * `failed`, because from the step's point of view no proof was obtained. Which of
- * the two it was is on screen, in the banner, unchanged.
- */
+/** `loading`/`ready` collapse to "checking"; both error kinds collapse to
+ *  `failed` — which one is still shown in the banner. */
 export function worldPhaseOf(phase: Phase['kind']): WorldPhase {
   switch (phase) {
     case 'idle':
@@ -144,11 +107,7 @@ export function WorldIdProof({
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [open, setOpen] = useState(false);
 
-  /**
-   * One place that moves this component, so the flow cannot fall out of step with
-   * it. Called from event handlers only — never during a render, which is what
-   * would make a parent `setState` here a loop.
-   */
+  // Called from event handlers only — never during render.
   const advance = useCallback(
     (next: Phase) => {
       setPhase(next);
@@ -210,17 +169,12 @@ export function WorldIdProof({
         </Banner>
       ) : null}
 
-      {/* Named before the widget opens, so the bar is known going in — and it stays
-          named after a proof arrives, because "proof in hand" without the credential
-          is the exact place a reader fills in the strongest bar they can imagine. */}
       {phase.kind === 'ready' || phase.kind === 'held' ? (
         <WorldClaim credential={credentialOf(phase)} />
       ) : null}
 
       {phase.kind === 'held' ? (
         <>
-          {/* One line, and the reasoning one disclosure away. The registry has not
-              seen this proof, and the screen must not stop saying so. */}
           <p className="flex items-baseline gap-1.5 text-mini text-ink-2">
             <span aria-hidden="true" className="text-clean">
               ✓
@@ -257,18 +211,10 @@ export function WorldIdProof({
             action={phase.rp.action}
             rp_context={phase.rp.rp_context}
             environment={phase.rp.environment}
-            // v4 requires this for legacy and fallback presets, and the DEFAULT
-            // credential here is one: Selfie Check returns a World ID 3.0 Face
-            // proof, so removing this flag breaks Face Check outright.
+            // Required for legacy/fallback presets — the default credential
+            // (Selfie Check) is one, so removing this breaks it outright.
             allow_legacy_proofs
-            // The preset the server chose. `selfieCheckLegacy` (default) opens the
-            // camera in World App — on desktop after a QR scan, never in this
-            // browser. It is LIVENESS: World rates its sybil resistance as "some"
-            // and files it under bot deterrence rather than one-human-one-action.
-            // `proofOfHuman` is the Orb path and the only one of the three under
-            // which one person cannot come back as somebody else. Whichever it is,
-            // `WorldClaim` above says so — the preset and the claim change together
-            // or the screen lies.
+            // The preset the server chose; `WorldClaim` above says which.
             preset={PRESET_FOR[phase.rp.credential]({ signal: phase.rp.signal })}
             onSuccess={(result) => {
               onProof(result);

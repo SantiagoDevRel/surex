@@ -1,10 +1,9 @@
 // The submit pipeline must survive every verdict, and flag only what it wrote.
 //
-// The regression at the bottom of this file is the reason the module exists: two
-// real submissions died at the head write with the review record and the Walrus
-// blob already on chain. A test that only checked the happy state would have gone
-// green through all of it, so the important assertion here is not "clean maps to
-// clean" — it is "no reachable result produces a head the guard refuses".
+// The load-bearing assertion is the regression at the bottom — "no reachable result
+// produces a head the guard refuses" — not "clean maps to clean". A pipeline that
+// dies at the head write leaves the review record and the Walrus blob already on
+// chain, and a happy-path-only test goes green through all of it.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,10 +25,6 @@ const FINDINGS = [
   { file: 'src/index.js', line: 42, category: 'undeclared-network', description: 'posts the transcript to a host the README never names', severity: 3 },
   { file: 'src/util.js', line: 7, category: 'undeclared-filesystem', description: 'reads ~/.ssh/id_rsa', severity: 2 },
 ];
-
-// ---------------------------------------------------------------------------
-// the mapping
-// ---------------------------------------------------------------------------
 
 test('clean publishes clean, and carries nothing else', () => {
   const plan = planPublication({ verdict: 'clean', fingerprint: THEIRS, canAccuse: () => false });
@@ -58,10 +53,8 @@ test('our own code, on the allowlist, publishes a real flag with a dispute windo
 
 
 test('a third party flagged PUBLISHES, with its findings and its provenance', () => {
-  // The policy narrowed on 2026-07-26. Withholding every third-party result meant
-  // a registry that reads public code and then says nothing about it, which is not
-  // caution — at that point the product does not exist. What keeps it answerable
-  // is that the whole finding travels with it and a dispute window opens.
+  // What keeps a third-party flag answerable is that the whole finding travels with
+  // it and a dispute window opens, not that the entry withholds what was found.
   const plan = planPublication({
     verdict: 'flagged', severity: 4, findings: FINDINGS,
     concern: 'data-leaves-the-machine',
@@ -159,10 +152,6 @@ test('an unreviewable verdict publishes no findings — it established none', ()
   assert.equal(plan.withheld.findingCount, 2, 'still reported to the submitter');
 });
 
-// ---------------------------------------------------------------------------
-// the finding a reader is shown
-// ---------------------------------------------------------------------------
-
 test('topFinding keeps the file and the line a developer needs to check it', () => {
   const top = topFindingOf(FINDINGS);
   assert.equal(top.severity, 3);
@@ -185,10 +174,6 @@ test('topFinding of nothing is nothing', () => {
   assert.equal(topFindingOf([]), undefined);
   assert.equal(topFindingOf(undefined), undefined);
 });
-
-// ---------------------------------------------------------------------------
-// tier, and the digest that earns it
-// ---------------------------------------------------------------------------
 
 test('a verified npm tarball is tier A on the npm integrity', () => {
   const p = submissionPinning({
@@ -224,10 +209,6 @@ test('an npm tarball we could not verify is tier B, not tier A', () => {
 test('nothing pinned is still tier C', () => {
   assert.equal(submissionPinning({ onNpm: false, reviewedNpmTarball: false, commit: 'not-a-sha' }).tier, 'C');
 });
-
-// ---------------------------------------------------------------------------
-// the regression: no reachable plan may be refused by the write boundary
-// ---------------------------------------------------------------------------
 
 test('EVERY plan the pipeline can produce is one buildVerdictHead accepts', () => {
   setSelfAuthored([OURS]);
@@ -299,9 +280,9 @@ test('the fallback plan is writable even when everything else has failed', () =>
 });
 
 test('the boundary still refuses an accusation nobody could answer', () => {
-  // The allowlist stopped gating; provenance did not. A flag with no model, no
-  // prompt version and nothing saying which bytes were read is unanswerable by the
-  // person it accuses, and that is what this boundary exists to refuse.
+  // Provenance gates where the allowlist does not. A flag with no model, no prompt
+  // version and nothing saying which bytes were read cannot be answered by the
+  // person it accuses, and that is what this boundary refuses.
   setSelfAuthored([]);
   assert.throws(
     () => buildVerdictHead({

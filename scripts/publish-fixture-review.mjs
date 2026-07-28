@@ -1,18 +1,11 @@
 #!/usr/bin/env node
-// Publish the REAL review of our own fixture, so the demo has no mocked link.
+// Publish the real review of the SureX fixture, so the demo has no mocked link.
 //
-// Everything upstream of this already exists and is real: a model on the DGX read
-// packages/fixture-mcp and returned flagged/severity 4 with the planted
-// prompt-injection reported as a finding rather than obeyed. What was still stood
-// in for was the middle of the chain — the demo hand-wrote a verdict head and
-// served it from a local HTTP server.
+// Writes a real cached review body to Walrus as its own certified blob — not a quilt
+// patch, because a review is exactly the record where per-record citability is the
+// point — and indexes it on Arkiv as a ReviewRecord plus a flagged VerdictHead.
 //
-// This writes that same review body to Walrus as its OWN certified blob (not a
-// quilt patch: a review is exactly the record where per-record citability is the
-// point) and indexes it on Arkiv as a ReviewRecord plus a flagged VerdictHead.
-// After it runs, `demo/chain.mjs` against the live API has nothing mocked.
-//
-// The only thing SureX ever flags is this fixture, which we wrote ourselves.
+// The only thing SureX ever flags is this fixture, which the project wrote itself.
 //
 //   node scripts/publish-fixture-review.mjs [--dry-run]
 //
@@ -41,10 +34,8 @@ const DRY = process.argv.includes('--dry-run');
 
 const log = (...a) => console.log(...a);
 
-// ── 1. the real review, from the reviewer's demo-recovery cache ──────────────
-// These are cached because the DGX runs at home over a tunnel and will drop. The
-// cache exists so a demo can still show a REAL review rather than a fresh
-// fabrication; it is never presented as a fresh run.
+// The reviewer's demo-recovery cache: real runs, kept because the DGX is behind a
+// tunnel that drops. Never presented as a fresh run.
 function loadRealReview() {
   const files = readdirSync(FIXTURE_DIR).filter((f) => f.endsWith('.json'));
   const runs = files
@@ -72,7 +63,7 @@ if (review.verdict !== 'flagged') {
   throw new Error(`refusing to publish a ${review.verdict} verdict as flagged`);
 }
 
-// ── 2. the fingerprint the gate will compute for the fixture ─────────────────
+// The fingerprint the gate will compute for the fixture — it has to match exactly.
 const canonical = canonicalise(
   { command: 'node', args: [FIXTURE_ENTRY] },
   { hashLocalEntry: localEntryResolver(ROOT) },
@@ -81,9 +72,8 @@ const fingerprint = fingerprintOf(canonical);
 log(`\nfixture fingerprint ${fingerprint}`);
 log(`  canonical         ${JSON.stringify(canonical)}`);
 
-// ── 3. the record body that goes to Walrus ──────────────────────────────────
-// The blob is the findings themselves, so a verdict points at the exact bytes it
-// was made from and anyone can check them independently.
+// The blob is the findings themselves, so a verdict points at the exact bytes it was
+// made from and anyone can check them independently.
 const topFinding = [...review.findings].sort((a, b) => b.severity - a.severity)[0];
 
 const reviewBody = {
@@ -120,11 +110,8 @@ if (DRY) {
   process.exit(0);
 }
 
-// ── 4. Walrus: its own certified blob ───────────────────────────────────────
-//
-// Checkpointed for the same reason the seed job is: a re-run must not pay for
-// bytes that are already certified. The first run of this script died between the
-// Walrus write and the Arkiv write, which is exactly the case this covers.
+// Checkpointed so a re-run does not pay for bytes that are already certified — this
+// script has died between the Walrus write and the Arkiv write.
 const CHECKPOINT = join(ROOT, 'packages', 'worker', 'state', 'fixture-review.json');
 
 function readCheckpoint() {
@@ -155,26 +142,20 @@ log(`  suiObjectId        ${pointer.suiObjectId}`);
 log(`  registerTx         ${pointer.registerTx}`);
 log(`  certifyTx          ${pointer.certifyTx}`);
 
-// ── 5. Arkiv: the ReviewRecord, then the head that points at it ─────────────
+// The ReviewRecord first, then the head that points at it.
 log('\nwriting to Arkiv…');
 const arkiv = createArkivWriter({ log: (m) => log(m) });
 
 /**
- * Whatever is already on chain FOR THIS FINGERPRINT, so a re-run adds nothing
- * twice.
+ * Whatever is already on chain for this fingerprint, so a re-run adds nothing twice.
  *
- * Must be readBackScoped, not readAllScoped: the latter takes {entityType, extra}
- * and SILENTLY IGNORES a `fingerprint` key. Passing one there returned the 50
- * seeded rows and this script concluded "already on chain" about entities that did
- * not exist — it skipped writing the head and then reported success. A filter that
- * is quietly dropped is the worst shape an API can have, and believing it is the
- * worst way to read one.
+ * Must be `readBackScoped`, not `readAllScoped`: the latter takes {entityType, extra}
+ * and silently ignores a `fingerprint` key, so it returns every seeded row and this
+ * script concludes "already on chain" about entities that do not exist.
  */
 async function existingKey(entityType) {
   const rows = await arkiv.readBackScoped({ entityType, fingerprint, limit: 1 });
   if (!rows.length) return null;
-  // Belt and braces: confirm the row really carries our fingerprint before
-  // treating it as ours.
   const attrs = Object.fromEntries((rows[0].attributes ?? []).map((a) => [a.key, a.value]));
   if (attrs.fingerprint !== fingerprint) return null;
   return String(rows[0].key);
@@ -203,8 +184,8 @@ if (reviewKey) {
 const head = buildVerdictHead({
   fingerprint,
   state: 'flagged',
-  // Tier C, and the verdict says so: a local script's identity is the content of
-  // its entry file, which does not cover the module graph behind it.
+  // Tier C, and the verdict says so: a local script's identity is the content of its
+  // entry file, which does not cover the module graph behind it.
   tier: 'C',
   severity: review.severity,
   // The server blocks from the moment it is flagged; the window only decides
@@ -241,7 +222,6 @@ if (pending.length) {
   created.forEach((c, i) => log(`  ${pending[i].label}          ${c.key}`));
 }
 
-// ── 6. read it back the way the gate will ───────────────────────────────────
 log('\nreading it back, filtered by .createdBy…');
 const readBack = await arkiv.waitForIndexed({ entityType: 'verdictHead', fingerprint });
 log(`  indexed            ${readBack ? 'yes' : 'NOT VISIBLE'}`);

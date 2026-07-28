@@ -2,26 +2,21 @@
 // Review the servers that are already in the registry as `unknown`, and replace
 // that non-answer with a real one.
 //
-// WHY THIS EXISTS. `seed-known.mjs` put 58 real servers on chain and wrote every
-// one of them `unknown`, because it resolves a package's LICENCE and never runs
-// the reviewer. A registry of 58 unknowns is not a registry — it is a list. This
-// script points the same reviewer that reads our fixtures at the same servers,
-// and publishes what it finds.
+// `seed-known.mjs` writes every entry `unknown` because it resolves a package's
+// licence and never runs the reviewer. This points the same reviewer that reads the
+// fixtures at those servers and publishes what it finds.
 //
-// WHAT IT REVIEWS — the published npm tarball, not the GitHub repo. A seeded
-// fingerprint is of `npx -y <pkg>`, and what that command executes is the
-// tarball. Reviewing the repo instead would produce a verdict about bytes the
-// user never runs, which is exactly the link Tier is supposed to describe. The
-// version and its `dist.integrity` are recorded with the verdict, and the tier
-// stays **C**: `npx -y` floats, so tomorrow's install may be a different version.
+// What it reviews: the published npm tarball, not the GitHub repo. A seeded
+// fingerprint is of `npx -y <pkg>`, and what that command executes is the tarball;
+// reviewing the repo would produce a verdict about bytes the user never runs. The
+// version and its `dist.integrity` are recorded with the verdict, and the tier stays
+// **C**: `npx -y` floats, so tomorrow's install may resolve to a different version.
 //
-// IT EXECUTES THIRD-PARTY CODE. To get a server's stated intent we start it and
-// call `tools/list` — its own words about itself, which is the half the code is
-// compared against. That means running somebody else's package. Mitigations, all
-// real but none of them a sandbox: `npm install --ignore-scripts` (no lifecycle
-// scripts), a scrubbed environment with no tokens and a throwaway HOME, an 8 s
-// timeout, and everything under a temp directory outside the repo. `--no-exec`
-// turns it off and falls back to the README alone.
+// It executes third-party code. Getting a server's stated intent means starting it
+// and calling `tools/list`. Mitigations, all real but none of them a sandbox:
+// `npm install --ignore-scripts`, a scrubbed environment with no tokens and a
+// throwaway HOME, a timeout, and everything under a temp directory outside the repo.
+// `--no-exec` turns it off and falls back to the README alone.
 //
 //   node scripts/review-known.mjs --dry-run              # review everything, write nothing
 //   node scripts/review-known.mjs --dry-run --limit 5    # the first 5
@@ -58,22 +53,16 @@ const flag = (name, fallback = null) => {
 const PUBLISH = argv.includes('--publish');
 const EXEC = !argv.includes('--no-exec');
 /**
- * Everything except the model: resolve, licence-gate, fetch, extract, install,
- * start, ask `tools/list`, budget the files — then stop and report.
- *
- * This exists because the fragile half of this pipeline is not the review. It is
- * fifty-eight tarballs, fifty-eight `npm install`s and fifty-eight third-party
- * servers being started on a Windows box, and finding out which of those breaks
- * should cost seconds rather than an hour of GPU.
+ * Everything except the model: resolve, licence-gate, fetch, extract, install, start,
+ * ask `tools/list`, budget the files — then stop and report. The fragile half of this
+ * pipeline is not the review, and finding out which tarball or install breaks should
+ * cost seconds rather than an hour of GPU.
  */
 const NO_REVIEW = argv.includes('--no-review');
 /**
- * Publish the verdicts already measured, without reviewing again.
- *
- * A full pass is roughly forty minutes of GPU. When a publish aborts on its last
- * step — as one did, on a guard of ours that was wrong — re-running the reviews
- * to write the same answers is forty minutes spent re-deriving what is already
- * on disk. The report is the record of what was measured; this publishes that.
+ * Publish the verdicts already measured, without reviewing again. A full pass is
+ * ~40 minutes of GPU; the report on disk is the record of what was measured, so a
+ * publish that aborts on its last step need not re-derive it.
  */
 const FROM_REPORT = argv.includes('--from-report');
 const ONLY = flag('--only');
@@ -83,40 +72,29 @@ const WORK = flag('--work', join(tmpdir(), 'surex-review-known'));
 const log = (...a) => console.log(...a);
 
 /**
- * The prompt budget, sized for the review model's context and NOT for our
- * fixtures. `qwen3-coder-next:surex32k` is 32 768 tokens and the reply budget is
- * 8 192 of them. The reviewer's default of 120 000 characters is roughly 30–40k
- * tokens on its own: over the line, and **ollama silently drops tokens rather
- * than refusing**, so the result would be a confident verdict about a file the
- * model never received. 48 000 characters is ~12–16k tokens, which leaves room
- * for the instructions and the answer.
+ * The prompt budget, sized for the review model's context and not for the fixtures.
+ * `qwen3-coder-next:surex32k` is 32 768 tokens with 8 192 reserved for the reply, and
+ * **ollama silently drops tokens rather than refusing** — over the line the result is
+ * a confident verdict about a file the model never received. 40 000 characters is
+ * ~12–16k tokens, leaving room for the instructions and the answer.
  */
 export const REVIEW_LIMITS = Object.freeze({
-  // Per-file, deliberately close to the total. A published MCP server is usually
-  // ONE compiled file — `@modelcontextprotocol/server-memory` is 19 000
-  // characters of `dist/index.js` and nothing else — and a 12 000 cap fed the
-  // model the first 63% of it: the imports and the path setup, with the tool
-  // implementations cut off. The reviewer then flagged the only thing it could
-  // see, which was how the memory file's path is built. A per-file cap tuned for
-  // "many small files" is the wrong shape for the packages that actually exist.
+  // Per-file, deliberately close to the total: a published MCP server is usually one
+  // compiled file, and a cap tuned for "many small files" truncates it mid-way — at
+  // 12 000 the model saw 63% of server-memory's dist/index.js and flagged the path
+  // construction, the only code it had.
   maxCharsPerFile: 32_000,
   maxTotalChars: 40_000,
   maxFiles: 24,
-  // A real README is longer than a fixture's. server-memory's is 10 667
-  // characters and it is where MEMORY_FILE_PATH — the very behaviour the reviewer
-  // was flagging as undeclared — is documented. When a server will not start,
-  // this text is the entire case for the defence.
+  // A real README is longer than a fixture's (server-memory's is 10 667 characters,
+  // and it documents the behaviour the reviewer was flagging as undeclared). When a
+  // server will not start, this text is the entire case for the defence.
   maxReadmeChars: 12_000,
 });
 
-// ---------------------------------------------------------------------------
-// what to review — the live registry, not a list in this file
-// ---------------------------------------------------------------------------
-
 /**
- * Driven off `/v1/registry?state=unknown` rather than a hardcoded array so the
- * two can never drift: whatever is unknown on chain today is what gets reviewed,
- * including the entries the earlier official-registry crawl put there.
+ * Driven off `/v1/registry?state=unknown` rather than a hardcoded array so the two
+ * cannot drift: whatever is unknown on chain today is what gets reviewed.
  */
 async function loadUnknown() {
   const res = await fetch(`${API}/v1/registry?state=unknown&limit=200`);
@@ -131,11 +109,9 @@ async function loadUnknown() {
 }
 
 /**
- * Not everything in the registry is an npm package. The crawl of the official MCP
- * registry brought in OCI images (`docker.io/…`, `ghcr.io/…`), and this pass has
- * no way to read those: pulling an image is a different pipeline, and guessing at
- * a matching npm name would attach a verdict to the wrong artifact. They stay
- * `unknown`, and the report says why rather than dropping them silently.
+ * The npm package name, or `null` for an OCI image reference. Pulling an image is a
+ * different pipeline, and guessing at a matching npm name would attach a verdict to
+ * the wrong artifact — those stay `unknown`, with the reason in the report.
  */
 function npmNameOf(name) {
   if (/^(docker\.io|ghcr\.io|quay\.io|registry\.k8s\.io)\//i.test(name)) return null;
@@ -146,9 +122,8 @@ function npmNameOf(name) {
 
 async function npmMeta(name) {
   const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, {
-    // NOT the abbreviated `application/vnd.npm.install-v1+json` format: it strips
-    // `license`, `description` and `repository` (seed-known.mjs paid for this
-    // once — every package would be recorded with a null licence).
+    // Not the abbreviated `application/vnd.npm.install-v1+json` format: it strips
+    // `license`, `description` and `repository`, so every licence reads null.
     headers: { accept: 'application/json' },
   });
   if (!res.ok) return { ok: false, status: res.status };
@@ -167,21 +142,13 @@ async function npmMeta(name) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// fetching the bytes
-// ---------------------------------------------------------------------------
-
 const safeDir = (name) => name.replace(/[^a-z0-9._-]+/gi, '_');
 
-/** Download and extract the published tarball. Returns the package directory. */
 /**
- * Does what npm published match what we downloaded?
- *
- * `dist.integrity` is a Subresource Integrity string over the tarball —
- * `sha512-<base64>`. Recomputing it is the difference between "we reviewed the
- * package" and "we reviewed whatever the network handed us", and it costs one
- * hash. A mismatch is not a warning: the bytes are not the bytes the registry
- * vouches for, and a verdict about them would be a verdict about nothing.
+ * Does what npm published match what was downloaded? `dist.integrity` is a
+ * Subresource Integrity string over the tarball (`sha512-<base64>`), and recomputing
+ * it is the difference between reviewing the package and reviewing whatever the
+ * network returned. A mismatch is fatal, not a warning.
  */
 export function integrityMatches(bytes, integrity) {
   if (!integrity) return { checked: false, ok: false, detail: 'npm published no integrity hash for this version' };
@@ -198,6 +165,7 @@ export function integrityMatches(bytes, integrity) {
     : { checked: true, ok: false, detail: `${algorithm} MISMATCH — downloaded bytes are not the published tarball` };
 }
 
+/** Download and extract the published tarball. Returns the package directory. */
 async function fetchTarball(name, tarballUrl, integrity) {
   const dir = join(WORK, safeDir(name));
   rmSync(dir, { recursive: true, force: true });
@@ -213,15 +181,10 @@ async function fetchTarball(name, tarballUrl, integrity) {
   }
   writeFileSync(tgz, bytes);
 
-  // Extracted from `dir` with a RELATIVE filename, and that is not a style
-  // choice. GNU tar — which is what `tar` resolves to in a POSIX shell on this
-  // machine — reads an argument containing a colon as `host:path` and tries to
-  // reach a remote archive: `tar -xzf C:\…\package.tgz` fails with
-  //   tar (child): Cannot connect to C: resolve failed
-  // on every single package. Windows' own bsdtar accepts the absolute form, so
-  // this breaks depending on which shell the script is launched from, which is
-  // the worst kind of environment bug. Relative paths have no colon and work
-  // under both.
+  // Extracted from `dir` with a relative filename, never an absolute one. GNU tar
+  // reads an argument containing a colon as `host:path`, so `tar -xzf C:\…\pkg.tgz`
+  // fails with "Cannot connect to C: resolve failed" on every package; Windows'
+  // bsdtar accepts it. A relative path has no colon and works under both.
   execFileSync('tar', ['-xzf', 'package.tgz'], { cwd: dir, stdio: 'ignore', timeout: 120_000 });
   // npm tarballs always root at `package/`, but a few republished ones do not.
   const inner = join(dir, 'package');
@@ -231,12 +194,10 @@ async function fetchTarball(name, tarballUrl, integrity) {
 const SOURCE_EXT = /\.(m?js|cjs|ts|mts|cts|json)$/i;
 const SKIP_DIR = /^(node_modules|\.git|test|tests|__tests__|examples?|docs?|coverage|\.github)$/i;
 /**
- * Dependency lockfiles are never source, and one of them is ours: `npm install`
- * writes `package-lock.json` into the extracted directory, so anything reading
- * the tree after the install would spend its budget reviewing a hundred kilobytes
- * of our own dependency metadata. The tree is read before the install for that
- * reason, and excluded by name as well — belt and braces, because a package that
- * ships its own lockfile would cost the same budget for the same non-answer.
+ * Lockfiles are never source, and one of them is generated here: `npm install` writes
+ * `package-lock.json` into the extracted directory, so a tree read after the install
+ * spends its budget on dependency metadata this script produced. The tree is read
+ * before the install as well — this is the second line of defence.
  */
 const SKIP_FILE = /^(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|tsconfig\.tsbuildinfo)$/i;
 
@@ -259,25 +220,17 @@ export function readPackage(dir) {
   return files;
 }
 
-// ---------------------------------------------------------------------------
-// can this even be read?
-// ---------------------------------------------------------------------------
-
 /**
- * A published bundle is not source. `dist/index.js` on one 400 000-character line
- * is technically "available" and reviewing it means nothing: the model sees
- * mangled identifiers and no structure, and would return `clean` for a server it
- * did not understand. That is the single most dangerous output this system can
- * produce, so it is detected and reported as `unreviewable`, with the reason.
- *
- * Pure, and tested — this decides whether a verdict gets published at all.
+ * A published bundle is not source: `dist/index.js` on one 400 000-character line is
+ * technically available, and a model reading mangled identifiers with no structure
+ * returns `clean` for a server it did not understand — the single most dangerous
+ * output this system can produce. Detected and reported as `unreviewable` with the
+ * reason. Pure and tested, because it decides whether a verdict is published at all.
  */
 export function readability(files) {
-  // `.d.ts` is EXCLUDED, and the exclusion is the interesting part. A package
-  // that ships a minified `dist/index.js` next to a hand-shaped `dist/index.d.ts`
-  // would otherwise pass this gate on the declarations alone — and a declaration
-  // file describes types, not behaviour. A review of it would find nothing
-  // because there is nothing there to find, and would say `clean`.
+  // `.d.ts` is excluded: a minified `dist/index.js` shipped next to a hand-shaped
+  // `dist/index.d.ts` would otherwise pass this gate on the declarations alone, and a
+  // review of types finds nothing to find and says `clean`.
   const code = (files ?? []).filter((f) =>
     /\.(m?js|cjs|ts|mts|cts)$/i.test(f.path) && !/\.d\.(m?ts|cts)$/i.test(f.path));
   if (!code.length) return { readable: false, reason: 'no JavaScript or TypeScript source in the published package (type declarations do not count)' };
@@ -295,8 +248,8 @@ export function readability(files) {
   const readable = judged.filter((j) => !j.minified);
   const readableChars = readable.reduce((n, j) => n + j.chars, 0);
 
-  // A handful of vendored minified files next to real source is normal and fine.
-  // The gate only refuses when there is nothing left worth reading.
+  // Vendored minified files next to real source are normal; the gate only refuses
+  // when there is nothing left worth reading.
   if (!readable.length) {
     return { readable: false, reason: 'every published JavaScript file is a bundled or minified artifact', judged };
   }
@@ -309,10 +262,9 @@ export function readability(files) {
 /**
  * Which files the model gets, in priority order, inside the budget.
  *
- * `package.json` is always first and is never dropped. Our own `mal-postinstall`
- * fixture exists because a hostile `postinstall` is invisible to a reviewer that
- * only reads `.js` — and in the wild the manifest is where a supply-chain attack
- * lives. A budget that can drop it is a budget that cannot see the attack class.
+ * `package.json` is always first and is never dropped: the manifest is where a
+ * supply-chain attack lives, and a budget that can drop it cannot see that attack
+ * class at all.
  */
 export function selectForReview(files, limits = REVIEW_LIMITS) {
   const manifest = files.filter((f) => f.path === 'package.json');
@@ -320,13 +272,9 @@ export function selectForReview(files, limits = REVIEW_LIMITS) {
   const hasSource = rest.some((f) => /^(src|lib)\//i.test(f.path));
 
   const rank = (f) => {
-    // Type declarations rank LAST, always, whatever directory they live in.
-    // `@monnet/mcp` sent the model 23 `.d.ts` files out of 24: the review read
-    // type signatures, found "behaviour the description does not account for" in
-    // a function signature, and produced a severity-3 flag against a real
-    // package. A declaration describes a shape; the behaviour is in the `.js`
-    // beside it. They stay eligible — a declared shape is context — but they
-    // never displace code.
+    // Type declarations rank last whatever directory they live in. `@monnet/mcp` sent
+    // the model 23 `.d.ts` files out of 24 and drew a severity-3 flag out of a
+    // function signature. They stay eligible as context, but never displace code.
     if (/\.d\.(m?ts|cts)$/i.test(f.path)) return 9;
     if (/^(src|lib)\//i.test(f.path)) return 0;
     if (/^(index|server|main|cli)\.(m?js|cjs|ts)$/i.test(f.path)) return 1;
@@ -352,15 +300,11 @@ export function selectForReview(files, limits = REVIEW_LIMITS) {
   return { kept, dropped, chars: total };
 }
 
-// ---------------------------------------------------------------------------
-// running the server for its stated intent
-// ---------------------------------------------------------------------------
-
 /**
- * An environment with nothing in it worth stealing. The servers being started
- * read credentials from the environment by design — that is what several of them
- * are FOR — so the review must not hand them ours. HOME points at a throwaway
- * directory so a server that writes config does it there.
+ * An environment with nothing in it worth stealing. The servers being started read
+ * credentials from the environment by design, so the review passes none of the real
+ * ones on; HOME points at a throwaway directory so a server that writes config does
+ * it there.
  */
 function scrubbedEnv(sandboxHome) {
   mkdirSync(sandboxHome, { recursive: true });
@@ -407,7 +351,7 @@ async function statedIntentOf(pkgDir, name) {
 
   try {
     // --ignore-scripts is the important flag: it is what stops a hostile
-    // postinstall from running on this machine while we are looking for one.
+    // postinstall from running on this machine while the review looks for one.
     execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--omit=dev', '--silent'], {
       cwd: pkgDir, stdio: 'ignore', timeout: 180_000, shell: process.platform === 'win32',
       env: { ...scrubbedEnv(join(pkgDir, '..', 'home')), npm_config_ignore_scripts: 'true' },
@@ -417,12 +361,10 @@ async function statedIntentOf(pkgDir, name) {
   const intent = await statedIntentFrom({
     dir: pkgDir, name, entry, cwd: pkgDir,
     env: scrubbedEnv(join(pkgDir, '..', 'home')),
-    // 8 s was the fixture number, and a fixture answers instantly. A real server
-    // may build a browser driver or an index before it serves `tools/list`:
-    // `@playwright/mcp` and `server-everything` both timed out at 8 s. Failing to
-    // enumerate is not fatal — the README carries the claims and `toolSource`
-    // records that nothing was enumerated — but it costs the sharpest axis a
-    // review has, so it is worth waiting for.
+    // Longer than the fixtures' 8 s: a real server may build a browser driver or an
+    // index before serving `tools/list` (`@playwright/mcp` and `server-everything`
+    // both timed out at 8 s). Not enumerating is survivable — the README carries the
+    // claims and `toolSource` records it — but it costs a review's sharpest axis.
     timeoutMs: 20_000,
   });
   if (!intent.readme) {
@@ -431,10 +373,6 @@ async function statedIntentOf(pkgDir, name) {
   }
   return intent;
 }
-
-// ---------------------------------------------------------------------------
-// one server, end to end
-// ---------------------------------------------------------------------------
 
 async function reviewOne(entry, config) {
   const out = { ...entry, npmName: npmNameOf(entry.name) };
@@ -456,15 +394,14 @@ async function reviewOne(entry, config) {
   );
   out.licence = { spdx: gate.spdx, eligible: gate.eligible, source: gate.source, undetermined: Boolean(gate.undetermined) };
   if (gate.undetermined) {
-    // The licence could not be READ — a timeout or a rate limit, not an answer.
-    // Publishing `unreviewable / licence` here would tell the world that nothing
-    // permits us to store somebody's correctly licensed source, on the strength
-    // of a failed HTTP request. Leave the entry alone and say so in the report.
+    // The licence could not be read — a timeout or rate limit, not an answer.
+    // Publishing `unreviewable / licence` on a failed HTTP request would say nobody
+    // may store somebody's correctly licensed source. Leave the entry alone.
     return { ...out, outcome: 'skipped', publish: null, why: gate.detail };
   }
   if (!gate.eligible) {
-    // No source upload for a licence we may not redistribute — the gate runs
-    // BEFORE anything is read, not after.
+    // No source upload for a licence that does not permit redistribution — the gate
+    // runs before anything is read, not after.
     return { ...out, outcome: 'unreviewable', reason: 'licence', publish: 'unreviewable',
       why: `licence not redistribution-permitting (${gate.spdx ?? gate.detail ?? 'no licence signal'})` };
   }
@@ -523,10 +460,9 @@ async function reviewOne(entry, config) {
     modelId: result.modelId,
     promptVersion: result.promptVersion,
     sourceCoverage: result.run?.sourceCoverage ?? null,
-    // Per-reading status. Without it, "1 usable run of 2" in the notice is a
-    // dead end: it does not say whether the other reading timed out, returned
-    // prose, or was rejected as contradictory — three different problems with
-    // three different fixes, and the difference is invisible in the verdict.
+    // Per-reading status. Without it "1 usable run of 2" cannot say whether the other
+    // reading timed out, returned prose, or was rejected as contradictory — three
+    // different problems with three different fixes.
     readings: (result.run?.runs ?? []).map((x) => ({
       variant: x.variant, ok: x.ok, parsed: x.parsed, error: x.error, ms: x.ms,
     })),
@@ -536,17 +472,11 @@ async function reviewOne(entry, config) {
   });
 
   /**
-   * A `clean` verdict claims the reviewer read the code and found nothing. That
-   * claim is only true if the reviewer read ALL of it.
-   *
-   * The prompt is budgeted, files over a size cap are skipped, and a package with
-   * more files than the cap loses the tail. If the dangerous line is in the part
-   * that never arrived, `clean` is not a cautious answer — it is a false one, and
-   * it is the exact laundering this registry exists to avoid. So any omission at
-   * all downgrades the verdict to `unreviewable`, with the omission listed.
-   *
-   * Note this only ever makes the answer weaker. A flag is unaffected: finding
-   * something in the part we did read is still finding something.
+   * A `clean` verdict claims the reviewer read the code and found nothing, which is
+   * only true if it read all of it. The prompt is budgeted and the tail of a large
+   * package is dropped, so any omission downgrades `clean` to `unreviewable` with the
+   * omission listed. This only ever weakens the answer — a flag is unaffected,
+   * because finding something in the part that was read is still finding something.
    */
   const omitted = (result.run?.sourceCoverage?.filesOmittedOrTruncated ?? 0) + (selection.dropped?.length ?? 0);
   if (result.verdict === 'clean' && omitted > 0) {
@@ -557,25 +487,17 @@ async function reviewOne(entry, config) {
   if (result.verdict === 'clean') return { ...out, outcome: 'clean', publish: 'clean' };
   if (result.verdict === 'flagged') {
     /**
-     * Held, and SAID SO on chain.
-     *
-     * The first design left these as `unknown`, which reads as "nobody has
-     * looked" — and that is publication bias: the registry would show every
-     * clean review and silently omit every other one, so `unknown` would quietly
-     * come to mean two different things. `withheld` is the factual category:
-     * a review ran, its findings are not published, and a human decides. No
-     * accusation, no findings, no severity — just the fact that the answer is
-     * being held rather than absent.
+     * Held, and said so on chain. Leaving these `unknown` reads as "nobody has
+     * looked", which is publication bias — every clean review shown and every other
+     * one silently omitted, with `unknown` quietly meaning two things. `withheld` is
+     * the factual category: a review ran, its findings are not published, a human
+     * decides. No accusation, no findings, no severity.
      */
     return { ...out, outcome: 'flagged', publish: 'withheld',
       why: 'a flag against a named third party is held for a human to release — the registry records that a review ran and its result is withheld, which is not the same as nobody having looked' };
   }
   return { ...out, outcome: result.verdict, reason: result.reason ?? 'source-unavailable', publish: 'unreviewable', why: result.notice ?? null };
 }
-
-// ---------------------------------------------------------------------------
-// main
-// ---------------------------------------------------------------------------
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 if (isMain) await main();
@@ -625,14 +547,12 @@ publishing from ${path} (generated ${saved.generatedAt}) — no review re-run
     log(`  ${String(i + 1).padStart(2)}/${entries.length} ${String(row.name).slice(0, 42).padEnd(44)} ${String(row.outcome).padEnd(13)} ${detail}`);
   }
 
-  // ── the report ────────────────────────────────────────────────────────────
   const tally = results.reduce((acc, r) => ({ ...acc, [r.outcome]: (acc[r.outcome] ?? 0) + 1 }), {});
   log('\n' + '─'.repeat(72));
   log(Object.entries(tally).map(([k, v]) => `${k} ${v}`).join(' · '));
 
-  // How many servers actually told us what they declare. This is the axis a
-  // review is sharpest on — "the code does more than the tools say" needs the
-  // tools — so a low number here is a caveat on the whole run, not a detail.
+  // How many servers actually stated what they declare. "The code does more than the
+  // tools say" needs the tools, so a low number here is a caveat on the whole run.
   const started = results.filter((r) => r.toolSource);
   const enumerated = started.filter((r) => r.toolSource === 'tools/list');
   if (started.length) {
@@ -672,28 +592,19 @@ publishing from ${path} (generated ${saved.generatedAt}) — no review re-run
   await publish(results);
 }
 
-// ---------------------------------------------------------------------------
-// publishing
-// ---------------------------------------------------------------------------
-
 /**
  * The last gate before the wallet: nothing on the publish path may carry a flag
- * against a package we did not write.
- *
- * It is a separate, exported, tested function and not an `if` inside publish()
- * for one reason — a guard that cannot be tested is a comment. Its test asserts
- * that it THROWS on a flag, so deleting the check fails the suite instead of
- * quietly turning this into a machine that accuses real projects on an
- * unaudited model verdict. AGENTS.md §4.
+ * against a package this project did not write (AGENTS.md §4). Separate, exported and
+ * tested rather than an `if` inside publish(), so deleting the check fails the suite
+ * instead of quietly turning this into a machine that accuses real projects on an
+ * unaudited model verdict.
  */
 export function assertNoThirdPartyFlags(rows) {
   for (const r of rows ?? []) {
-    // What is being WRITTEN, not what the model said. An earlier version of this
-    // also refused any row whose model verdict was `flagged`, and that was wrong
-    // in a way only a real run revealed: `withheld` exists precisely to publish
-    // something safe ABOUT a flagged review — "a review ran and its result is
-    // held" — so every withheld row carries `verdict: 'flagged'` by definition.
-    // The guard aborted the whole publish on the rows it was designed to permit.
+    // What is being written, never what the model said: `withheld` exists to publish
+    // something safe about a flagged review, so every withheld row carries
+    // `verdict: 'flagged'` by definition and refusing on that aborts the publish on
+    // exactly the rows this guard is designed to permit.
     if (r.publish === 'flagged' || r.state === 'flagged') {
       throw new Error(
         `refusing to publish a flag for the third-party package ${r.name} — ` +
@@ -725,20 +636,17 @@ async function publish(results) {
   assertNoThirdPartyFlags(publishable);
 
   /**
-   * Build every head BEFORE anything is written, with a stand-in evidence
-   * pointer, purely to see whether the worker would refuse it.
+   * Build every head before anything is written, with a stand-in evidence pointer,
+   * purely to see whether the worker would refuse it. The write order below is quilt
+   * (two paid Sui transactions) → review records → heads, so a head the worker
+   * rejects — an `unreviewable` with no reason, a `clean` with no review — would
+   * otherwise throw after the blob was paid for, leaving a certified quilt nothing
+   * points at and half the registry updated.
    *
-   * The order below is: write the Walrus quilt (two Sui transactions, paid), then
-   * write the review records, then build the heads. A head the worker rejects —
-   * an `unreviewable` with no reason, a `clean` with no review — would therefore
-   * throw *after* the blob was paid for, leaving a certified quilt nothing points
-   * at and half the registry updated. Ten lines here turns that into an error
-   * before the first transaction.
+   * The probe pointer is shaped exactly like a real one: `evidenceOf` requires
+   * `nShards` and `encodingType`, since blob IDs are deterministic over both content
+   * and network configuration, and a probe that skips them tests nothing.
    */
-  // A pointer shaped exactly like a real one. `evidenceOf` requires `nShards` and
-  // `encodingType` and refuses without them — blob IDs are deterministic over
-  // content AND network configuration, so a record that omits them cannot explain
-  // a future mismatch. The probe has to satisfy the same rule or it tests nothing.
   const PROBE = {
     blobId: 'probe', suiObjectId: 'probe', contentSha256: 'probe',
     registerTx: 'probe', certifyTx: 'probe', encodingType: 'RS2', nShards: 1000,
@@ -752,9 +660,8 @@ async function publish(results) {
         tier: r.tier ?? 'C',
         severity: r.publish === 'clean' ? r.severity ?? 0 : 0,
         name: r.name,
-        // The real call passes the key created a few lines below; here it only
-        // has to be truthy, because this probe is asking "would this be refused",
-        // not "is this the final entity".
+        // Truthy is enough: the probe asks "would this be refused", not "is this the
+        // final entity". The real call passes the key created below.
         latestReviewKey: r.publish === 'clean' ? 'probe' : undefined,
         modelId: r.modelId, promptVersion: r.promptVersion,
         evidence: r.publish === 'clean' ? PROBE : undefined,
@@ -773,7 +680,7 @@ async function publish(results) {
   const arkiv = createArkivWriter({ log: (m) => log(m) });
 
   // One quilt for every review body: a standalone blob per entry is two Sui
-  // transactions each, and 58 of those does not fit the wallet (FRICTION-LOG S1,
+  // transactions each, which does not fit the wallet at this scale (FRICTION-LOG S1,
   // S3 — the publisher does not dedupe and the SDK re-charges).
   const bodies = withReview.map((r) => ({
     identifier: r.fingerprint,
@@ -830,27 +737,22 @@ async function publish(results) {
     log(`  ${created.length} review records written`);
   }
 
-  // Then REPLACE the existing heads. Not new ones: getVerdictHead() reads with
-  // limit 1, so a second head for the same fingerprint would be picked at
-  // random. updateEntity is a full replacement and buildVerdictHead emits the
-  // complete entity, project attribute included — without it the entity stays on
-  // chain and silently leaves every scoped query.
+  // Replace the existing heads, never add: getVerdictHead() reads with limit 1, so a
+  // second head for the same fingerprint is picked at random. updateEntity is a full
+  // replacement and buildVerdictHead emits the complete entity, project attribute
+  // included — without it the entity stays on chain and silently leaves every scoped
+  // query.
   //
-  // The existing head is re-read FROM CHAIN rather than taken from the /v1
-  // projection, for a reason worth stating: `entityToHead` in the API does not
-  // surface `seedSource`, so building the replacement from the API's view would
-  // silently drop the record of where the entry came from — and a full
-  // replacement makes that permanent. Read the entity, keep what we are not
-  // changing.
+  // The existing head is re-read from chain, not from the /v1 projection: the API's
+  // `entityToHead` does not surface `seedSource`, and a full replacement built from
+  // that view would drop it permanently.
   const updates = [];
   const noHead = [];
   for (const r of publishable) {
     const [existing] = await arkiv.readBackScoped({ entityType: 'verdictHead', fingerprint: r.fingerprint, limit: 1 });
     if (!existing) { noHead.push(r); continue; }
     // `entity.toJson()` is how the read path decodes a payload (apps/api
-    // payloadToObject) — the SDK does the decoding, we do not guess at an
-    // encoding. A payload we cannot read means we cannot carry anything forward
-    // from it, which is a reason to skip rather than to overwrite blindly.
+    // payloadToObject) — the SDK decodes, and nothing here guesses at an encoding.
     let priorPayload = {};
     try {
       const body = existing.toJson?.();
@@ -872,8 +774,8 @@ async function publish(results) {
         modelId: r.modelId, promptVersion: r.promptVersion,
         reviewedAt: r.verdict ? new Date().toISOString() : undefined,
         capabilities: r.capabilitySurface,
-        // Carried, not regenerated: how this entry entered the registry is a
-        // fact about the past and re-deriving it would be inventing it.
+        // Carried, not regenerated: how this entry entered the registry is a fact
+        // about the past, and re-deriving it would be inventing it.
         seedSource: priorPayload.seedSource,
         evidence: r.publish === 'clean' ? pointerFor(r.fingerprint) : undefined,
         requireReviewForClean: true,

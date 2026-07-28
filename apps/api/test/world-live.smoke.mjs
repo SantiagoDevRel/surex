@@ -1,19 +1,19 @@
-// LIVE smoke test — talks to real World Chain and the real World verify endpoint.
+// Live smoke test — talks to real World Chain and the real World verify endpoint.
 //
 //     node apps/api/test/world-live.smoke.mjs
 //
-// Deliberately NOT in `pnpm test`: it needs the network, and a red CI run caused by
+// Deliberately not in `pnpm test`: it needs the network, and a red CI run caused by
 // somebody else's RPC is worse than no signal. Same convention as
 // `live-arkiv.smoke.mjs`.
 //
-// It exists because the whole agent half of this lane is verifiable TODAY, with no
-// Orb: READING AgentBook needs nothing. Only registering an agent needs a human at
+// It exists because the whole agent half of this lane is verifiable today, with no
+// Orb: reading AgentBook needs nothing. Only registering an agent needs a human at
 // an Orb. So this asserts, against the live chain:
 //
 //   1. a third-party wallet somebody really registered  → a real humanId
 //   2. our own agent wallet                             → null, honestly
 //   3. a dead RPC                                       → upstream_unavailable,
-//                                                          NEVER "not human-backed"
+//                                                          never "not human-backed"
 //   4. Base Sepolia's AgentBook exists and is a separate, empty registry
 //   5. the live World ID verify endpoint accepts our exact request shape
 //
@@ -32,7 +32,7 @@ const quiet = { warn() {}, info() {}, error() {} };
  * A wallet a real person registered in AgentBook, found by reading
  * `AgentRegistered(address indexed agent, uint256 indexed humanId)` logs off World
  * Chain 480. Read-only, and the humanId is public chain data — this file asserts
- * only that it resolves to SOMETHING, never what.
+ * only that it resolves to something, never what.
  */
 const A_REGISTERED_AGENT = getAddress('0xea7d8b94f6e8044a22738ffe78a2cb356d114171');
 const OUR_AGENT = getAddress(process.env.SUREX_AGENT_ADDRESS ?? '0xCEe6730b4aB7FFcAFfCDF59ffF4AebF94b047283');
@@ -91,7 +91,7 @@ await step('Base Sepolia has its own AgentBook, and it is a different registry',
 });
 
 await step('the live World ID verify endpoint accepts our request shape', async () => {
-  // A synthetic proof against a REAL migrated app: everything of ours is exercised —
+  // A synthetic proof against a real migrated app: everything of ours is exercised —
   // URL, method, headers, body shape, response parsing — and it fails at the one
   // step we cannot fake, the zero-knowledge proof itself. That is the honest limit
   // of what is testable without a Developer Portal app of our own.

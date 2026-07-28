@@ -1,24 +1,14 @@
 #!/usr/bin/env node
 // Seed the MCP servers people actually run.
 //
-// The first seed crawled 50 real servers out of the official registry and every
-// one of them was an unrecognisable name — `@certscore/mcp`, `borealhost-mcp`,
-// `fodda-mcp`. Real data that reads as fake, which for a registry is just as bad:
-// the owner's first question on seeing it was "are these placeholders?".
+// **The official MCP registry does not contain the canonical @modelcontextprotocol
+// servers** — searching it for github, filesystem, playwright or postgres returns
+// Smithery mirrors and one-off forks. So these are seeded from npm instead, and
+// `seedSource` says npm rather than the registry: a seeded entry that lies about
+// where it came from is worse than one nobody recognises.
 //
-// The cause is not the crawler. **The official registry does not contain the
-// canonical @modelcontextprotocol servers.** Searching it for github, filesystem,
-// playwright or postgres returns Smithery mirrors and one-off forks; the packages
-// every MCP user has in their config are simply not published there. Verified by
-// query, and logged as a friction entry.
-//
-// So this seeds them from npm instead, and says so: `seedSource` records npm and
-// not the registry, because a seeded entry that lies about where it came from is
-// worse than one nobody recognises.
-//
-// It also does something the crawl could not: these fingerprints are the ones a
-// real config produces, so the gate stops answering `unknown` for the servers on
-// the machine in front of you.
+// The fingerprints are the ones a real config produces, so the gate stops answering
+// `unknown` for the servers on the machine in front of you.
 //
 //   node scripts/seed-known.mjs --dry-run     # resolve + licence gate, no writes
 //   node scripts/seed-known.mjs               # write
@@ -44,12 +34,12 @@ const DRY = process.argv.includes('--dry-run');
 const log = (...a) => console.log(...a);
 
 /**
- * Well-known, npm-published MCP servers. Every one is checked against npm before
- * it is seeded — anything that 404s is skipped and reported, never invented.
+ * Well-known, npm-published MCP servers. Every one is checked against npm before it
+ * is seeded — anything that 404s is skipped and reported, never invented.
  *
- * The `npx -y <pkg>` form is what gets fingerprinted, deliberately: that is what a
- * real config contains, and under SXF-1 a pinned spec is a different entry. Seeding
- * the pinned form would produce entries no user's config can ever match.
+ * The `npx -y <pkg>` form is what gets fingerprinted: under SXF-1 a pinned spec is a
+ * different entry, so seeding the pinned form produces entries no user's config can
+ * ever match.
  */
 const KNOWN = [
   '@modelcontextprotocol/server-github',
@@ -76,9 +66,8 @@ const KNOWN = [
 
 async function npmMeta(name) {
   const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, {
-    // NOT the abbreviated format: `application/vnd.npm.install-v1+json` strips
-    // `license`, `description` and `repository` (6 keys instead of 24), so every
-    // package would have been recorded with a null licence.
+    // Not the abbreviated format: `application/vnd.npm.install-v1+json` strips
+    // `license`, `description` and `repository`, so every licence reads null.
     headers: { accept: 'application/json' },
   });
   if (!res.ok) return { ok: false, status: res.status };
@@ -96,7 +85,6 @@ async function npmMeta(name) {
   };
 }
 
-// ── resolve ─────────────────────────────────────────────────────────────────
 log(`\nresolving ${KNOWN.length} well-known MCP servers against npm…\n`);
 const candidates = [];
 const skipped = [];
@@ -154,7 +142,6 @@ if (DRY) {
   process.exit(0);
 }
 
-// ── write ───────────────────────────────────────────────────────────────────
 const saved = existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : { quilt: null, seeded: {} };
 const todo = candidates.filter((c) => !saved.seeded[c.fingerprint]);
 log(`\n${todo.length} to write (${Object.keys(saved.seeded).length} already on file)`);
@@ -199,11 +186,7 @@ if (quilt) {
 } else {
   const written = await walrus.writeQuiltOfRecords(records, { label: 'known-server entries' });
   quilt = written.quilt ?? written;
-  // writeQuiltOfRecords returns a MAP, not an array. JSON.stringify turns a Map
-  // into `{}`, so the first attempt certified a quilt and then lost every patch
-  // pointer to the checkpoint — the ids cannot be re-derived without the write
-  // flow, which cost one orphaned quilt. Normalise to an array before anything
-  // else touches it.
+  // Normalise before anything else touches it — see `asPatchArray`.
   patches = asPatchArray(written.patches ?? written.pointers);
   writeFileSync(STATE, JSON.stringify({ quilt, patches, seeded: saved.seeded }, null, 2));
 }
@@ -212,10 +195,10 @@ log(`  registerTx ${quilt.registerTx}`);
 log(`  certifyTx  ${quilt.certifyTx}`);
 
 /**
- * writeQuiltOfRecords returns a Map keyed by identifier. Two traps, both paid for:
- * JSON.stringify turns a Map into `{}` (so a checkpoint loses every pointer), and
- * `[...map.values()]` throws away the KEYS — which are the identifiers, the only
- * thing tying a patch to the record it holds. Preserve them.
+ * `writeQuiltOfRecords` returns a Map keyed by identifier. Two traps: JSON.stringify
+ * turns a Map into `{}`, so a checkpoint written from one loses every pointer and the
+ * ids cannot be re-derived; and `[...map.values()]` throws away the keys, which are
+ * the identifiers — the only thing tying a patch to the record it holds.
  */
 function asPatchArray(p) {
   if (!p) return [];
@@ -231,9 +214,8 @@ const pointerFor = (fp) => {
   return p ? { ...quilt, ...p, addressing: 'quilt-patch', quiltBlobId: quilt.blobId } : { ...quilt };
 };
 
-// Assert the mapping BEFORE building anything: a pointer that does not carry a
-// contentSha256, or that belongs to another record, is how a registry ends up
-// citing evidence it cannot verify. Fail here rather than write it.
+// Assert the mapping before building anything: a pointer with no contentSha256, or
+// one belonging to another record, is how a registry cites evidence it cannot verify.
 for (const c of todo) {
   const p = (patches ?? []).find((x) => x.identifier === c.fingerprint);
   if (!p) throw new Error(`no quilt patch mapped for ${c.name} (${c.fingerprint})`);
@@ -248,7 +230,7 @@ for (const c of todo) {
   entities.push(
     buildVerdictHead({
       fingerprint: c.fingerprint,
-      // NEVER clean. Nothing here has been reviewed; a licence-ineligible entry is
+      // Never `clean`. Nothing here has been reviewed; a licence-ineligible entry is
       // `unreviewable` with the reason, and everything else is `unknown`.
       state: c.licence.eligible ? 'unknown' : 'unreviewable',
       reason: c.licence.eligible ? undefined : 'licence',

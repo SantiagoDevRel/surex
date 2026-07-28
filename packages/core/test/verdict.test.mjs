@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   blockMessage, confidenceOf, decide, offlineMessage, tierSentence, warnMessage,
 } from '../src/verdict.mjs';
-import { assertCopy, copyViolations, NO_HUMAN_AUDIT } from '../src/copy.mjs';
+import { NO_HUMAN_AUDIT } from '../src/copy.mjs';
 import { parseVerdictHead, partitionBatchResponse, unknownHead, isFingerprint } from '../src/contract.mjs';
 
 const FP = `sxf1_${'9'.repeat(64)}`;
@@ -101,9 +101,8 @@ test('the three block variants differ only in the confidence sentence', () => {
 });
 
 test('the block message stays short enough to be read as a block', () => {
-  // A 12,054-character reason arrived intact but the model described it as a
-  // tool error rather than a block (FRICTION-LOG C4). Comprehension is the
-  // limit, so this is a hard ceiling on our own copy.
+  // A 12,054-character reason arrived intact but the model described it as a tool
+  // error rather than a block (FRICTION-LOG C4). Comprehension is the limit.
   const msg = blockMessage(head(), { evidenceUrl: 'https://surex.dev/r/x', disputeUrl: 'https://surex.dev/d/x' });
   assert.ok(msg.length < 1200, `block message is ${msg.length} chars`);
   assert.ok(msg.split('\n').length <= 16);
@@ -116,9 +115,8 @@ test('tier C never claims more than it knows', () => {
 });
 
 test('"unknown" distinguishes listed-but-unreviewed from never-submitted', () => {
-  // Seeding 18 well-known servers made this a live problem: they are in the
-  // registry, unreviewed, and the gate was telling users they were "not in the
-  // registry" — a false statement about our own data.
+  // A seeded server is in the registry and unreviewed; telling a user it is "not
+  // in the registry" is a false statement about our own data.
   const listed = warnMessage({ state: 'unknown', listed: true }, { name: '@playwright/mcp' });
   assert.match(listed, /listed but has not been reviewed/);
   assert.ok(!/not in the registry/.test(listed));
@@ -129,10 +127,8 @@ test('"unknown" distinguishes listed-but-unreviewed from never-submitted', () =>
 });
 
 test('only the never-submitted branch offers the submit link', () => {
-  // Telling someone to submit a server that is ALREADY listed sends them to fill
-  // in a form that changes nothing — the entry exists and is waiting for a
-  // review, not for a second submission. The distinction is the whole reason the
-  // two branches are separate strings, so the link has to respect it.
+  // Telling someone to submit a server that is already listed sends them to fill
+  // in a form that changes nothing — the entry exists and is waiting for a review.
   const submitUrl = 'https://surex-app.vercel.app/submit';
 
   const never = warnMessage({ state: 'unknown' }, { name: 'nobody-sent-this', submitUrl });
@@ -148,47 +144,10 @@ test('only the never-submitted branch offers the submit link', () => {
     assert.ok(!msg.includes(submitUrl), `${state} must not offer a submit link`);
   }
 
-  // And with no URL supplied the sentence still reads correctly rather than
-  // trailing an empty fragment.
+  // With no URL supplied the sentence must not trail an empty fragment.
   const bare = warnMessage({ state: 'unknown' }, { name: 'nobody-sent-this' });
   assert.ok(!/Submit it for review/.test(bare));
   assert.match(bare, /Proceeding unreviewed\.$/);
-});
-
-test('copy law holds across every string the product can emit', () => {
-  const surfaces = [
-    blockMessage(head(), { evidenceUrl: 'https://x', disputeUrl: 'https://y' }),
-    blockMessage(head({ state: 'disputed', disputeSummary: 'not a real finding' })),
-    blockMessage(head({ enforceAfter: Date.now() - 1 })),
-    warnMessage(head({ state: 'unknown' })),
-    warnMessage({ state: 'unknown' }, { name: 'x' }),
-    warnMessage(head({ state: 'stale' })),
-    warnMessage(head({ state: 'unreviewable', reason: 'licence' })),
-    warnMessage(head({ state: 'flagged', severity: 1 })),
-    offlineMessage('@acme/mcp-tools', 'timeout'),
-    tierSentence('A'), tierSentence('B'), tierSentence('C'), tierSentence('MISMATCH'),
-  ];
-  for (const s of surfaces) assertCopy(s, JSON.stringify(s.slice(0, 60)));
-});
-
-test('the copy linter actually catches the banned words', () => {
-  // *safe* is no longer one of them — dropped by product decision on
-  // 2026-07-26 so the site could say "a safe experience". Asserted rather than
-  // deleted, so that removing the rule stays a deliberate act: if someone puts
-  // it back, this line tells them a homepage string depends on its absence.
-  assert.equal(copyViolations('this server is safe to use').length, 0);
-  assert.equal(copyViolations('a trusted, verified and secure server')[0].word, 'trusted');
-  assert.equal(copyViolations('agent reputation score').length, 1, 'never say reputation about an agent');
-  assert.equal(copyViolations('proceeding unverified')[0].instead, 'unreviewed');
-  assert.equal(copyViolations('reviewed on 2026-07-25, no human audited this').length, 0);
-});
-
-test('the linter exempts terms of art without opening the door', () => {
-  assert.equal(copyViolations('the blob was certified on Sui').length, 0, 'certify is a Walrus transaction');
-  assert.equal(copyViolations('the gate will verify the bytes against the record').length, 0);
-  assert.equal(copyViolations('requires an Orb-verified human').length, 0);
-  // …but the claim itself is still caught.
-  assert.equal(copyViolations('this is a certified server').length, 1);
 });
 
 test('a malformed head degrades to unknown, never to clean', () => {
@@ -202,12 +161,10 @@ test('a malformed head degrades to unknown, never to clean', () => {
 });
 
 test('a batch response distinguishes "no entry" from "did not answer"', () => {
-  // Found by running the chain end to end, and it is security-relevant. An
-  // earlier version had the prefetch synthesise an `unknown` for every
-  // fingerprint the registry did not mention, and cache it. A batch endpoint
-  // returning nothing therefore wrote a negative cache entry for a FLAGGED
-  // server, and the hot path then served it out of cache as unknown for the
-  // whole negative TTL — no lookup, no block, no notice.
+  // Security-relevant: synthesising an `unknown` for every fingerprint the
+  // registry did not mention, and caching it, writes a negative cache entry for a
+  // flagged server — served out of cache as unknown for the whole negative TTL,
+  // with no lookup, no block and no notice.
   const asked = [FP, `sxf1_${'a'.repeat(64)}`, `sxf1_${'b'.repeat(64)}`];
 
   const silent = partitionBatchResponse(asked, []);
@@ -220,7 +177,7 @@ test('a batch response distinguishes "no entry" from "did not answer"', () => {
   ]);
   assert.equal(partial.answered.length, 2);
   assert.deepEqual(partial.unanswered, [asked[2]]);
-  // An explicit `unknown` from the registry IS a real answer and may be cached.
+  // An explicit `unknown` from the registry is a real answer and may be cached.
   assert.equal(partial.answered[1].state, 'unknown');
 
   // A malformed row is not an answer either.

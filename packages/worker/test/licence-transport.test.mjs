@@ -1,12 +1,9 @@
 // The licence gate must not turn a failed request into a public claim.
 //
-// `unreviewable` with reason `licence` renders on the site as "no licence
-// permits us to store this source". That is a statement about somebody else's
-// package. It may only be made when the licence was actually READ and found
-// wanting — never because raw.githubusercontent rate-limited us in the middle of
-// a fifty-eight package loop, which is exactly what happened to
-// `@modelcontextprotocol/server-everything` (Apache-2.0, five out of five on a
-// healthy network, "no licence file found" once under load).
+// `unreviewable` with reason `licence` renders on the site as "no licence permits
+// us to store this source" — a statement about somebody else's package. It may only
+// be made when the licence was read and found wanting, never because
+// raw.githubusercontent rate-limited us mid-loop.
 //
 // The distinction being tested: 404 is an answer, 429 / 5xx / timeout is not.
 

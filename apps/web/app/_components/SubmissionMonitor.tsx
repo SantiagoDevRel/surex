@@ -27,34 +27,17 @@ import { Panel, PanelHeader, SectionLabel } from './Panel.tsx';
 import { Disagreement, Halftone, ReadingPulse, WriteLanded } from './PipelineMotion.tsx';
 
 /**
- * The live loader: what the registry is actually doing with a submission, while
- * it does it.
+ * The live loader: polls `GET /v1/submissions/:id` and renders the stage,
+ * model, and identifiers the API named — nothing invented. Every value that
+ * can be absent has a rendering for being absent.
  *
- * A review is minutes — the source is fetched, an open-source model reads it
- * twice (four times when the two readings split), a record goes to Walrus and an
- * entity goes to Arkiv. Before this the screen said "queued" and then nothing for
- * those minutes, which is the exact gap a UI fills with invention: a fake
- * percentage, a spinner that implies work nobody can see, a "processing…" that is
- * true of every state including failure.
+ * The watch itself (`useSubmissionWatch`) lives one level up in `SubmitForm`,
+ * since the flow it feeds starts at the World step, before a submission
+ * exists. This component only renders what the watch found.
  *
- * So: it polls `GET /v1/submissions/:id` and renders the stage the API named, the
- * model the API named, and the identifiers the API sent. Nothing else. Every
- * value that can be absent has a rendering for being absent, and none of those
- * renderings looks like a value.
- *
- * The WATCH is `useSubmissionWatch` and lives one level up, in `SubmitForm` —
- * because the flow it feeds starts at the World step, before a submission exists,
- * and a hook that only exists once a run has been accepted cannot draw a step that
- * happens before one. This component renders what the watch found.
- *
- * The motion is CSS (`app/globals.css`, SUREX MOTION v1) and this component only
- * chooses what to mount:
- *
- *   halftone   always — density is `done/total`, or how far through the named
- *              stages the reported stage sits, and the text says which
- *   reading    while the model has the source open
- *   disagree   only when the backend REPORTED a split (see disagreementReported)
- *   write      once per write that landed, keyed on the id it carries
+ * Motion is CSS (`app/globals.css`); this component only chooses what to
+ * mount — halftone always, reading pulse while the model has the source
+ * open, disagree only on a reported split, write once per landed write.
  */
 
 export type Gap =
@@ -68,34 +51,24 @@ export interface SubmissionWatch {
   gap: Gap | null;
 }
 
-/**
- * Poll one submission, or none.
- *
- * `id === null` is a first-class state and not an edge case: on `/submit` the flow
- * is on screen from the first paint, and for the whole time before a release is
- * queued there is nothing to poll. Passing `null` reports exactly that — no
- * status, no trace, no gap — rather than a run with no stages, which is what a
- * screen would have to invent to fill the space.
- */
+/** Poll one submission, or none. `id === null` is a first-class state, not an
+ *  edge case — it reports no status/trace/gap rather than inventing a run. */
 export function useSubmissionWatch(id: string | null): SubmissionWatch {
   const [status, setStatus] = useState<SubmissionStatus | null>(null);
   const [trace, setTrace] = useState<PipelineTrace>({});
   const [gap, setGap] = useState<Gap | null>(null);
 
   useEffect(() => {
-    // A second submission starts a fresh watch. Carrying the previous run's trace
-    // into it would show one submission's blob id under another's id.
+    // A second submission starts a fresh watch — otherwise one run's trace
+    // would show under another's id.
     setStatus(null);
     setTrace({});
     setGap(null);
     if (!id) return;
     const watching = id;
 
-    /**
-     * A timeout chain rather than an interval: an interval fires whether or not
-     * the previous request came back, so a slow registry produces overlapping
-     * polls that arrive out of order. This one cannot.
-     */
+    // A timeout chain, not an interval — an interval fires whether or not the
+    // previous request came back, producing overlapping polls out of order.
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
@@ -110,19 +83,14 @@ export function useSubmissionWatch(id: string | null): SubmissionWatch {
         failures = 0;
         setStatus(res.status);
         setTrace((prev) => traceFrom(prev, res.status));
-        // Terminal. Stop asking — a finished run does not change, and a page left
-        // polling a done submission is a request every 1.8s forever.
+        // Terminal — stop asking, or a done submission gets polled forever.
         if (!shouldPoll(res.status)) return;
       } else if (res.kind === 'unknown' || res.kind === 'notBuilt') {
         setGap(res.kind === 'unknown' ? { kind: 'unknown' } : { kind: 'notBuilt', detail: res.detail });
         return;
       } else {
-        /**
-         * A blip is not news. A review runs for minutes and one failed request
-         * says nothing about it, so the watch retries — but it does not retry
-         * forever pretending everything is fine: after five consecutive failures
-         * it stops and says the page no longer knows.
-         */
+        // A blip is not news, so the watch retries — but not forever: after
+        // five consecutive failures it stops and says so.
         failures += 1;
         if (failures >= POLL_FAILURE_LIMIT) {
           setGap({ kind: 'lost', detail: res.detail });
@@ -169,11 +137,7 @@ export function SubmissionMonitor({ id, status, trace, gap }: { id: string } & S
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <Halftone state={halftoneState(status)} fraction={fraction?.value ?? 0} />
 
-          {/*
-            The live region. The dots are aria-hidden and this is what a screen
-            reader hears, so it has to carry the whole state in words — the stage,
-            and where the number came from.
-          */}
+          {/* Live region — the dots are aria-hidden, so this carries the state in words. */}
           <div role="status" aria-live="polite" className="min-w-0 grid gap-1">
             <span className="text-subject text-ink">
               {label ?? COPY.pipeline.nothingReported}
@@ -194,11 +158,7 @@ export function SubmissionMonitor({ id, status, trace, gap }: { id: string } & S
           </div>
         </div>
 
-        {/*
-          Mounted while the source is open and unmounted when it closes, which is
-          the only thing that makes it honest: it is on screen exactly as long as
-          the DGX is reading.
-        */}
+        {/* On screen exactly as long as the DGX is reading. */}
         {readingSource(status) ? (
           <ReadingPulse source={COPY.pipeline.readingSource} />
         ) : null}
@@ -263,14 +223,8 @@ export function SubmissionMonitor({ id, status, trace, gap }: { id: string } & S
   );
 }
 
-/**
- * Who is doing the reading, named while it happens.
- *
- * The verdict will carry the model id forever; someone watching it be produced
- * should see the same name rather than a spinner that could be hiding anything.
- * An unset model is a real fact about the deployment (`reviewerIdentity()` reads
- * the same env var the reviewer reads), so it is reported as unset.
- */
+/** Who is doing the reading, named while it happens. An unset model is a real
+ *  fact about the deployment, so it's reported as unset, not hidden. */
 function RunProvenance({
   model,
   promptVersion,
@@ -300,10 +254,7 @@ function RunProvenance({
           <dt className="w-[68px] shrink-0 text-label uppercase tracking-[0.12em] text-faint">
             {field.label}
           </dt>
-          {/*
-            An absent field prints its absence. It never falls back to something
-            plausible — the same rule the provenance panel on a verdict follows.
-          */}
+          {/* An absent field prints its absence, never falls back to something plausible. */}
           <dd className="min-w-0 break-all text-data text-ink-2">
             {field.value ?? (
               <span className="text-faint">

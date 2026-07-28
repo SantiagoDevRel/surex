@@ -1,11 +1,7 @@
 /**
- * Head → what the stamp and the chain show.
- *
- * The decisions are `@surex/core`'s: `confidenceOf()` picks which of the three
- * tones a verdict is delivered in, `tierSentence()` writes the one sentence
- * about what the tier promises. This file only chooses which of the locked
- * components render them, so the site and the gate cannot drift apart on the
- * question of what a verdict means.
+ * Head → what the stamp and the chain show. The decisions are `@surex/core`'s
+ * (`confidenceOf()`, `tierSentence()`); this file only picks which locked
+ * components render them, so the site and the gate can't drift.
  */
 
 import { confidenceOf, tierSentence } from '@surex/core';
@@ -19,9 +15,9 @@ export type CounterTone = 'clean' | 'flagged' | 'disputed' | 'stale' | 'neutral'
 export interface StampView {
   state: RowStatus;
   /**
-   * What the stamp PRINTS. Usually `state` upper-cased; decoupled from it so the
-   * one case where the contract's word and the human's word differ can say the
-   * true thing without moving the state on chain. See COPY.stamp.withheldWord.
+   * What the stamp prints — usually `state` upper-cased, kept separate from it so
+   * the case where the contract's word and the human's word differ can say the true
+   * thing without moving the state on chain (`COPY.stamp.withheldWord`).
    */
   word: string;
   tier: Tier | '—';
@@ -38,10 +34,9 @@ function impressionOf(head: VerdictHead, evidenceExpired: boolean): string {
   if (head.state === 'unknown') return COPY.stamp.notInRegistry;
   if (evidenceExpired) return COPY.stamp.counterEvidenceExpired;
   if (head.state === 'unreviewable') {
-    // `reasons.withheld` reads "held for a human to release", which describes a
-    // pending step. Nothing is pending: SureX does not publish findings about
-    // software it did not write, and that is a standing policy rather than a
-    // queue. The banner says so; the stamp said something else, 60px away.
+    // Not `reasons.withheld`. It reads "held for a human to release", which puts
+    // the entry in a queue nobody is working through, 60px from a banner saying
+    // the result is not published.
     if (head.reason === 'withheld') return COPY.stamp.withheldImpression;
     const reason = REASONS[head.reason ?? ''] ?? 'the source could not be read';
     return reason.toUpperCase();
@@ -59,12 +54,9 @@ function impressionOf(head: VerdictHead, evidenceExpired: boolean): string {
 }
 
 /**
- * The banner above a verdict, when the state needs one.
- *
- * Reason-aware, because `unreviewable` covers two situations that have nothing in
- * common: *we could not read this* and *we read it and are not publishing what we
- * found*. One sentence cannot honestly describe both, and the page was using the
- * first for both.
+ * The banner above a verdict, when the state needs one. Reason-aware: `unreviewable`
+ * covers two unrelated situations — could not read this, vs. read it and not
+ * publishing what was found — and one sentence can't honestly describe both.
  */
 export function stateBanner(head: VerdictHead): { label: string; body: string } | null {
   if (head.state === 'stale') return { label: 'STALE', body: COPY.stateMeaning.stale };
@@ -72,37 +64,23 @@ export function stateBanner(head: VerdictHead): { label: string; body: string } 
   if (head.reason === 'withheld') {
     return { label: COPY.banners.withheldLabel, body: COPY.banners.withheldBody };
   }
-  // One body per reason. Composing a generic lede with a specific reason produced
-  // banners whose two sentences contradicted each other — see the note in copy.ts.
-  // An unrecognised reason gets a body that admits it does not know, rather than
-  // the old default, which asserted the source could not be read.
+  // One body per reason (see copy.ts); an unrecognised reason admits it doesn't know.
   const body = COPY.banners.unreviewableBody[head.reason ?? ''] ?? COPY.banners.unreviewableUnknownReason;
   return { label: COPY.banners.unreviewableLabel, body };
 }
 
 /**
- * The twenty-second sentence.
- *
- * Prefers what the reviewer actually SAID (rv-7's `assessment`) over a sentence
- * about what the state means. A state sentence is a fact about the registry; an
- * assessment is a fact about this server, and it is the one a developer came for.
+ * The twenty-second sentence. Prefers what the reviewer actually said (rv-7's
+ * `assessment`) over a sentence about what the state means — the assessment is
+ * a fact about this server, the one a developer came for.
  */
 export function summarySentence(head: VerdictHead, entry?: Entry | null): string {
   if (entry?.summary) return entry.summary;
-  // The SHORT form. The banner directly above already carries the full disclosure,
-  // and printing the same forty words twice on one screen turns a fact into
-  // nagging — which is how a reader learns to skip it.
+  // Short form — the banner above already carries the full disclosure.
   if (head.reason === 'withheld') return COPY.banners.withheldShort;
   if (head.assessment) return head.assessment;
-  // A reason-specific sentence beats a sentence about the state, for the same
-  // reason the banner needed one: `unreviewable` covers "never read" and "read
-  // twice, no agreement", and one sentence cannot honestly describe both.
-  //
-  // The SHORT form of it, though. The banner directly above carries the full
-  // wording, and the first attempt at this returned the identical paragraph to
-  // both surfaces — the duplication bug this page already had for `withheld`,
-  // reintroduced for the other five reasons. `COPY.reasons` is the one-clause
-  // version and already exists, because the stamp impression uses it.
+  // Reason-specific, short form: `COPY.reasons` is the one-clause version (the
+  // banner above carries the full wording; repeating it here would duplicate it).
   if (head.state === 'unreviewable') {
     const clause = REASONS[head.reason ?? ''];
     return clause ? `No verdict: ${clause}.` : COPY.banners.unreviewableUnknownReason;
@@ -113,17 +91,10 @@ export function summarySentence(head: VerdictHead, entry?: Entry | null): string
 
 /**
  * rv-7's `concern`, in words. Absent means "not stated", never "nothing found".
- *
- * Two suppressions, both because the label above it reads WHAT KIND OF PROBLEM:
- *
- *   · `none` is what every clean verdict carries, so the line rendered
- *     "WHAT KIND OF PROBLEM — nothing found beyond what it says it does" on the
- *     most common good outcome. A label announcing a problem over a statement that
- *     there is none is not information, it is noise with a scary heading.
- *   · a withheld entry must not carry one at all. `concern` is one word naming
- *     what is wrong with somebody's server — precisely the thing being withheld —
- *     and while the writer strips it today, the view is the last line of defence
- *     and should not depend on the writer being correct.
+ * Suppressed for `none` (the label above reads WHAT KIND OF PROBLEM — showing it
+ * for the common clean case would be noise) and for withheld entries (`concern`
+ * names precisely the thing being withheld; this is the last line of defence
+ * even though the writer already strips it).
  */
 export function concernSentence(head: VerdictHead): string | null {
   if (!head.concern || head.concern === 'none') return null;
@@ -156,23 +127,9 @@ export function stampView(head: VerdictHead, entry?: Entry | null): StampView {
       : COPY.stamp.counterUncontested;
     counterTone = head.state === 'clean' ? 'clean' : 'neutral';
   }
-  /**
-   * The unconfirmed case deliberately sets NO counter.
-   *
-   * It used to stamp `AUTOMATED · NO HUMAN AUDIT` across the hero, and the
-   * provenance panel said the same thing again in full a screen below. The
-   * disclosure is required — AGENTS.md §4, every verdict states that it was
-   * automated with no human audit — but it is required ONCE, and saying it twice
-   * on one page turns a fact into nagging, which is how a reader learns to skip
-   * it.
-   *
-   * It stays where `Provenance` puts it, for the reason that component gives:
-   * it is part of the RECORD, not a disclaimer bolted to the top, so it belongs
-   * in the panel carrying the commit, the blob, the model and the prompt version
-   * that produced it. The other two counters survive because they say something
-   * the provenance panel does not — that a window closed uncontested, or that a
-   * rebuttal is on file.
-   */
+  // The unconfirmed case deliberately sets no counter: the required disclosure
+  // (AGENTS.md §4, automated/no human audit) already lives in the Provenance
+  // panel as part of the record, and repeating it here would say it twice.
 
   return {
     state: head.state as RowStatus,

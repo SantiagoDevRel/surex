@@ -1,9 +1,6 @@
 /**
- * Every user-facing string on the site, in one place.
- *
- * One place because the copy law is testable — `test/copy.test.mjs` walks this
- * object and runs every leaf through `copyViolations()` from `@surex/core`.
- * A banned word here fails the test instead of shipping.
+ * Every user-facing string on the site, in one place — testable, since
+ * `test/copy.test.mjs` walks this object through `copyViolations()`.
  *
  * The law (AGENTS.md §4, PRD §6):
  *   - never *safe*, *trusted*, *verified*, *secure* about a reviewed server.
@@ -13,12 +10,10 @@
  *     when, by which model and prompt version, and that no human audited it.
  *   - never imply the registry knows what is running on a user's machine.
  *
- * Deliberately free of imports: Node runs this file directly under type
- * stripping, so the test needs no build step.
+ * Deliberately free of imports, so the test needs no build step.
  *
- * No counts live here. Numbers drift, and a hardcoded "214 reviewed" is a
- * fabrication the moment the registry disagrees — every count on the site is
- * derived from the rows actually rendered.
+ * No counts live here — every count on the site is derived from the rows
+ * actually rendered.
  */
 
 export const COPY = {
@@ -32,45 +27,20 @@ export const COPY = {
     repoUrl: 'https://github.com/SantiagoDevRel/surex',
   },
 
-  /**
-   * The chrome, on every route. Five destinations and one action.
-   *
-   * Lowercase throughout, because the header sets them in SUSE Mono at 11.5px
-   * and the wordmark beside them is the only thing on the row entitled to
-   * shout. "submit an mcp" over "submit a server": the registry reviews MCP
-   * servers specifically, and "a server" is the one word in that phrase a
-   * visitor could read as any server at all.
-   */
+  /** The chrome, on every route. Lowercase throughout — the wordmark is the only thing on the row entitled to shout. */
   nav: {
     home: 'home',
     registry: 'registry',
     submit: 'submit an mcp',
-    /**
-     * The docs deployment. It was reachable only from the footer, which is the
-     * wrong place for the one destination that explains how any of this works
-     * — the install action beside it already points into the same site, so the
-     * chrome was linking the docs without ever naming them.
-     */
     docs: 'docs',
-    /** The source. A trust registry that cannot be read is asking to be trusted twice. */
     github: 'github',
-    /**
-     * The one thing a visitor can do that changes anything on their machine, so
-     * it is the one thing in the chrome styled as an action rather than a
-     * destination. "Install plugin" over "download": nothing is downloaded —
-     * the install is two slash commands pasted into Claude Code, and a button
-     * promising a file would be describing a different product.
-     */
+    /** Styled as an action, not a destination: it's the one thing here that changes something on the visitor's machine. */
     install: 'install plugin',
     installTitle: 'Install the SureX gate into Claude Code: two slash commands, no npm install',
     skipToContent: 'Skip to content',
   },
 
-  /**
-   * The illustrative banner. Hard rule, AGENTS.md §2 and §4: wherever a screen
-   * renders data that is not a real review, it says so on that screen. This
-   * text is the whole disclosure — it never gets shortened to a badge.
-   */
+  /** Hard rule (AGENTS.md §2, §4): wherever a screen renders non-real data, it says so. This banner is the whole disclosure, never shortened to a badge. */
   illustrative: {
     fixtureLabel: 'ILLUSTRATIVE DATA · LOCAL FIXTURES',
     fixtureBody:
@@ -93,23 +63,10 @@ export const COPY = {
     filterSort: 'SORT',
 
     /**
-     * THE DEFAULT LIST IS FILTERED, AND IT SAYS SO ON THE PAGE.
-     *
-     * The default view is the entries where a review reached a verdict. It has to
-     * be: a registry whose honest answer for most third-party packages is "we
-     * could not read this, and here is why" ends up with those entries
-     * outnumbering the verdicts several to one, and a reader who opens the list
-     * and meets a screen of `unreviewable` learns nothing about the reviews.
-     *
-     * But hiding a real answer is exactly the move this product exists to refuse,
-     * so the filter is announced rather than applied quietly: the count of what is
-     * held back is printed, broken down by state, next to a link that brings it
-     * all back in one click. `hiddenWhy` is there so the reader knows the entries
-     * still exist rather than inferring that they were dropped — an `unreviewable`
-     * is a published answer, not a gap in the record.
-     *
-     * No number lives in any of these strings. Every count on this line is counted
-     * off the rows the page actually received.
+     * The default list is filtered, and the page says so: the count held
+     * back is printed, broken down by state, next to a link that brings it all
+     * back. No number lives in any of these strings — every count is derived
+     * from the rows the page actually received.
      */
     viewDecided: 'with a verdict',
     hiddenTag: 'FILTERED',
@@ -133,16 +90,9 @@ export const COPY = {
       'That is a fact about this registry, not about the code. An entry is missing until someone submits the release and a review runs.',
     emptyAction: 'Submit a server for review',
     /**
-     * The tier legend. The TIER column is the most important thing in the table
-     * and the least self-explanatory, so the meanings sit at the top of the page
-     * rather than in a footnote.
-     *
-     * This is the ONLY wording for tiers on the registry screen — it replaced a
-     * one-line footer gloss ("▮▮▮ A digest match · ▮▮ B pinned · ▮ C unpinned or
-     * remote"), which is why the footer no longer carries one. Two vocabularies
-     * for the same three letters is worse than none. The sentences are the ones
-     * in design/tokens.html §05, where the linkage chain is specified; the chain
-     * on the verdict page and this legend say the same thing on purpose.
+     * The tier legend, at the top of the page rather than a footnote. The only
+     * wording for tiers on the registry screen — the chain on the verdict page
+     * says the same thing on purpose.
      */
     tierLegendLabel: 'TIER · HOW FAR THE LINKAGE REACHES',
     tierLegendA: 'the reviewed bytes are the installed bytes (recorded digest matches yours)',
@@ -151,18 +101,10 @@ export const COPY = {
     rowsAreLinks: 'each row links to the evidence behind its verdict',
 
     /**
-     * How to read a verdict — the two axes, and that they are independent.
-     *
-     * Added because the tier legend alone taught the wrong thing. A reader who
-     * sees three letters explained and a coloured state unexplained concludes
-     * they are one scale, and then reads "Tier C" as a weaker verdict rather
-     * than as a statement about linkage. They are orthogonal, and the pairs
-     * below are the fastest way to make that concrete: the same verdict at two
-     * tiers means two different things, and so does the same tier at two
-     * verdicts.
-     *
-     * No count, no example package name — a named example here would be a claim
-     * about a real project that this file cannot keep true.
+     * How to read a verdict — the two axes, and that they are independent. The
+     * tier legend alone reads as one scale (state and tier conflated); these
+     * pairs make the orthogonality concrete. No example package name — that
+     * would be a claim about a real project this file can't keep true.
      */
     axesLabel: 'HOW TO READ A VERDICT · TWO SEPARATE QUESTIONS',
     axesVerdictTerm: 'VERDICT',
@@ -173,20 +115,12 @@ export const COPY = {
       'whether the code it read is the code you will run. A, B or C. It says nothing about whether the review found anything.',
     axesIndependent:
       'They move independently. A clean verdict at tier C is a real review of a real package, of a version your machine may not resolve to. A flagged verdict at tier A is a finding in exactly the bytes you have.',
-    /**
-     * Hover title on the REVIEWED cell. The cell itself is now truncated to the
-     * minute (`2026-07-25 14:31Z`); the title carries the timestamp as recorded,
-     * seconds and all, so nothing is rounded away without somewhere to read it.
-     */
+    /** Hover title on the REVIEWED cell — the cell truncates to the minute; this carries seconds so nothing is rounded away unreadably. */
     reviewedAtTitle: 'recorded review time, UTC',
     countSuffix: 'shown',
   },
 
-  /**
-   * The stamp's impression line and its counter-stamp. Caps, because the stamp
-   * is a stamp — but every one of these is a claim about linkage, so each says
-   * exactly how strong the link is and nothing more.
-   */
+  /** The stamp's impression line and its counter-stamp. Caps — but each is a claim about linkage, saying exactly how strong and no more. */
   stamp: {
     tierA: 'TIER A · RECORDED DIGEST MATCHES THE REVIEWED BLOB',
     tierB: 'TIER B · VERSION PINNED · BYTES NOT COMPARED',
@@ -199,23 +133,16 @@ export const COPY = {
     superseded: 'SUPERSEDED',
 
     /**
-     * THE WORD THE STAMP PRINTS FOR A WITHHELD ENTRY, and why it is not `state`.
+     * What the stamp prints for a withheld entry, and not `state`. On chain the
+     * state is `unreviewable` and has to be: the contract's states are frozen, and
+     * the gate must treat this entry as "no verdict I can act on" and warn.
      *
-     * On chain the state is `unreviewable`, and it has to be: the contract's states
-     * are frozen, and the gate must treat this entry as "no verdict I can act on"
-     * and warn. That is correct and does not change.
-     *
-     * What is NOT correct is printing that word at 24px on a page whose banner says
-     * the source was read and the review completed. `unreviewable` means "we could
-     * not reach a conclusion" everywhere else in this product — a licence that
-     * forbids storing the source, a fetch that failed, readings that would not
-     * converge. This entry is the opposite: a conclusion was reached and the
-     * registry is choosing not to publish it about somebody else's project.
-     *
-     * A reader met the biggest word on the page, read "unreviewable", and concluded
-     * SureX could not read a public open-source repository. That is the single most
-     * damaging misreading available, because it makes the tool look broken at
-     * exactly the moment it is behaving correctly.
+     * Printing that word at 24px is what breaks. `unreviewable` means "we could not
+     * reach a conclusion" everywhere else in this product — a licence that forbids
+     * storing the source, a fetch that failed, readings that would not converge.
+     * Here a conclusion was reached and is not being published, so the biggest word
+     * on a page whose banner says the source was read reads as SureX failing to open
+     * a public repository at the moment it is behaving correctly.
      */
     withheldWord: 'REVIEWED · HELD',
     withheldImpression: 'THE REVIEW COMPLETED · ITS RESULT IS NOT PUBLISHED',
@@ -226,26 +153,10 @@ export const COPY = {
     licence: 'no licence permits us to store this source',
     'source-unavailable': 'the source could not be fetched at the named commit',
     'remote-endpoint': 'a remote endpoint: there is no local code to read',
-    /**
-     * The readings disagreed and a third did not break the tie. Measured, not
-     * hypothetical: one honest fixture came back flagged, clean, clean on three
-     * identical inputs, so a two-reading panel can resolve to an accusation by
-     * sampling noise alone. When the readings will not converge, the registry
-     * says that instead of picking one.
-     */
     'no-agreement': 'the readings disagreed and no majority formed',
-    /**
-     * Distinct from `no-agreement`, and the distinction is the whole point: there
-     * were no readings to disagree. Saying "the readings disagreed" about a run in
-     * which the reviewer was never reached is a fabricated account of what happened.
-     */
+    /** Distinct from `no-agreement`: here there were no readings to disagree — the reviewer was never reached. */
     'no-reading': 'the reviewer could not be reached, so the code was never read',
-    /**
-     * A review ran and its result is not published. Distinct from `unknown`
-     * ("nobody has looked") on purpose: publishing only the clean results and
-     * leaving everything else as unknown is publication bias, and it would make
-     * `unknown` quietly mean two different things.
-     */
+    /** Distinct from `unknown` ("nobody has looked") — publishing only clean results and calling the rest unknown would be publication bias. */
     withheld: 'a review ran and its result is held for a human to release',
     /** The reviewer could not see all of the code, so it cannot say it found nothing. */
     'partial-source': 'part of the source was not read, so no clean verdict can be given',
@@ -266,43 +177,25 @@ export const COPY = {
     findingsNoneLabel: 'FINDINGS',
     findingsNone:
       'None recorded. That is a statement about what the model saw, at that commit, at that time. Read the capability surface below for what this code can reach. It is usually the more useful half.',
-    /**
-     * The same panel, for an entry whose result is HELD rather than empty.
-     *
-     * The sentence above says "none recorded", and on a withheld entry that is
-     * false: a review ran, it reached a conclusion, and the registry is choosing
-     * not to publish it. Saying "none recorded" there tells a reader the reviewer
-     * found nothing, which is the opposite of what happened — and it is the sort
-     * of quiet inaccuracy this project exists to make impossible.
-     */
+    /** For an entry whose result is held, not empty — "none recorded" would falsely say the reviewer found nothing. */
     findingsWithheldLabel: 'FINDINGS · NOT PUBLISHED',
     /**
-     * The last clause used to read "The maintainer who submitted this was given
-     * the result in full, and can publish it themselves." That stopped being true
-     * the moment the findings were taken off the submission status channel — that
-     * route is public and unauthenticated, and World ID proves a person and not a
-     * maintainer, so returning an unaudited file-and-line accusation to whoever
-     * holds the job id was the withheld result leaking through a side door.
-     *
-     * The findings now go to the operator's log. Saying otherwise on a public page
-     * would be exactly the fabrication this project exists to make impossible, so
-     * the sentence says what the reader can actually do instead.
+     * The last clause may not promise the submitter their result back. The status
+     * channel is public and unauthenticated, and World ID proves a person rather
+     * than a maintainer, so returning a file-and-line accusation to whoever holds
+     * the job id hands the withheld result to anyone. It goes to the operator's log;
+     * the sentence names what the reader can actually do instead.
      */
     findingsWithheld:
       'A review ran and reached a conclusion. It is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else\'s code is not grounds for a public accusation. If you maintain this server and want the result, open an issue on the SureX repository.',
     /**
-     * A flagged entry whose head carries no finding. Not reachable through the
-     * submit pipeline any more — it passes the whole finding through — but heads
-     * written before that do exist on chain, and the panel must not describe them
-     * as a review that found nothing.
+     * A flagged entry whose head carries no finding. The submit pipeline passes the
+     * whole finding through, so nothing new lands here, but heads written before it
+     * did are on chain and must not read as a review that found nothing.
      */
     findingsMissing:
       'The finding behind this verdict is not on the record shown here. The certified blob under PROVENANCE is what the verdict was made from. Read that rather than this page.',
-    /**
-     * Nobody has reviewed this. Distinct from "a review found nothing", and it is
-     * most of the registry: seeded entries are written `unknown`, and the panel was
-     * telling every one of their readers that a model had looked at the code.
-     */
+    /** Distinct from "a review found nothing" — seeded entries are `unknown`, and this must not imply a model looked at the code. */
     findingsNeverReviewed:
       'Nobody has reviewed this entry. There are no findings because no review has run, not because one ran and found nothing. The gate treats this as unknown and warns rather than stopping the call.',
     /** A review ran, reached no verdict, and so established nothing to publish. */
@@ -311,24 +204,12 @@ export const COPY = {
     /** The rest of a multi-finding verdict lives in the certified record. */
     findingsRemainder:
       'Only the highest-severity finding is carried on the registry entry. The rest are in the certified review blob linked under PROVENANCE.',
-    /** rv-7. What KIND of gap this is, above the findings. */
+    /** rv-7. What kind of gap this is, above the findings. */
     concernLabel: 'WHAT KIND OF PROBLEM',
     /**
-     * Every value describes a MECHANISM rather than a motive — and the one that
-     * did not is the one worth being careful about.
-     *
-     * `deliberate-concealment` read "it works to hide what it does". "works to"
-     * asserts purpose, on the strength of a reading no human audited, about
-     * somebody's real project. Its own definition in the reviewer schema says as
-     * much: that value "describes a person's purpose… a wrong one is an accusation
-     * about a person rather than about a program." The rendered string is the last
-     * place that can turn it back into a statement about the code, so it does.
-     *
-     * `runs-code-it-fetched` claimed the code "was never reviewed", which SureX
-     * cannot know — it knows the code is not in the blob it read. And
-     * `misleading-description` said the description "steers the calling model",
-     * which is what every tool description does; the concern is steering BEYOND
-     * what the tool needs, and the string now says that.
+     * Every value describes a mechanism rather than a motive — a wrong accusation
+     * of purpose (e.g. "works to hide what it does") is an accusation about a
+     * person, not a program, on the strength of an unaudited reading.
      */
     concerns: {
       none: 'nothing found beyond what it says it does',
@@ -356,11 +237,7 @@ export const COPY = {
     provenanceIntegrity: 'INTEGRITY',
     provenanceEns: 'ENS NAME',
     provenanceUnknown: 'not recorded',
-    /**
-     * What the ENS name is for, and what it is not for. On the surface rather
-     * than only in `docs/`, because "signed" is a word people finish the
-     * sentence of themselves, and they finish it wrong.
-     */
+    /** "Signed" doesn't mean the review is right — say so on the surface, not just in docs. */
     ensNote:
       'Any Ethereum client can read this verdict from the name above, and the response carries a signature made by the key the resolver names. That signature says the answer came from SureX. It does not say the review is right, and the gate that blocks tool calls does not read it.',
     ensExample: "getEnsText({ name, key: 'surex:state' })",
@@ -408,12 +285,7 @@ export const COPY = {
       'A wrongly-flagged server hurts the humans who wrote it and the agents that depend on it. Both can defend it here. The requirements differ, the weight of the rebuttal does not.',
     humanTitle: 'You are a person',
     humanBadge: 'WORLD ID',
-    /**
-     * NOT "prove unique personhood". This deployment can be configured to request
-     * any of three World ID credentials, and only one of them — the Orb — actually
-     * establishes uniqueness. The strong sentence moved to `world.credential.orb`,
-     * which renders only when the Orb is what was requested.
-     */
+    /** Not "prove unique personhood" — only the Orb credential establishes uniqueness; that sentence lives in `world.credential.orb`. */
     humanStep1:
       'Prove personhood with World ID. How much that establishes depends on which credential this deployment requests. The button states which one it got, and what it does and does not settle.',
     humanStep2: 'Write the rebuttal. Point at code: file, line, commit.',
@@ -451,12 +323,7 @@ export const COPY = {
     standing: 'standing',
   },
 
-  /**
-   * The World ID step, shared by /submit and /d/[fp].
-   *
-   * The distinction these strings exist to hold: a proof arriving in the browser is
-   * not a claim the registry accepted, and a non-production proof is not a person.
-   */
+  /** The World ID step, shared by /submit and /d/[fp]. A proof arriving in the browser is not a claim the registry accepted, and a non-production proof is not a person. */
   world: {
     preparing: 'preparing the request…',
     again: 'prove personhood again',
@@ -466,15 +333,7 @@ export const COPY = {
     failedLabel: 'NO PROOF OBTAINED',
     failedBody:
       'World ID did not return a proof, so there is nothing to send. The error is shown as it arrived rather than replaced with a screen that claims otherwise.',
-    /**
-     * A PROOF IN HAND IS NOT AN ACCEPTED CLAIM — said in one line, with the
-     * reasoning one disclosure away.
-     *
-     * It used to be a four-line banner. The distinction is not optional (a screen
-     * that goes quiet here lets a reader assume the registry took something it has
-     * never seen), but it does not need a paragraph on the happy path either. So
-     * `heldShort` is always on screen and `heldBody` sits behind `heldWhy`.
-     */
+    /** A proof in hand is not an accepted claim. `heldShort` is always on screen; `heldBody` sits behind `heldWhy`. */
     heldShort: 'Proof in hand: the registry has not seen it yet.',
     heldWhy: 'why that is not acceptance',
     heldBody:
@@ -484,24 +343,11 @@ export const COPY = {
       'This deployment points at a non-production World ID environment, where proofs come from a simulator rather than from a phone. Anything proven here is a test of the plumbing, not a human.',
 
     /**
-     * WHAT THIS DEPLOYMENT ACTUALLY ASKED FOR — stated where it is known.
-     *
-     * The credential is chosen server-side (`lib/world.ts`) and arrives with the
-     * signature, so this is the only place on the site that can name it without
-     * guessing. Every other string about World ID is written to be true of the
-     * WEAKEST of the three, because a static page cannot know which one a given
-     * deployment requested.
-     *
-     * The three do not prove the same thing, and the difference is the whole
-     * point: Orb is the one-human-one-action bar, Face Check is liveness with
-     * what World itself rates as "some" sybil resistance, and device level is an
-     * account with no biometric behind it at all. Wording them alike would make
-     * two of the three a false claim.
-     *
-     * `short` is the line that is ALWAYS on screen, beside the World step of the
-     * flow. `body` is the same claim in full, one disclosure away. Compressing
-     * this was allowed; dropping it was not — a screen that names no credential is
-     * a screen where the reader supplies the strongest bar they can imagine.
+     * What this deployment actually asked for — named here since the credential
+     * is chosen server-side and arrives with the signature. Every other World ID
+     * string is written true of the weakest of the three, since a static page
+     * can't know which one a deployment requested. `short` is always on screen;
+     * `body` is the same claim in full.
      */
     credential: {
       face: {
@@ -536,23 +382,15 @@ export const COPY = {
     repoPlaceholder: 'github.com/acme/acme-mcp',
     releaseLabel: 'Release tag',
     releasePlaceholder: 'v2.3.0',
-    /**
-     * The release is chosen from what the repository has, never typed. These two
-     * cover the cases where there is nothing to choose from — said plainly,
-     * because "no releases" is a fact about the repository and "we could not
-     * read it" is a fact about the request.
-     */
+    /** "No releases" is a fact about the repository; "we could not read it" is a fact about the request — kept distinct. */
     releaseEmpty: 'paste a repository first',
     releaseDefaultBranch: 'default branch (moves, cannot pin bytes)',
     action: 'Queue the review',
 
     /**
-     * The repository inspection, in words.
-     *
-     * Three states and they stay distinct, because the difference between "this
-     * is not an MCP server" and "we could not read the repository" is the
-     * difference between a refusal a maintainer deserves and one they do not.
-     * GitHub rate-limits an unauthenticated browser at sixty requests an hour.
+     * The repository inspection. Three states, kept distinct: "not an MCP
+     * server" and "we could not read the repository" (GitHub rate-limits
+     * unauthenticated browsers at 60/hour) are different refusals.
      */
     inspecting: 'reading the repository…',
     inspectMcpYes: 'MCP server confirmed',
@@ -568,12 +406,7 @@ export const COPY = {
       'The commit is what the review is about. A tag can be moved or deleted, so a submission that names only a tag can never link a verdict to the bytes you shipped.',
     inspectNoShaNote:
       'No commit was resolved, so this submission names a tag only. The verdict cannot be linked to specific bytes.',
-    /**
-     * One line, not a paragraph. It keeps the ordering fact (the proof is checked
-     * first) and the one that stops a screen from over-claiming: a deployment with
-     * no ingest path behind the gate answers *not built*, and that answer is
-     * rendered as the API sent it.
-     */
+    /** Proof checked first; a deployment with no ingest path answers "not built", rendered as the API sent it. */
     worldIdNote:
       'The proof is checked by the registry before a submission is looked at, so it comes first and the release second. A deployment with no ingest path behind that gate answers "not built", and that answer is shown as it arrives.',
     resultAcceptedLabel: 'ACCEPTED',
@@ -587,23 +420,17 @@ export const COPY = {
     resultUnreachableBody:
       'Nothing was submitted. Whatever you typed stayed in this browser. The request never left it.',
     resultMissingLabel: 'INCOMPLETE',
-    // Says what to DO, and no longer names a release tag as required — a repo with
-    // no releases resolves to its default-branch commit, which is a complete
-    // submission and a stronger identifier than a tag.
+    // A repo with no releases resolves to its default-branch commit, a complete
+    // submission — so this doesn't name a release tag as required.
     resultMissingBody:
       'Paste a repository. SureX resolves its versions and its latest commit for you; you never type one in.',
   },
 
   /**
    * The live loader on /submit — what the pipeline is doing, while it does it.
-   *
-   * A review is minutes, and the screen used to say "queued" and then nothing.
-   * Every string here describes a step the backend REPORTED; there is no copy in
-   * this block for a step that might be happening, because the loader has no way
-   * to know that and neither does this file.
-   *
-   * The two `…Absent` strings are load-bearing. A field the API did not send
-   * renders as one of them — never as a plausible-looking value.
+   * Every string here describes a step the backend reported, never a step that
+   * might be happening. The `…Absent` strings are load-bearing: a field the API
+   * didn't send renders as one of them, never as a plausible-looking value.
    */
   pipeline: {
     label: 'WHAT THE REGISTRY IS DOING',
@@ -677,11 +504,7 @@ export const COPY = {
     passesLabel: 'PASSES',
     elapsedLabel: 'ELAPSED',
     startedLabel: 'STARTED',
-    /**
-     * `reviewerIdentity()` reads the model name from the same env var the
-     * reviewer itself reads, so an unset one is a real fact about the deployment.
-     * Saying so beats naming a model nobody configured.
-     */
+    /** An unset model is a real fact about the deployment — say so rather than naming one nobody configured. */
     modelAbsent: 'the deployment did not name a model',
     /** The density is stage-derived, not counted. Said plainly, beside it. */
     stepOf: 'step',
@@ -690,20 +513,11 @@ export const COPY = {
       'The run has not reported a stage yet.',
 
     /**
-     * THE RAIL — which technology is being touched, right now.
-     *
-     * The halftone says HOW FAR the run has got. It does not say WHERE it is, and
-     * "where" is the question a person watching a submission is actually asking:
-     * whose machine is reading my code, what got written, and can I go and look at
-     * it. So the rail names one technology per stage and puts a link next to it the
-     * moment the run reports an identifier, never before, which is why every
-     * string in `fact` is a LABEL and not one of them carries a value.
-     *
-     * The phases are worded to claim as little as possible. The watch polls every
-     * 1.8 s and a short stage can pass between two polls, so a stage the run has
-     * moved beyond is described as *the run is past this* rather than as *done*:
-     * we know the run advanced, and we do not know what happened inside a stage
-     * nobody reported.
+     * The rail — which technology is being touched, right now. The halftone
+     * says how far the run has got, not where it is. Phases claim as little as
+     * possible: a stage the run has moved beyond reads as "the run is past
+     * this", not "done" — the watch can miss what happened inside an
+     * unreported stage.
      */
     rail: {
       label: 'THE FLOW',
@@ -712,11 +526,7 @@ export const COPY = {
       /** Which stage the panel below is describing, and how it got chosen. */
       following: 'following the run',
       picked: 'you picked this stage, choose it again to follow the run',
-      /**
-       * Phases. `phaseDone` deliberately says the run moved on rather than that
-       * the stage succeeded: a licence refusal jumps straight from the licence
-       * gate to the write, so "past" is the only thing a jumped number proves.
-       */
+      /** `phaseDone` says the run moved on, not that the stage succeeded — a licence refusal jumps straight to the write. */
       phasePending: 'not reached',
       phaseActive: 'running now',
       phaseDone: 'the run is past this',
@@ -724,13 +534,7 @@ export const COPY = {
       nothingReported:
         'The run reported no identifiers for this stage. Whatever happened here, it did not say, so this panel does not say either.',
 
-      /**
-       * The tile's NAME — a name, not a second description. `COPY.pipeline.stage`
-       * stays the one description of what each stage does, and the rail reuses it
-       * verbatim as the caption, so there is no second vocabulary for the same
-       * eight steps. `done` is called `published` because that is what the
-       * pipeline says when it emits it.
-       */
+      /** The tile's name, not a second description — `COPY.pipeline.stage` stays the one description. `done` is called `published`, what the pipeline emits. */
       name: {
         resolving: 'resolve',
         licence: 'licence',
@@ -753,18 +557,12 @@ export const COPY = {
       },
 
       /**
-       * THE SIX STEPS THE PAGE READS AS.
-       *
-       * The pipeline reports eight stages and four of them are the same question —
-       * *where did the source come from* — so the flow folds those four into one
-       * step and the panel underneath names whichever of them the run is on. The
-       * folding is presentational and nothing else: every fact still comes from the
-       * stage that reported it, and `flowFacts()` merges rather than invents.
-       *
-       * `world` is the one step with no stage behind it. It happens in this browser
-       * before the registry has anything to report, which is exactly why it belongs
-       * in the same sequence — a form and then a separate rail reads as two
-       * unrelated things, and it is one sequence.
+       * The six steps the page reads as. Four of the pipeline's eight stages
+       * answer one question (where did the source come from), so the flow folds
+       * them into one step; purely presentational — `flowFacts()` merges, never
+       * invents. `world` has no stage behind it: it happens in this browser
+       * before the registry has anything to report, and belongs in the same
+       * sequence rather than a separate rail.
        */
       flow: {
         name: {
@@ -775,7 +573,7 @@ export const COPY = {
           arkiv: 'Arkiv',
           published: 'Published',
         },
-        /** What the step is FOR. One line, in the vocabulary the verdict will use. */
+        /** What the step is for. One line, in the vocabulary the verdict will use. */
         caption: {
           world: 'proving a person is here',
           source: 'the repo, the commit, the licence',
@@ -793,11 +591,7 @@ export const COPY = {
           body:
             'Nothing is signed in this browser. The request is signed server-side and World App answers on a phone, so what the proof establishes depends on the credential this deployment asked for, which is named beside this step the moment the request is prepared, and again once a proof is in hand.',
         },
-        /**
-         * Phase words for the World step. The pipeline's four do not fit it: there
-         * is no run to be "past", and "not reached" is wrong for a step the reader
-         * is being asked to start.
-         */
+        /** Phase words for the World step — the pipeline's four don't fit: there's no run to be "past". */
         worldPhase: {
           pending: 'not started',
           active: 'checking…',
@@ -808,20 +602,14 @@ export const COPY = {
         subStagesLabel: 'this step, in the pipeline',
       },
 
-      /**
-       * One lede and one paragraph per stage. The lede is the point of the stage;
-       * the paragraph is the part that is not obvious and that the identifiers
-       * beside it cannot say on their own.
-       */
+      /** One lede per stage — the point of the stage, plus what the identifiers beside it can't say on their own. */
       stage: {
         resolving: {
           lede: 'A submission names a repository at one commit.',
         },
         licence: {
-          // Was 'Nothing is stored until a licence permits it.' — which stopped
-          // being true when the licence became a recorded fact rather than a
-          // gate. This path stores the REVIEW, never the source, so a missing
-          // licence is published as `none` and the review runs.
+          // This path stores the review, never the source, so a missing licence
+          // is published as `none` and the review runs.
           lede: 'The licence is read and recorded. None is an answer, not a stop.',
         },
         fetching: {
@@ -831,9 +619,6 @@ export const COPY = {
           lede: 'The server was started so it could be asked what tools it declares.',
         },
         reviewing: {
-          // Carries the DGX fact now that the paragraph under it is gone: the
-          // source never reaching a hosted model is the substantive claim this
-          // step makes, and it is worth a clause.
           lede: 'An open-source model reads the source on our own hardware, against what the server says it does.',
         },
         walrus: {
@@ -847,11 +632,7 @@ export const COPY = {
         },
       },
 
-      /**
-       * Fact labels. `blob`, `entity`, `sha256` and `tx` are NOT repeated here —
-       * they already exist above as `blobLabel`/`entityLabel`/`sha256Label`/
-       * `txLabel` and the receipts render from those. One word per identifier.
-       */
+      /** Fact labels — `blob`/`entity`/`sha256`/`tx` are not repeated here; the receipts render from the `*Label` fields above. */
       fact: {
         repo: 'repo',
         commit: 'commit',
@@ -876,12 +657,7 @@ export const COPY = {
         ensParent: 'parent name',
       },
 
-      /**
-       * Whose wallet registered the blob. Stated rather than inferred from which
-       * fields are missing: on the publisher path the Sui object and any digest
-       * belong to the publisher, so "our wallet registered this" stops being true
-       * and the screen has to stop saying it.
-       */
+      /** Whose wallet registered the blob, stated rather than inferred — on the publisher path "our wallet registered this" stops being true. */
       custodyWallet: 'our own wallet registered the blob',
       custodyPublisher: 'a public publisher registered the blob: the Sui object is theirs',
 
@@ -903,38 +679,14 @@ export const COPY = {
     reviewRunningLabel: 'REVIEW RUNNING',
     reviewRunningBody:
       'A verdict blob will be written when the run completes. Nothing is asserted until then.',
-    /**
-     * A withheld entry is NOT a failed review, and the banner must not say it is.
-     *
-     * `stateMeaning.unreviewable` reads "the source could not be read or could not
-     * be stored" — true for `licence`, `source-unavailable` and `remote-endpoint`,
-     * and FALSE for `withheld`, where the source was read, the model finished, and
-     * the registry chose not to publish the result. The page was telling a
-     * maintainer their code was unreadable while the stamp beside it said a review
-     * had run and was being held: two surfaces, opposite claims, on one screen.
-     */
+    /** A withheld entry is not a failed review — `stateMeaning.unreviewable`'s "could not be read" is false for `withheld`, where the source was read and the result held back. */
     withheldLabel: 'REVIEWED · RESULT NOT PUBLISHED',
     withheldBody:
       'The source was read and the review completed. Its result is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else’s code is not grounds for a public accusation.',
     /** The short form, for the hero, so one page never prints the long one twice. */
     withheldShort: 'A review ran and completed. Its result is not published.',
 
-    /**
-     * One body per reason, and no composition.
-     *
-     * The first version prefixed every reason with `stateMeaning.unreviewable` —
-     * "The source could not be read or could not be stored." — and appended the
-     * specific reason after it. For three reasons that reads correctly. For the
-     * rest it produced a banner that contradicts itself inside one sentence pair:
-     *
-     *   "The source could not be read or could not be stored. The gate warns.
-     *    Here: the readings disagreed and no majority formed."
-     *
-     * Sentence one says it was never read; sentence two says it was read twice.
-     * And `no-agreement` is the DEFAULT reason for every non-clean, non-flagged
-     * verdict, so that was the common case rather than the edge. Composition was
-     * the bug; these are written out, one per member of the closed set.
-     */
+    /** One body per reason, deliberately not composed from a shared prefix — composing "could not be read" with a reason like `no-agreement` (read twice) contradicts itself. */
     unreviewableLabel: 'UNREVIEWABLE',
     unreviewableBody: {
       licence:
@@ -996,17 +748,6 @@ export const COPY = {
 
   /** The homepage. Numbers on the stat band come from `lib/home-data.ts`, never from here. */
   home: {
-    /**
-     * What is left of the homepage's own nav copy now that the header is the
-     * site's and reads from `COPY.nav`: the mobile trigger and its dismiss.
-     *
-     * `registry`, `howItWorks`, `disputes` and `installCommand` lived here and
-     * are gone. The first duplicated `COPY.nav.registry`; the two anchors point
-     * into this page and the header now renders on five routes, so from four of
-     * them they pointed at ids that are not on the page; and the command chip
-     * is a button now. Both sections still exist and still carry their ids —
-     * `Pipeline` owns them — they are just not linked from the chrome.
-     */
     nav: {
       /** The mobile nav trigger and its dismiss, lowercase like the rest of the nav. */
       menuOpen: 'menu',
@@ -1022,15 +763,8 @@ export const COPY = {
     },
 
     /**
-     * Keyed by `StatKey` in lib/home-data.ts, so the band can render
-     * `COPY.home.stats[tile.key]`. Labels only — the counts are derived from
-     * the rows actually returned, and a count written here would be a
-     * fabrication the moment the registry disagreed.
-     *
-     * The mock had a fourth tile, END-TO-END CHAIN CHECKS at 13/13. It is
-     * dropped: that figure comes from the test suite, not the registry, so
-     * nothing on this page could derive it — and the design system's own
-     * website kit shows three tiles, not four.
+     * Keyed by `StatKey` in lib/home-data.ts. Labels only — no count is
+     * hardcoded here; every number is derived from the rows actually returned.
      */
     stats: {
       entriesIndexed: 'MCPS ANALYZED',
@@ -1038,14 +772,7 @@ export const COPY = {
       flagged: 'FLAGGED',
     },
 
-    /**
-     * The pipeline — design system screen 12. Six steps in order, plus the
-     * dispute branch that comes off step 05.
-     *
-     * This replaced a three-step "how it works" told on a
-     * milliseconds/minutes/days axis. The three gate outcomes it carried
-     * survive in step 06 below, in the design system's own words.
-     */
+    /** The pipeline. Six steps in order, plus the dispute branch off step 05. */
     pipeline: {
       title: 'How it works',
       steps: [
@@ -1105,22 +832,10 @@ export const COPY = {
     },
 
     /**
-     * The roadmap \u2014 design system screen 09. Three views over the work.
-     *
-     * Progress is carried by form, never by hue: filled means done, outlined
-     * means committed and not done, dashes mean there is nothing to check yet.
-     * The design system is explicit that a milestone tinted sage would read as
-     * a clean verdict on something that does not exist.
-     *
-     * `phase` drives the marker, so the two never disagree.
-     *
-     * Each view is listed exactly as the design system draws it. Note that its
-     * own rule \u2014 no item appears in two themes at once \u2014 is not quite what its
-     * markup does: "Support for other agent frameworks and harnesses" here and
-     * "SureX integrates with other coding agents beyond Claude Code" under
-     * adoption carry identical bodies, as do the Walrus Seal and private-MCP
-     * items. Left as drawn rather than merged, because deciding which title is
-     * canonical is a product call.
+     * The roadmap. Three views over the work. Progress is carried by form, never
+     * hue: filled means done, outlined means committed and not done, dashes mean
+     * nothing to check yet \u2014 a milestone tinted sage would read as a clean
+     * verdict on something that doesn't exist. `phase` drives the marker.
      */
     roadmap: {
       title: 'Roadmap',
@@ -1214,12 +929,10 @@ export const COPY = {
     },
 
     /**
-     * The terminal window \u2014 design system screen 10. One window, three
-     * surfaces: the hook that blocks a call, the plugin that asks before one,
-     * and the ENS text records that hold the same verdict with no pixels.
-     *
-     * All three are transcripts, quoted verbatim. Nothing here is live, and
-     * none of it is allowed to say more than the registry knows.
+     * The terminal window. One window, three surfaces: the hook that blocks a
+     * call, the plugin that asks before one, and the ENS text records that hold
+     * the same verdict with no pixels. All three are transcripts, quoted
+     * verbatim \u2014 nothing here is live, and none of it says more than the registry knows.
      */
     terminal: {
       /** The accessible name for the transcript, and the tab strip's label. */
@@ -1234,12 +947,7 @@ export const COPY = {
         source: 'surex plugin \u00b7 confirm',
         elapsed: 'awaiting answer',
         state: 'flagged',
-        /**
-         * Six blocks: question \u00b7 recommendation \u00b7 finding and capability \u00b7
-         * provenance and linkage \u00b7 the way out \u00b7 the command. One blank line
-         * between blocks, never two. It never says blocked \u2014 the plugin asks,
-         * and an answer the reader did not give is not a decision.
-         */
+        /** Six blocks, one blank line between them, never two. Never says "blocked" \u2014 the plugin asks, and an answer the reader didn't give isn't a decision. */
         lines: {
           question: 'Are you sureX you want to use @surex/mal-tool-shadow?',
           recommendation: 'SureX does not recommend proceeding.',
@@ -1255,14 +963,9 @@ export const COPY = {
       },
 
       /**
-       * Five text records are the whole verdict at this route. The values below
-       * are the ones actually published for this fingerprint \u2014 the state word
-       * keeps its hue wherever it is rendered, including here, because it is
-       * the one thing the three surfaces must agree on.
-       *
-       * A text record cannot carry a meter or a border style, so tier is the
-       * letter and severity is the integer. Those are the canonical values the
-       * pixels elsewhere render.
+       * Five text records are the whole verdict at this route. A text record
+       * can't carry a meter or a border style, so tier is the letter and
+       * severity is the integer \u2014 the canonical values the pixels elsewhere render.
        */
       ens: {
         source: 'ens resolver \u00b7 text records',
@@ -1279,16 +982,7 @@ export const COPY = {
       },
     },
 
-    /**
-     * The install band, immediately before the closer.
-     *
-     * The `command`/`copyLabel`/`copiedLabel` trio behind a copy chip was cut:
-     * `Closer` sits directly below this band and prints the same command, so
-     * the page asked twice in a row. The lede stayed.
-     *
-     * The headline no longer echoes the hero, so `lede` is free to be the
-     * `<h2>` without the two competing — see the note in `InstallBand`.
-     */
+    /** The install band, immediately before the closer (which prints the same command, so no copy chip is duplicated here). */
     install: {
       headline: 'We check the MCPs so you can explore safely.',
       lede: 'Be Surex before calling it, not after.',

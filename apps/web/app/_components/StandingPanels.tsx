@@ -12,20 +12,11 @@ import { Panel, SectionLabel } from './Panel.tsx';
 import { WorldIdProof } from './WorldIdProof.tsx';
 
 /**
- * The two kinds of standing. Same panel, same size, same three steps.
- *
- * A wrongly-flagged server hurts the humans who wrote it and the agents that
- * depend on it, so both can defend it. The requirements differ — a person
- * proves personhood, an agent proves a human stands behind it — and the weight
- * of the rebuttal does not.
- *
- * Never described as agent reputation: the World track excludes that
- * explicitly, and SureX reviews servers.
- *
- * The human panel is a working form. The agent panel is NOT a button, because an
- * agent signs its own request with the wallet a human registered in AgentBook and a
- * browser cannot do that on its behalf — so it shows the actual request instead of a
- * control that could not work.
+ * The two kinds of standing, same panel and three steps. A person proves
+ * personhood; an agent proves a human stands behind it. The agent panel is
+ * not a button — an agent signs its own request with a wallet a human
+ * registered in AgentBook, which a browser cannot do on its behalf — so it
+ * shows the actual request instead of a control that couldn't work.
  */
 
 const INITIAL: DisputeOutcome = { kind: 'idle' };
@@ -119,8 +110,8 @@ export function StandingPanels({ fingerprint }: { fingerprint?: string }) {
                 rows={4}
                 value={evidence}
                 onChange={(e) => {
-                  // The proof's signal is bound to this exact rebuttal, so editing it
-                  // invalidates the proof. Drop it rather than send a mismatch.
+                  // The proof's signal is bound to this exact rebuttal — editing
+                  // invalidates it.
                   setEvidence(e.target.value);
                   if (proof) setProof(null);
                 }}

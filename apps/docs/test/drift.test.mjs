@@ -1,23 +1,16 @@
-// The two things on this site that can silently become false.
+// The two things on this site that can silently become false. Everything else is
+// computed from `@surex/core` at build time or is prose that ages gracefully.
 //
-// Everything else is either computed from `@surex/core` at build time (the
-// contract tables, the copy law, the block message) or is prose that ages
-// gracefully. These two do not:
+//   1. The quickstart fingerprint. SXF-1 identifies a local script by the content
+//      of its entry file, so editing one byte of
+//      `packages/fixtures/mal-rug-pull/src/server.mjs` changes the fingerprint —
+//      and the quickstart's `curl`, its expected `/surex check` output and its
+//      override command all become wrong at once, with nothing failing anywhere.
+//      This recomputes it from the file.
 //
-//   1. THE QUICKSTART FINGERPRINT. The whole page rests on one claim: the
-//      fixture on your disk resolves to the entry the live registry serves.
-//      SXF-1 identifies a local script by the CONTENT of its entry file, so
-//      editing one byte of `packages/fixtures/mal-rug-pull/src/server.mjs`
-//      changes the fingerprint — and the quickstart's `curl`, its expected
-//      `/surex check` output and its override command all become wrong at once,
-//      with nothing failing anywhere. This recomputes it from the file.
-//
-//   2. STATUS CLAIMS. "This is built, that is not" has no source to derive from.
-//      The dispute guide shipped saying the agent was not registered in
-//      AgentBook; it was true when written and false the same afternoon, and
-//      the correction touched four files. They now live in
-//      `components/status.tsx`, and this fails if a page states one inline
-//      again — including, by name, the sentences already retracted once.
+//   2. Status claims. "This is built, that is not" has no source to derive from,
+//      so they live in `components/status.tsx`. This fails if a page states one
+//      inline — including, by name, the sentences already retracted once.
 //
 //   node --test apps/docs/test/drift.test.mjs
 
@@ -32,8 +25,8 @@ import { canonicalise, fingerprintOf } from '@surex/core/sxf1';
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = resolve(APP, '..', '..');
 
-/** The plugin's resolver is the one the gate uses; reimplementing it here would
- *  let this test agree with itself while disagreeing with the product. */
+/** The gate's own resolver. Reimplementing it here would let this test agree with
+ *  itself while disagreeing with the product. */
 const { localEntryResolver } = await import(
   `file:///${join(REPO, 'packages', 'plugin', 'lib', 'localentry.mjs').replace(/\\/g, '/')}`
 );
@@ -67,7 +60,7 @@ const expected = fingerprintOf(
 
 test('the fixture still fingerprints to what the site tells people to expect', () => {
   // Not asserted against a constant in this file — that would only prove the
-  // constant. Every fingerprint literal on the site has to be this one.
+  // constant. Every fingerprint literal on the site has to be the recomputed one.
   const full = /sxf1_[0-9a-f]{64}/g;
   const hits = [];
   for (const path of sources()) {
@@ -87,8 +80,6 @@ test('the fixture still fingerprints to what the site tells people to expect', (
 });
 
 test('truncated fingerprints on the site are prefixes of the real one', () => {
-  // The quickstart prints shortened forms the way the gate does. A stale prefix
-  // is just as wrong as a stale fingerprint and much easier to miss.
   const short = /sxf1_[0-9a-f]{4,63}(?![0-9a-f])/g;
   for (const path of sources()) {
     for (const m of readFileSync(path, 'utf8').matchAll(short)) {
@@ -126,7 +117,7 @@ test('no page states a retracted status inline', () => {
   }
 
   for (const path of sources()) {
-    // components/status.tsx is where these sentences are ALLOWED to live.
+    // components/status.tsx is where these sentences are allowed to live.
     if (rel(path) === 'components/status.tsx') continue;
     const text = readFileSync(path, 'utf8');
     for (const { re, why } of RETRACTED) {

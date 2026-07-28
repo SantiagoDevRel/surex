@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Throwaway probe. A minimal stdio MCP server with one tool, so the PreToolUse
-// hook has a REAL mcp__ tool call to intercept. Zero dependencies on purpose:
+// hook has a real mcp__ tool call to intercept. Zero dependencies on purpose:
 // the point of the probe is the hook, not the SDK.
 import { createInterface } from 'node:readline';
 

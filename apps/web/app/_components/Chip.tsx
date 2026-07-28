@@ -6,11 +6,8 @@ import { cn } from '@/lib/cn.ts';
 import { SEVERITY_CHIP, stateStyle } from '@/lib/state-styles.ts';
 import type { RowStatus } from '@/lib/types.ts';
 
-/**
- * design/tokens.html §07 — border style carries certainty independently of hue:
- * solid for a state we measured, dashed for one we inferred, dotted for the
- * absence of an entry.
- */
+// Border style carries certainty independently of hue: solid for a state we
+// measured, dashed for one we inferred, dotted for the absence of an entry.
 const BORDER: Partial<Record<RowStatus, string>> = {
   stale: 'border-dashed',
   unreviewable: 'border-dashed',
@@ -61,10 +58,7 @@ export function SeverityChip({ severity, className }: { severity?: number; class
   );
 }
 
-/**
- * A filter. Accent, because a filter is an action — and accent is the one hue
- * that never appears inside a verdict.
- */
+/** A filter — accent, the one hue that never appears inside a verdict. */
 export function FilterChip({
   href,
   active,

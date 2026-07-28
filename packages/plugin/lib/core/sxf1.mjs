@@ -102,15 +102,10 @@ function parseDockerImage(spec) {
 }
 
 /**
- * Shells that exist only to launch the real command.
- *
- * This matters far more than it looks. On Windows an MCP server is almost
- * always configured as `cmd /c npx <pkg>`, while the identical server on macOS
- * is `npx <pkg>`. Without unwrapping, the two hash differently and the Windows
- * form loses the package name entirely — so a Windows user and a Mac user
- * running the same server would never share a registry entry, and the gate
- * would look like it was working while recognising almost nothing.
- * (failure-modes §3.1 — the quietest and most dangerous failure in the design.)
+ * Shells that exist only to launch the real command. On Windows an MCP server is
+ * almost always `cmd /c npx <pkg>` where macOS has `npx <pkg>`; without
+ * unwrapping the two hash differently and the Windows form loses the package name
+ * entirely, so the gate recognises almost nothing while looking like it works.
  */
 const SHELL_WRAPPERS = {
   cmd: ['/c', '/k'],
@@ -185,7 +180,7 @@ export function normaliseRunner(command) {
 
 /**
  * Extract the package and return the residual args.
- * Residual arg ORDER IS PRESERVED — most CLIs are order-sensitive, so sorting
+ * Residual arg order is preserved — most CLIs are order-sensitive, so sorting
  * them would collapse two materially different servers onto one fingerprint.
  */
 function extractPackage(runner, args) {
@@ -213,12 +208,10 @@ function extractPackage(runner, args) {
     while (i < args.length) {
       const a = args[i];
       if (CEREMONY.has(a)) { i++; continue; }
-      // `deno run --allow-net script.ts` — permissions are identity-relevant,
-      // so they fall through to the residual args rather than being consumed.
       if (a === 'run' || a === 'x' || a === 'dlx') { i++; continue; }
-      // `deno run --allow-net ./server.ts` — permissions come BEFORE the entry
-      // and they ARE identity-relevant, so keep them and keep scanning rather
-      // than breaking and never finding the script.
+      // `deno run --allow-net ./server.ts` — permissions come before the entry and
+      // are identity-relevant, so keep them and keep scanning rather than breaking
+      // and never finding the script.
       if (isFlag(a)) {
         if (runner === 'deno') { rest.push(a); i++; continue; }
         break;
@@ -242,20 +235,14 @@ function extractPackage(runner, args) {
       const a = args[i];
       if (CEREMONY.has(a)) { i++; continue; }
       if (isFlag(a)) break;
-      // `node ./server.js` names a local file, never a published artifact.
-      //
-      // The absolute path cannot go in the fingerprint (it is machine-specific,
-      // so two developers running the same server would never match) but the
-      // basename alone is NOT an identity: every locally-run MCP server in the
-      // world is `node server.js`, and they would all collide onto one entry.
-      // A collision here is worse than a miss — the gate would apply one
-      // server's verdict to a different server's code.
-      //
-      // So the identity of a local script is the CONTENT of its entry file,
-      // supplied by the caller (see `hashLocalEntry`). Content is also
-      // reproducible across machines, which is the property that lets a local
-      // server have a registry entry at all. Without a resolver this stays
-      // deliberately unresolved and the gate treats it as unidentifiable.
+      // `node ./server.js` names a local file, never a published artifact. The
+      // absolute path cannot go in the fingerprint (machine-specific), and the
+      // basename alone is not an identity — every locally-run MCP server is
+      // `node server.js`, so they would all collide onto one entry and the gate
+      // would apply one server's verdict to another's code. The identity is the
+      // content of the entry file (see `hashLocalEntry`), which is also
+      // reproducible across machines. Without a resolver this stays unresolved
+      // and the gate treats it as unidentifiable.
       pkg = { name: String(a).split(/[\\/]/).pop(), version: LOCAL_UNRESOLVED, _spec: String(a) };
       i++;
       break;
@@ -279,10 +266,9 @@ function extractPackage(runner, args) {
 }
 
 /**
- * Local proxies that carry no identity of their own — the thing being trusted
- * is the endpoint on the far side, not the shim. `npx mcp-remote <url>` is a
- * remote server wearing a stdio costume, and fingerprinting the shim would put
- * every remote server behind one entry.
+ * Local proxies that carry no identity of their own — `npx mcp-remote <url>` is a
+ * remote server wearing a stdio costume. Fingerprinting the shim would put every
+ * remote server behind one entry.
  */
 const STDIO_TO_REMOTE_PROXIES = new Set(['mcp-remote', 'supergateway', '@modelcontextprotocol/mcp-remote']);
 
@@ -292,9 +278,8 @@ const STDIO_TO_REMOTE_PROXIES = new Set(['mcp-remote', 'supergateway', '@modelco
  * @param {object} def   the server definition, after ${VAR} expansion
  * @param {{hashLocalEntry?: (path: string) => string|null}} [opts]
  *   `hashLocalEntry` resolves a local script's entry file to a content digest.
- *   Supplied by the gate (which has the file on disk) and by the worker. Absent,
- *   a local script stays LOCAL_UNRESOLVED rather than colliding with every other
- *   `node server.js` in existence.
+ *   Absent, a local script stays LOCAL_UNRESOLVED rather than colliding with
+ *   every other `node server.js` in existence.
  */
 export function canonicaliseStdio(def, opts = {}) {
   const unwrapped = unwrapShell(def.command, def.args);
@@ -303,14 +288,12 @@ export function canonicaliseStdio(def, opts = {}) {
 
   if (STDIO_TO_REMOTE_PROXIES.has(pkg.name)) {
     const url = rest.find((a) => /^https?:\/\//i.test(a));
-    // Only when we can actually see the endpoint. A proxy with no visible URL
-    // stays a stdio entry rather than becoming a wrong remote one.
+    // A proxy with no visible URL stays a stdio entry, not a wrong remote one.
     if (url) return canonicaliseRemote({ url });
   }
 
-  // Any runner can be pointed at a local script, not just `node`: `deno run
-  // ./server.ts`, `bun ./server.ts`, `python ./server.py`. All of them have the
-  // same collision problem, so all of them get the same treatment.
+  // Any runner can be pointed at a local script, not just `node` — same collision
+  // problem, same treatment.
   let name = pkg.name;
   let version = pkg.version;
   if (isLocalEntrySpec(pkg._spec)) {
@@ -320,8 +303,7 @@ export function canonicaliseStdio(def, opts = {}) {
 
   if (version === LOCAL_UNRESOLVED && typeof opts.hashLocalEntry === 'function') {
     const digest = opts.hashLocalEntry(pkg._spec);
-    // Content identity — reproducible on any machine holding the same file, and
-    // distinct for any file that differs by a byte.
+    // Content identity: reproducible on any machine holding the same file.
     if (digest) version = `local:${String(digest).slice(0, 16)}`;
   }
 
@@ -338,7 +320,7 @@ export function canonicaliseStdio(def, opts = {}) {
 
 /**
  * Canonical form for a remote server. Spec §2.3.
- * This identifies an ENDPOINT, not a version of anything, so it is always Tier C.
+ * This identifies an endpoint, not a version of anything, so it is always Tier C.
  */
 export function canonicaliseRemote(def) {
   const url = new URL(def.url);
@@ -363,7 +345,7 @@ export function stableStringify(value) {
 
 /**
  * Canonicalise one MCP server definition, as it appears in a client config
- * AFTER ${VAR} expansion.
+ * after ${VAR} expansion.
  */
 export function canonicalise(def, opts = {}) {
   if (!def || typeof def !== 'object') throw new TypeError('server definition must be an object');
@@ -403,18 +385,17 @@ export function tierOf(canonical, { recordedIntegrity = null, localIntegrity = n
   if (canonical.transport !== 'stdio') return 'C';
   if (canonical.package?.version === UNPINNED || !canonical.package?.version) return 'C';
   if (!recordedIntegrity || !localIntegrity) return 'B';
-  // A mismatch is NOT tier A and NOT a block — it downgrades to `stale` and
-  // warns (FR-19). Far more often a registry quirk or a local rebuild than an
-  // attack, and blocking on it would train users to disable the gate.
+  // A mismatch is not tier A and not a block — it downgrades to `stale` and warns
+  // (FR-19); blocking on what is usually a registry quirk trains users to disable
+  // the gate.
   return recordedIntegrity === localIntegrity ? 'A' : 'MISMATCH';
 }
 
 /**
- * Server name out of a hook's `tool_name`. There is no server-name field in the
- * hook payload (FRICTION-LOG C3), so every consumer has to do this.
- *
- * Plugin-provided servers are named `mcp__plugin_<plugin>_<server>__<tool>`,
- * which is why this cannot be a naive three-way split on `__`.
+ * Server name out of a hook's `tool_name` — the hook payload carries no
+ * server-name field (FRICTION-LOG C3). Plugin-provided servers are named
+ * `mcp__plugin_<plugin>_<server>__<tool>`, so a naive three-way split on `__`
+ * gets them wrong.
  */
 export function parseServerFromToolName(toolName) {
   if (typeof toolName !== 'string') return null;

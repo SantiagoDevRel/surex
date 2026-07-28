@@ -1,20 +1,14 @@
 // One OpenAI-compatible chat completion. Timeout, one retry, and the
 // demo-recovery fixture cache.
 //
-// Tech-spec §6: "OpenAI-compatible chat completions against the on-site DGX. One
-// environment variable switches the base URL, so the box is swappable for a
-// hosted OSS endpoint if it fails. […] do not couple to DGX-specific APIs."
+// `SUREX_REVIEWER_BASE_URL`, plain `fetch`, no SDK, no vendor field: the endpoint
+// must stay swappable, so nothing here may couple to DGX-specific APIs.
 //
-// So: `SUREX_REVIEWER_BASE_URL`, plain `fetch`, no SDK, no vendor field. The
-// endpoint currently behind it happens to be ollama on a DGX; nothing in this
-// file knows that.
+// The cache is not an optimisation. The box runs at home behind a tunnel and it
+// will drop mid-demo, so every real result is written to `fixtures/` and
+// committed. Two rules on that:
 //
-// THE CACHE IS NOT AN OPTIMISATION. The box runs at home behind a tunnel and it
-// will drop mid-demo. Every real result is written to `fixtures/` and committed,
-// so a review that already ran can be served when the endpoint is gone. Two
-// rules on that, and they are the whole reason this is trustworthy:
-//
-//   1. A cached result is ALWAYS marked as cached, with the timestamp of the
+//   1. A cached result is always marked as cached, with the timestamp of the
 //      original real run. It is never presented as fresh.
 //   2. A result that never ran is never invented. Cache miss + endpoint down is
 //      an `unreviewable` review, not a guess.
@@ -31,22 +25,19 @@ export const FIXTURES_DIR = resolve(HERE, '..', 'fixtures');
 
 /**
  * The model that produced the primary fixture in this repo, so the default cannot
- * silently disagree with what actually ran. Override with `SUREX_REVIEWER_MODEL`;
- * every verdict carries the id it really used.
+ * silently disagree with what actually ran. Override with `SUREX_REVIEWER_MODEL`.
  *
- * The `:surex32k` suffix is not decoration. The stock `qwen3-coder-next:q4_K_M`
- * declares a 262 144-token context, and ollama sizes its KV cache from that: the
- * load reached 112 GiB of 122 GiB and earlyoom killed it. The same weights with
- * the context capped fit in 50 GiB. README.md carries the two-line Modelfile.
+ * The `:surex32k` suffix is not decoration: stock `qwen3-coder-next:q4_K_M` declares
+ * a 262 144-token context and ollama sizes its KV cache from that — 112 GiB of
+ * 122 GiB, killed by earlyoom. Capped, the same weights fit in 50 GiB. README.md
+ * carries the two-line Modelfile.
  */
 export const DEFAULT_MODEL_ID = 'qwen3-coder-next:surex32k';
 
 /**
- * A cold load of a large local model is minutes, not seconds — measured at 2m55s
- * for a 51 GB model on the DGX, and that load was then killed by earlyoom
- * (FRICTION-LOG, DGX section). The default is generous because the failure it
- * prevents is worse than the wait: a timeout here becomes an `unreviewable`
- * verdict on a server that is probably fine.
+ * A cold load of a large local model is minutes, not seconds — 2m55s measured for a
+ * 51 GB model. Generous on purpose: a timeout here becomes an `unreviewable` verdict
+ * on a server that is probably fine.
  */
 export const DEFAULT_TIMEOUT_MS = 240_000;
 
@@ -61,23 +52,18 @@ export const REVIEWER_ENV = Object.freeze({
 });
 
 /**
- * A reasoning model spends the SAME output budget on its chain of thought as on
- * its answer. Measured on the DGX: `gpt-oss:20b` with `max_tokens: 8` returned
- * `content: ""`, the whole reasoning in `message.reasoning`, and
- * `finish_reason: "length"` — an empty answer that a careless parser would read
- * as a verdict. So the budget is generous and `finish_reason: "length"` is a
- * failure, not a result. FRICTION-LOG, DGX section.
+ * A reasoning model spends the same output budget on its chain of thought as on
+ * its answer: `gpt-oss:20b` with `max_tokens: 8` returned `content: ""`, the whole
+ * chain in `message.reasoning`, and `finish_reason: "length"` — an empty answer a
+ * careless parser reads as a verdict. So the budget is generous, and
+ * `finish_reason: "length"` is a failure, not a result.
  */
 export const DEFAULT_MAX_TOKENS = 8192;
 
-// ---------------------------------------------------------------------------
-// configuration
-// ---------------------------------------------------------------------------
-
 /**
- * There is deliberately NO fallback base URL. A default pointing at localhost
- * would mean a misconfigured worker quietly reviewing against nothing, or worse,
- * against whatever else is listening. Unset is a configuration error and says so.
+ * There is deliberately no fallback base URL: a localhost default would mean a
+ * misconfigured worker quietly reviewing against nothing, or against whatever else
+ * is listening. Unset is a configuration error and says so.
  */
 export function resolveConfig(env = process.env, overrides = {}) {
   const baseUrl = overrides.baseUrl ?? env[REVIEWER_ENV.baseUrl] ?? null;
@@ -90,15 +76,14 @@ export function resolveConfig(env = process.env, overrides = {}) {
     timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS,
     maxTokens: Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : DEFAULT_MAX_TOKENS,
     label: overrides.label ?? env[REVIEWER_ENV.label] ?? 'dgx',
-    // Only sent when set. An OpenAI-compatible field, but not every server has
-    // it, and an unexpected parameter is a 400 on the strict ones.
+    // Only sent when set: an unexpected parameter is a 400 on strict servers.
     reasoningEffort: overrides.reasoningEffort ?? env[REVIEWER_ENV.reasoningEffort] ?? null,
   };
 }
 
 /**
- * Endpoint provenance without publishing the address. `fixtures/` is committed to
- * a public repo and the endpoint is a private host; a label plus a stable digest
+ * Endpoint provenance without publishing the address: `fixtures/` is committed to a
+ * public repo and the endpoint is a private host, so a label plus a stable digest
  * proves two fixtures came from the same box without naming it.
  */
 export function endpointFingerprint(baseUrl) {
@@ -107,10 +92,6 @@ export function endpointFingerprint(baseUrl) {
   try { host = new URL(baseUrl).host; } catch { /* keep the raw string */ }
   return createHash('sha256').update(host).digest('hex').slice(0, 12);
 }
-
-// ---------------------------------------------------------------------------
-// the fixture store
-// ---------------------------------------------------------------------------
 
 export function fixturePath(key, dir = FIXTURES_DIR) {
   if (!/^[0-9a-f]{16,64}$/.test(String(key))) throw new Error(`refusing to use a non-digest fixture key: ${key}`);
@@ -132,10 +113,7 @@ export function readFixture(key, { dir = FIXTURES_DIR } = {}) {
   }
 }
 
-/**
- * Record a real run. `recordedAt` is stamped once, here, and is never rewritten —
- * it is the timestamp a cached result is later presented with.
- */
+/** Record a real run. `recordedAt` is stamped once and never rewritten — it is the timestamp a cached result is later presented with. */
 export function writeFixture(key, record, { dir = FIXTURES_DIR } = {}) {
   const path = fixturePath(key, dir);
   mkdirSync(dir, { recursive: true });
@@ -156,16 +134,10 @@ export function listFixtures({ dir = FIXTURES_DIR } = {}) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// the call
-// ---------------------------------------------------------------------------
-
 /**
- * Pull the assistant text out of a chat-completion body.
- *
- * Two realities this has to survive. A reasoning model returns its chain in a
- * separate field on some servers and inline in `<think>` tags on others; and a
- * server that ran out of output budget returns a truncated `content` with
+ * Pull the assistant text out of a chat-completion body. A reasoning model returns
+ * its chain in a separate field on some servers and inline in `<think>` tags on
+ * others; a server out of output budget returns a truncated `content` with
  * `finish_reason: "length"`, which must be reported rather than parsed.
  */
 export function extractAssistantText(body) {
@@ -193,11 +165,9 @@ function isRetryable(status) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * One completion, with a timeout and at most one retry.
- *
- * Never throws for an expected failure — it returns `{ok:false, error}` so the
- * caller can decide between the cache and an `unreviewable` verdict instead of
- * unwinding through a catch.
+ * One completion, with a timeout and at most one retry. Never throws for an expected
+ * failure — returns `{ok:false, error}` so the caller can decide between the cache
+ * and an `unreviewable` verdict instead of unwinding through a catch.
  *
  * @returns {Promise<{ok:true,text:string,body:object,ms:number,attempts:number}
  *                 | {ok:false,error:{code:string,message:string},ms:number,attempts:number}>}
@@ -221,9 +191,8 @@ export async function callModel({
     return fail('not_configured', `${REVIEWER_ENV.baseUrl} is not set — the reviewer endpoint is unknown`, startedAt, now, 0);
   }
 
-  // Tolerant of a base URL with or without `/v1`: the admin route and this
-  // module disagreed about the convention, and one of them produced
-  // /v1/v1/chat/completions. Same env var, so it must not matter which form is set.
+  // Tolerant of a base URL with or without `/v1` — the same env var feeds callers
+  // that disagree about the convention, and one produced /v1/v1/chat/completions.
   const root = String(config.baseUrl).replace(/\/+$/, '').replace(/\/v1$/, '');
   const url = `${root}/v1/chat/completions`;
   const budget = maxTokens ?? config.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -237,7 +206,7 @@ export async function callModel({
     ...(config.reasoningEffort ? { reasoning_effort: config.reasoningEffort } : {}),
   };
   const headers = { 'content-type': 'application/json' };
-  // Ollama ignores it; a hosted OSS endpoint will not. Sending it unconditionally
+  // Ollama ignores it, a hosted OSS endpoint will not — sending it unconditionally
   // is what makes the two interchangeable.
   if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
 
@@ -271,8 +240,8 @@ export async function callModel({
         continue;
       }
       if (finishReason === 'length') {
-        // A truncated JSON object is malformed by definition. Reporting it as a
-        // failure is the point: schema.mjs must not be handed half an object.
+        // A truncated JSON object is malformed by definition: schema.mjs must
+        // never be handed half an object.
         last = { code: 'truncated', message: `model stopped at the token limit (max_tokens=${budget})` };
         break;
       }
@@ -313,11 +282,10 @@ async function safeText(response) {
  * Is the endpoint there, and does it have the model we are about to name in a
  * verdict?
  *
- * `GET /models` rather than a token of generation, for two reasons. It is part of
- * the same OpenAI-compatible surface, so it stays swappable. And it answers in
- * milliseconds against a box whose first generation may take minutes to load
- * weights — a probe that has to wait for a cold load cannot tell "down" from
- * "loading", which is the one distinction it exists to make.
+ * `GET /models` rather than a token of generation: same OpenAI-compatible surface,
+ * and it answers in milliseconds against a box whose first generation may take
+ * minutes to load weights — a probe that waits for a cold load cannot tell "down"
+ * from "loading", which is the one distinction it exists to make.
  */
 export async function pingModel({ config, fetchImpl } = {}) {
   const cfg = config ?? resolveConfig();

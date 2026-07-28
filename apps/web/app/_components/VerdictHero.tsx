@@ -8,8 +8,7 @@ import { Stamp } from './Stamp.tsx';
 
 /**
  * The hero: one stamp, and the twenty-second version of the whole verdict
- * beside it. Nothing else competes at this size — §04 says one stamp per page
- * and means it.
+ * beside it. Nothing else competes at this size: one stamp per page (§04).
  */
 export function VerdictHero({ entry }: { entry: Entry }) {
   const { head } = entry;
@@ -40,10 +39,7 @@ export function VerdictHero({ entry }: { entry: Entry }) {
           fingerprint {shortFingerprint(head.fingerprint)}
         </p>
 
-        {/* Prefer what the review actually SAID. rv-7 puts the reviewer's own
-            assessment on the head, and that is a fact about this server — the one
-            a reader came for. The state sentence is the fallback, and it is a fact
-            about the registry rather than about the code, so it goes second. */}
+        {/* The reviewer's own assessment leads; the state sentence is the fallback. */}
         <Panel className="mt-3.5 px-4 py-3.5">
           <SectionLabel>{COPY.verdict.summaryLabel}</SectionLabel>
           {concern ? (

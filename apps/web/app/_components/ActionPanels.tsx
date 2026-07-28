@@ -6,14 +6,8 @@ import { COPY } from '@/lib/copy.ts';
 import { CopyCommand } from './CopyCommand.tsx';
 import { Panel, SectionLabel } from './Panel.tsx';
 
-/**
- * The two things a reader can do about a verdict they disagree with, side by
- * side and the same size: answer it, or override it.
- *
- * Every block is overridable in one command, from the message itself (PRD §6).
- * A block that cannot be overridden gets the whole gate uninstalled the first
- * time it is wrong — so the override is a first-class panel, not a footnote.
- */
+/** The two things a reader can do about a disputed verdict, side by side and
+ *  the same size: answer it, or override it. */
 export function ActionPanels({
   disputeHref,
   overrideCommand,

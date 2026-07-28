@@ -2,17 +2,8 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/cn.ts';
 
-/**
- * design/tokens.html §03 — radius 6 on panels, 1px hairline, panel surface.
- *
- * The surface is glass: the panel colour at 80% over a page that carries a
- * halftone screen and the mark's two-hue wash, with a backdrop blur behind it.
- * That is where depth is worth paying for — a panel is a card laid on the
- * record, and it should read as laid on rather than cut out. Measured at that
- * alpha the composite moves every ink/panel pair by under 0.3:1, so the AA
- * floor on the token ladder still holds. Wells stay opaque: a recessed surface
- * that you can see through is a contradiction.
- */
+// Panel colour at 80% opacity — measured to move every ink/panel pair by
+// under 0.3:1, so the AA floor still holds. Wells stay opaque.
 export function Panel({
   children,
   className,

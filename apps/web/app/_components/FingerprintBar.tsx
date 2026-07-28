@@ -5,12 +5,8 @@ import { useState } from 'react';
 import { COPY } from '@/lib/copy.ts';
 import { shortFingerprint } from '@/lib/format.ts';
 
-/**
- * The canonical URL of the record, with the full fingerprint one click away.
- * Shortened on screen because 64 hex characters is not a thing anyone reads —
- * but the copy button hands over all of it, because a truncated fingerprint is
- * useless to paste into `surex allow`.
- */
+/** Shortened on screen; the copy button hands over the full fingerprint,
+ *  since a truncated one is useless to paste into `surex allow`. */
 export function FingerprintBar({ prefix, fingerprint }: { prefix: string; fingerprint: string }) {
   const [copied, setCopied] = useState(false);
 

@@ -1,24 +1,11 @@
 'use client';
 
 /**
- * The gate's own output, quoted — one real block, walked end to end. Design
- * system screen 10 ("Terminal window") is explicit that this is a
- * transcript, not a live terminal: chrome bar, line roles, one caret, no
- * interactivity, no typing animation.
- *
- * One window, two surfaces: the `plugin` that asks before a call, and the
- * `ens` text records that hold the same verdict with no pixels. A tab strip
- * above the window switches which surface is shown. The design system's own markup auto-cycles the three —
- * that is dropped here on purpose, matching `Roadmap`: this system's motion
- * budget is "marquee 36s · nothing else moves" (screen 03), and content that
- * rotates itself under a reader with no pause control fails WCAG 2.2.2.
- * Three tabs, switchable by clicking or by arrow key, no timer.
- *
- * `<pre><code>` marks the transcript as a code sample rather than prose, and
- * the caret and status square — decoration that carries no text of their
- * own — are `aria-hidden`. The accessible name on `<pre>` reuses
- * `COPY.home.terminal.label` verbatim rather than inventing a new label
- * string with no key in `lib/copy.ts`.
+ * The gate's own output, quoted — a transcript, not a live terminal: chrome
+ * bar, line roles, one caret, no interactivity or typing animation. Two
+ * surfaces (`plugin`, `ens`), switchable by tab, no auto-rotation (fails
+ * WCAG 2.2.2). `<pre><code>` marks it as a code sample; the caret and status
+ * square are `aria-hidden`.
  */
 import { useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
@@ -34,13 +21,8 @@ type SurfaceKey = keyof typeof terminal.tabs;
 /** Render order — also the tab order. Matches the order `COPY` declares. */
 const SURFACE_KEYS: readonly SurfaceKey[] = ['plugin', 'ens'];
 
-/**
- * State owns hue everywhere in this system, and the terminal is no
- * exception — see `Pipeline`'s `OUTCOME_DOT` and `Ticker`'s `STATE_HUE` for
- * the same map shape. Each surface carries its own `state` field precisely
- * so the chrome square and the one coloured line can read it independently
- * rather than the window hardcoding a single verdict colour.
- */
+// Each surface carries its own `state` so the chrome square and the coloured
+// line read it independently, rather than hardcoding one verdict colour.
 const STATE_DOT: Record<VerdictState, string> = {
   clean: 'bg-[var(--v2-clean)]',
   flagged: 'bg-[var(--v2-flagged)]',
@@ -69,11 +51,7 @@ function Cursor({ className }: { className?: string }) {
   );
 }
 
-/**
- * The chrome bar. "Never a traffic light, never a round dot" — a 7px square
- * in the state hue of what the gate did, the source label, then elapsed
- * time right-aligned.
- */
+/** A 7px square in the state hue, the source label, then elapsed time right-aligned. */
 function ChromeBar({ source, elapsed, state }: { source: string; elapsed: string; state: VerdictState }) {
   return (
     <div className="flex items-center gap-[10px] border-b border-[var(--v2-line-2)] px-[18px] py-[12px] text-[11px] text-[var(--v2-ink-3)]">
@@ -84,15 +62,8 @@ function ChromeBar({ source, elapsed, state }: { source: string; elapsed: string
   );
 }
 
-/**
- * The plugin transcript — six blocks: question · recommendation · finding
- * and capability · provenance and linkage · the way out · the command. One
- * blank line between blocks, never two — `mt-[13px]` on the first line of
- * each new block, nothing between lines that share one. It never says
- * blocked: the plugin asks, and an answer the reader did not give is not a
- * decision, so there is no choice UI here — no y/n, no arrow menu, no
- * default answer.
- */
+/** Six blocks: question, recommendation, finding/capability, provenance/linkage,
+ *  the way out, the command. Never says "blocked" — no choice UI, no default answer. */
 function PluginTranscript() {
   const { state, lines } = terminal.plugin;
   return (
@@ -113,16 +84,8 @@ function PluginTranscript() {
   );
 }
 
-/**
- * The ENS transcript — the fully-qualified name, never abbreviated (the
- * fingerprint is the identity of the record, so it wraps rather than
- * eliding), then five text records as a two-column table with no rule: key
- * column ink-3 with a two-space indent, values left-aligned on one column.
- * The record flagged `isState` keeps the state hue on its value — "the
- * state word keeps its hue wherever it is rendered, including here." The
- * `url` record reads ink-2 rather than ink: it is only a way back to this
- * page, not part of the verdict.
- */
+/** The fully-qualified name, never abbreviated, then the text records as a
+ *  two-column table. `isState` records keep the state hue on their value. */
 const ENS_URL_KEY = 'url';
 
 function EnsTranscript() {
@@ -158,18 +121,10 @@ const SURFACE: Record<SurfaceKey, ReactNode> = {
   ens: <EnsTranscript />,
 };
 
-/**
- * The tab strip is the registry's filter chip, reused — screen 10 and
- * screen 09 both say so, and `Roadmap` already renders that treatment in v2
- * tokens. Real tab semantics: `role="tablist"`/`"tab"` with `aria-selected`
- * + `aria-controls`, arrow keys move focus AND selection (a roving
- * tabindex), Home/End jump to the ends. Buttons, not links — switching a
- * surface is not navigation.
- *
- * One stable panel id, not `terminal-panel-${key}`: only the active panel
- * is in the DOM, so a per-surface id would leave two of the three tabs
- * pointing `aria-controls` at an element that does not exist.
- */
+// Real tab semantics: role="tablist"/"tab" with aria-selected + aria-controls,
+// arrow keys move focus and selection together (roving tabindex), Home/End jump to ends.
+// One stable panel id — only the active panel is ever in the DOM, so a
+// per-surface id would leave tabs pointing aria-controls at nothing.
 const PANEL_ID = 'terminal-panel';
 
 export function TerminalWindow({ className }: { className?: string } = {}) {
@@ -197,16 +152,9 @@ export function TerminalWindow({ className }: { className?: string } = {}) {
   const { source, elapsed, state } = terminal[active];
 
   return (
-    /*
-      This is the one section that bleeds past the page gutter — every sibling
-      is inset 20px on mobile and this runs 0 to 390. That is deliberate: the
-      design system says panels "go full-bleed to the gutter", and the extra
-      width is what lets the longest transcript line wrap instead of scroll.
-      But a panel touching both edges while five neighbours do not reads as
-      mis-padding unless something states the intent, so the rules above and
-      below make it a band — the same device the ticker already uses. Its own
-      content keeps the gutter as inner padding.
-    */
+    // Bleeds past the page gutter on purpose, unlike its siblings — the extra
+    // width lets the longest transcript line wrap instead of scroll. The
+    // rules above/below mark it as a band, the same device the ticker uses.
     <section
       aria-label={terminal.label}
       className={cn(

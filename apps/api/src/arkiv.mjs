@@ -1,17 +1,16 @@
-// The read client. READ ONLY — there is no wallet in this process.
+// The read client. Read-only — there is no wallet in this process.
 //
-// The API cannot write. Only the worker's wallet writes verdicts, and the two
-// never share a process: an API that could write is an API whose compromise
-// rewrites the registry. There is deliberately no private key here and no
-// createWalletClient import; do not add one.
+// Only the worker's wallet writes verdicts, and the two never share a process: an
+// API that could write is an API whose compromise rewrites the registry. There is
+// deliberately no private key here and no createWalletClient import; do not add one.
 //
 // SDK 0.7.0 specifics, measured (AGENTS.md §7, probes/arkiv-write-read.mjs):
 //   · 0.7.0 no longer re-exports viem → `http` comes from 'viem' directly.
-//   · `orderBy` is accepted silently and does NOTHING. Sort client-side, always.
-//   · `.createdBy(WRITER)` on EVERY consumer read. Never `ownedBy` — ownership is
+//   · `orderBy` is accepted silently and does nothing. Sort client-side, always.
+//   · `.createdBy(WRITER)` on every consumer read. Never `ownedBy` — ownership is
 //     transferable via changeOwnership, so ownedBy is attacker-influenceable and
 //     using it is a silent authorisation bypass.
-//   · One fetch() returns ONE cursor page. Anything that lists must paginate.
+//   · One fetch() returns one cursor page. Anything that lists must paginate.
 
 import { createPublicClient } from '@arkiv-network/sdk';
 import { braga } from '@arkiv-network/sdk/chains';
@@ -26,12 +25,10 @@ export const BRAGA_CHAIN_ID = 60138453102;
 /**
  * The writer whose entities are the only ones this API will ever return.
  *
- * This filter is load-bearing SECURITY, not tidiness. Braga is a shared public
- * testnet with no uniqueness constraint on our attributes: without it, anyone can
- * write a colliding fingerprint under `project=surex-*` with `state=clean` and the
- * gate reads their verdict instead of ours. Proven both ways in
- * probes/arkiv-write-read.mjs — the unfiltered query returns 2, `.createdBy`
- * partitions them cleanly.
+ * Load-bearing security, not tidiness: Braga is a shared public testnet with no
+ * uniqueness constraint on our attributes, so without this filter anyone can write
+ * a colliding fingerprint under `project=surex-*` with `state=clean` and the gate
+ * reads their verdict instead of ours.
  */
 export const DEFAULT_WRITER_ADDRESS = '0xBD33E1855F68Ce2DF1979377f3bc9fCaCd0015e6';
 
@@ -41,46 +38,33 @@ export const DEFAULT_PROJECT = 'surex-lisbon';
 /** Hard cap on pages walked by a listing query, so one bad filter cannot hang a request. */
 const MAX_PAGES = 25;
 /**
- * Page size for any listing query. Must be set EXPLICITLY: `QueryResult` computes
+ * Page size for any listing query. Must be set explicitly: `QueryResult` computes
  * `_endOfIteration = !limit || entities.length < limit`, so a query with no limit
- * reports itself finished after one page and `next()` throws
- * `NoCursorOrLimitError`. Pagination without a limit does not exist. (A6)
+ * reports itself finished after one page and `next()` throws `NoCursorOrLimitError`.
  */
 const PAGE_SIZE = 100;
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /**
- * How many heads a single-fingerprint read will look at before choosing.
- *
- * One live head per fingerprint is the invariant, so in practice this is 1. It is
- * not 1 in the QUERY because the invariant is the worker's promise, not the
- * chain's guarantee, and reading exactly one row makes a broken promise
- * unobservable — which is how the API served a stale verdict while the registry
- * list served the current one.
+ * How many heads a single-fingerprint read looks at before choosing. One live head
+ * per fingerprint is the worker's promise, not the chain's guarantee, so a `.limit(1)`
+ * query would make a broken promise unobservable and serve a stale verdict.
  */
 const HEAD_FANOUT = 25;
 
 /**
- * When two heads exist for one fingerprint, which one is current.
- *
- * Newest wins, by `lastModifiedAtBlock`. On a TIE the more restrictive state wins:
- * the comment beside the batch reader has always said "never prefer the more
- * permissive one" and the code did not do it, so two heads written in the same
- * block could have resolved to `clean` over `flagged` depending on return order.
- * A registry that can round a flag down to a pass in a tie has the failure mode
- * that matters pointing the wrong way.
+ * When two heads exist for one fingerprint, which one is current: newest by
+ * `lastModifiedAtBlock`, and on a tie the more restrictive state wins. Never prefer
+ * the more permissive one — a registry that rounds a flag down to a pass in a tie
+ * has the failure mode that matters pointing the wrong way.
  */
 const STATE_RESTRICTIVENESS = { flagged: 0, disputed: 1, stale: 2, unreviewable: 3, unknown: 4, clean: 5 };
 
 /**
- * Many head entities → one head per fingerprint, the current one.
- *
- * Every listing route needs this and none of them had it: `listRegistry` and
- * `listFlagged` mapped each row straight to a head, so a fingerprint with two live
- * heads appeared TWICE — and since the two rows can carry different states, the
- * registry could show the same server as both `flagged` and `clean`, one above the
- * other, sorted apart by the state rank.
+ * Many head entities → one head per fingerprint, the current one. Every listing
+ * route needs it: mapping each row straight to a head shows a fingerprint with two
+ * live heads twice, and the two rows can carry different states.
  */
 export function dedupeHeads(entities) {
   const grouped = new Map();
@@ -147,8 +131,8 @@ function payloadToObject(entity) {
     const body = entity.toJson?.();
     return body && typeof body === 'object' ? body : {};
   } catch {
-    // A record whose payload is not JSON is a worker bug, not a reason to 500 the
-    // hot path — the annotations alone are enough to decide.
+    // A payload that is not JSON is a worker bug, not a reason to 500 the hot path
+    // — the annotations alone are enough to decide.
     return {};
   }
 }
@@ -170,12 +154,10 @@ function normaliseEvidence(raw) {
 }
 
 /**
- * A verdictHead entity → the frozen head shape.
- *
- * Everything the gate needs is an annotation by design (tech spec §4.1), so this
- * reads annotations first and only then fills display-only extras from the
- * payload. It ends in parseVerdictHead so a malformed row degrades to something
- * the gate can safely treat as unknown rather than as clean.
+ * A verdictHead entity → the frozen head shape. Everything the gate needs is an
+ * annotation by design (tech spec §4.1), so annotations are read first and the
+ * payload only fills display-only extras. Ends in parseVerdictHead so a malformed
+ * row degrades to unknown rather than to clean.
  */
 export function entityToHead(entity) {
   const a = attrsToObject(entity);
@@ -208,8 +190,8 @@ export function entityToHead(entity) {
 
   const head = parseVerdictHead(raw);
   if (!head) return null;
-  // A state we do not recognise must not be passed through as if it were
-  // meaningful — the gate treats unknown states as warn, and so do we.
+  // An unrecognised state must not pass through as if it were meaningful — the
+  // gate treats unknown states as warn, and so do we.
   if (!STATES.includes(head.state)) head.state = 'unknown';
   return head;
 }
@@ -230,14 +212,12 @@ function recordFrom(entity, kind) {
 }
 
 /**
- * Read the whole result set, page by page.
+ * Read the whole result set, page by page. Three sharp edges in 0.7.0's
+ * `QueryResult`:
  *
- * Three sharp edges in 0.7.0's `QueryResult`, all of which cost us a live failure
- * before this shape was right (FRICTION-LOG A6):
- *
- *   1. `hasNextPage` is a METHOD, not a getter. `while (result.hasNextPage)` reads
+ *   1. `hasNextPage` is a method, not a getter. `while (result.hasNextPage)` reads
  *      a function reference — always truthy — and loops forever.
- *   2. `next()` MUTATES the result in place and returns `undefined`. The natural
+ *   2. `next()` mutates the result in place and returns `undefined`. The natural
  *      `result = await result.next()` throws on the following line.
  *   3. Pagination requires an explicit `.limit()`. Without one the result declares
  *      itself finished, and calling `next()` anyway throws NoCursorOrLimitError.
@@ -262,10 +242,9 @@ export function createArkivStore(options = {}) {
   const rpcUrl = options.rpcUrl ?? env.ARKIV_RPC_URL ?? DEFAULT_RPC;
   const project = options.project ?? env.SUREX_ARKIV_PROJECT ?? DEFAULT_PROJECT;
   const writerAddress = options.writerAddress ?? env.SUREX_WRITER_ADDRESS ?? DEFAULT_WRITER_ADDRESS;
-  // Default to the GATE's own hot-path network budget, not something longer.
-  // The gate gives up at GATE_BUDGET.networkTimeoutMs and fails open; an RPC
-  // timeout above that means every slow read is work nobody is still waiting for.
-  // Measured Braga reads are ~100–180 ms, so this is ~8x headroom.
+  // Default to the gate's own hot-path network budget, not something longer: the
+  // gate gives up at GATE_BUDGET.networkTimeoutMs and fails open, so anything above
+  // that is work nobody is still waiting for. Braga reads measure ~100–180 ms.
   const timeoutMs = Number(options.timeoutMs ?? env.SUREX_ARKIV_TIMEOUT_MS ?? GATE_BUDGET.networkTimeoutMs);
 
   // Fail closed at construction. An API that starts with no writer filter would
@@ -282,16 +261,11 @@ export function createArkivStore(options = {}) {
     createPublicClient({
       chain: braga,
       /**
-       * `cache: 'no-store'` on the JSON-RPC fetch itself.
-       *
-       * Today this process runs on Vercel's Node runtime with undici's plain
-       * `fetch`, which caches nothing, so this changes no behaviour here. It is
-       * still the right default and it is cheap: the moment this store is
-       * constructed inside a Next.js server component — the obvious next step for
-       * a page that wants to read the registry without a hop through this API —
-       * the global `fetch` becomes Next's, which caches POST-less requests and
-       * would serve a verdict read from its Data Cache. A read of a mutable chain
-       * pointer must never be answered from a cache the caller cannot see.
+       * `cache: 'no-store'` on the JSON-RPC fetch itself. A no-op under undici, but
+       * the moment this store is constructed inside a Next.js server component the
+       * global `fetch` becomes Next's, which caches POST-less requests — and a read
+       * of a mutable chain pointer must never be answered from a cache the caller
+       * cannot see.
        */
       transport: http(rpcUrl, {
         timeout: timeoutMs,
@@ -306,7 +280,7 @@ export function createArkivStore(options = {}) {
     let q = client
       .buildQuery()
       .where(scope(predicates))
-      .createdBy(writerAddress) // NEVER ownedBy — see the header of this file.
+      .createdBy(writerAddress) // Never ownedBy — see the header of this file.
       .withAttributes(true)
       .withMetadata(true);
     if (payload) q = q.withPayload(true);
@@ -315,18 +289,10 @@ export function createArkivStore(options = {}) {
   };
 
   /**
-   * The hot path. One query, one page — and then the SAME choice the batch makes.
-   *
-   * This was `.limit(1)` and `entities[0]`, which is not "the head" but "whichever
-   * head the node happened to return first". One live fingerprint with two heads —
-   * a republish leaves one, and `orderBy` is a documented no-op on 0.7.0 so
-   * nothing on the server side is sorting them — served the OLD verdict here and
-   * the new one from `getVerdictHeads`, so `/r/<fp>` and the registry list
-   * disagreed about the same entry at the same moment.
-   *
-   * The fix is not a better sort in two places; it is one function both callers
-   * use, because two implementations of "which head is current" is what produced
-   * the disagreement in the first place.
+   * The hot path. One query, one page — and then the same choice the batch makes,
+   * through `newestHead`. Never `.limit(1)` + `entities[0]`: that is not "the head"
+   * but "whichever head the node returned first", and `/r/<fp>` and the registry
+   * list then disagree about one entry at the same moment.
    */
   async function getVerdictHead(fp) {
     if (!isFingerprint(fp)) return null;
@@ -339,7 +305,7 @@ export function createArkivStore(options = {}) {
   }
 
   /**
-   * The SessionStart prefetch. ONE round trip for a whole config — the fingerprints
+   * The SessionStart prefetch. One round trip for a whole config — the fingerprints
    * are OR-ed into a single predicate rather than looped. (`or()` accepts both an
    * array and varargs on 0.7.0; the array form is used here.)
    */
@@ -351,9 +317,8 @@ export function createArkivStore(options = {}) {
     const { entities } = await fetchAllPages(
       scoped([eq('entityType', 'verdictHead'), predicate]),
     );
-    // One live head per fingerprint is the invariant; if the worker ever leaves
-    // two, `newestHead` decides — the same function the single-fingerprint read
-    // uses, so the batch and `/r/<fp>` cannot answer differently for one entry.
+    // `newestHead` decides, the same function the single-fingerprint read uses, so
+    // the batch and `/r/<fp>` cannot answer differently for one entry.
     const byFp = new Map();
     for (const head of dedupeHeads(entities)) byFp.set(head.fingerprint, head);
     return byFp;
@@ -363,11 +328,9 @@ export function createArkivStore(options = {}) {
   async function getEntry(fp) {
     if (!isFingerprint(fp)) return null;
     const [entryRes, sourceRes, reviewRes, head] = await Promise.all([
-      // Not `.limit(1)` — the same mistake that was just fixed one function below
-      // for heads. The submit pipeline CREATES a registryEntry on every run and
-      // never updates one, so a resubmitted package has several, and `entities[0]`
-      // is whichever the node returned first. The newest is the one that describes
-      // the current entry.
+      // Not `.limit(1)`: the submit pipeline creates a registryEntry on every run
+      // and never updates one, so a resubmitted package has several and only the
+      // newest describes the current entry.
       scoped([eq('entityType', 'registryEntry'), eq('fingerprint', fp)], { limit: HEAD_FANOUT }).fetch(),
       fetchAllPages(scoped([eq('entityType', 'source'), eq('fingerprint', fp)])),
       fetchAllPages(scoped([eq('entityType', 'review'), eq('fingerprint', fp)])),
@@ -396,7 +359,7 @@ export function createArkivStore(options = {}) {
   }
 
   /**
-   * A direct key read. `getEntity` has NO creator filter, so the provenance check
+   * A direct key read. `getEntity` has no creator filter, so the provenance check
    * that `.createdBy` does for queries has to be done by hand here — otherwise
    * /v1/source/<key> is a hole straight through the writer filter: anyone could
    * write an entity, hand us its key, and have the API serve it as ours.
@@ -438,17 +401,8 @@ export function createArkivStore(options = {}) {
   }
 
   /**
-   * The whole registry, every state.
-   *
-   * Added after the web lane found the gap: `/v1/flagged` is the right shape for
-   * an org gateway mirroring the flags, but it is the wrong shape for a browse
-   * page. Seeded entries are written `unknown` and never `clean`, so a
-   * flagged-only feed shows an EMPTY registry the moment seeding is the only
-   * thing populating it — which reads as "nothing here" rather than "nothing
-   * flagged".
-   *
-   * Sorted so the states that matter are at the top and `unknown` — which is
-   * most of a freshly seeded registry — is last.
+   * The whole registry, every state — sorted so the states that matter are at the
+   * top and `unknown`, which is most of a freshly seeded registry, is last.
    */
   async function listRegistry({ limit = 200, state = null } = {}) {
     const predicates = [eq('entityType', 'verdictHead')];
@@ -461,14 +415,7 @@ export function createArkivStore(options = {}) {
         (a, b) =>
           (RANK[a.state] ?? 9) - (RANK[b.state] ?? 9) ||
           Number(b.severity ?? 0) - Number(a.severity ?? 0) ||
-          // Within a state, MOST RECENTLY ADDED first, not alphabetical.
-          //
-          // Alphabetical put `@adeu/mcp-server` and `@agentutility/mcp-bestiary` on
-          // the first screen and the servers people have actually heard of under
-          // "@m", which made a registry of real data read as placeholder data —
-          // the first question it drew was "are these placeholders?". Recency is a
-          // fact about the registry rather than an editorial ranking, and it puts
-          // the newest work where a visitor looks first.
+          // Within a state, most recently added first, not alphabetical.
           String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')) ||
           String(a.name ?? a.fingerprint).localeCompare(String(b.name ?? b.fingerprint)),
       );
@@ -492,10 +439,9 @@ export function createArkivStore(options = {}) {
     const countFor = (predicates) =>
       client.buildQuery().where(scope(predicates)).createdBy(writerAddress).count();
 
-    // `unknown` is counted too. Leaving it out is what let a consumer compute
-    // "reviewed = entries - unreviewable" and publish 41 reviewed when ONE server
-    // had been reviewed. A number a consumer needs and cannot get is a number
-    // they will guess.
+    // `unknown` is counted too: leaving it out lets a consumer compute
+    // "reviewed = entries - unreviewable" and publish 41 reviewed when one server
+    // was reviewed. A number a consumer needs and cannot get is one they guess.
     const states = ['clean', 'flagged', 'disputed', 'unreviewable', 'stale', 'unknown'];
     const [totalHeads, totalEntries, ...perState] = await Promise.all([
       countFor([eq('entityType', 'verdictHead')]),
