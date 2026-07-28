@@ -1,11 +1,8 @@
 #!/usr/bin/env node
-// A bearer-checking front door for the SureX reviewer.
-//
-// The deployed API has to reach an open-source model on this box, and the box is
-// a home machine behind a Cloudflare tunnel. Exposing ollama's port directly
-// would hand anyone on the internet a free GPU, so nothing reaches ollama without
-// a bearer token, and only the handful of paths the reviewer actually calls are
-// forwarded at all.
+// A bearer-checking front door for the SureX reviewer. The deployed API reaches an
+// open-source model on this home box through a Cloudflare tunnel; exposing ollama's
+// port directly would hand anyone on the internet a free GPU, so nothing reaches it
+// without a bearer token and only the paths the reviewer calls are forwarded.
 //
 //   listen   127.0.0.1:11500        (the tunnel is the only thing that talks to it)
 //   forward  127.0.0.1:11434        (ollama)
@@ -27,10 +24,9 @@ if (!TOKEN || TOKEN.length < 24) {
 }
 
 /**
- * Only what the reviewer calls. An allowlist rather than a denylist, because the
- * cost of forgetting to deny something here is a stranger running jobs on the GPU.
- * `/api/tags` is included because it is the cheapest liveness probe that
- * distinguishes "down" from "loading" (FRICTION-LOG D3).
+ * Only what the reviewer calls. An allowlist, not a denylist: the cost of forgetting
+ * to deny something is a stranger running jobs on the GPU. `/api/tags` is the
+ * cheapest liveness probe that distinguishes "down" from "loading" (FRICTION-LOG D3).
  */
 const ALLOWED = new Set(['/v1/chat/completions', '/v1/completions', '/v1/models', '/api/tags']);
 
@@ -46,10 +42,9 @@ function authorised(req) {
 }
 
 /**
- * Ollama needs no auth of its own, so ours is stripped rather than forwarded.
- * The key must be DELETED: node's http client throws
- * ERR_HTTP_INVALID_HEADER_VALUE on an explicit `undefined` value, which took the
- * whole process down on the first authorised request.
+ * Ollama needs no auth of its own, so the bearer is stripped rather than forwarded.
+ * The key must be deleted, not set to `undefined`: node's http client throws
+ * ERR_HTTP_INVALID_HEADER_VALUE on an explicit undefined value.
  */
 function forwardHeaders(headers) {
   const out = { ...headers, host: `${UPSTREAM_HOST}:${UPSTREAM_PORT}` };
@@ -67,8 +62,7 @@ const server = createServer((req, res) => {
   try {
     handle(req, res);
   } catch (err) {
-    // A throw in here used to exit the process. The reviewer going offline
-    // mid-review because of one malformed request is not an acceptable failure.
+    // One malformed request must not take the reviewer offline mid-review.
     console.log(`${new Date().toISOString()} 500 ${req.method} ${req.url} ${err?.message}`);
     if (!res.headersSent) deny(res, 500, 'proxy error');
     else res.end();
@@ -78,8 +72,8 @@ const server = createServer((req, res) => {
 function handle(req, res) {
   const path = (req.url ?? '/').split('?')[0];
 
-  // Unauthenticated liveness, deliberately uninformative: it says the front door
-  // is up and nothing about what is behind it.
+  // Unauthenticated liveness, deliberately uninformative: the front door is up, and
+  // nothing about what is behind it.
   if (path === '/healthz') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
@@ -114,13 +108,13 @@ function handle(req, res) {
 
   upstream.on('error', (err) => {
     console.log(`${new Date().toISOString()} 502 ${req.method} ${path} ${err.code ?? err.message}`);
-    // Pass the cause through: ECONNREFUSED (ollama down) and a timeout are
-    // different diagnoses and the caller needs to tell them apart.
+    // Pass the cause through: ECONNREFUSED (ollama down) and a timeout are different
+    // diagnoses and the caller needs to tell them apart.
     deny(res, 502, `reviewer upstream unreachable: ${err.code ?? err.message}`);
   });
 
-  // A cold model load can take minutes; a review can take a few. Generous, but
-  // bounded, so a wedged request cannot hold a socket forever.
+  // A cold model load takes minutes, so this is generous — but bounded, so a wedged
+  // request cannot hold a socket forever.
   upstream.setTimeout(600_000, () => upstream.destroy(new Error('ETIMEDOUT')));
   req.pipe(upstream);
 }

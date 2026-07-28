@@ -4,10 +4,9 @@ import { computeBlobId, computeBlobMetadata, encoderAvailable, WALRUS_TESTNET_SH
 import { verifyEvidenceBytes, sha256Hex, isQuiltPatch } from '../src/blob.mjs';
 
 /**
- * A REAL blob, written and certified by probes/walrus-write.mjs on Walrus
- * testnet on 2026-07-25. Nothing here is synthetic — that is the point: the
- * check is only worth anything if it reproduces an identifier that a Sui
- * transaction already committed to.
+ * A real blob, written and certified by probes/walrus-write.mjs on Walrus testnet
+ * on 2026-07-25. Nothing synthetic: the check is only worth something if it
+ * reproduces an identifier a Sui transaction already committed to.
  *
  *   blobId       -SzjTmxUSjs01bmC2AZ48iqz-fTCcllwcLu3nc2rb2Y
  *   suiObjectId  0xe0ad0c98f40f23b5990ea5bee344e6fbb245366507910f93120975b25c6af5e8
@@ -47,8 +46,7 @@ test('flipping one bit changes the blob ID completely', () => {
 test('the shard count is part of the address, not a tuning knob', () => {
   assert.equal(WALRUS_TESTNET_SHARDS, 1000);
   // A different network configuration yields a different ID for identical bytes,
-  // which is why encodingType and network are recorded on every record: a future
-  // mismatch can then be explained rather than read as tampering.
+  // which is why encodingType and network are recorded on every record.
   assert.notEqual(computeBlobId(REAL_BYTES, { nShards: 667 }), REAL_BLOB_ID);
 });
 
@@ -93,14 +91,7 @@ test('truncated bytes FAIL, which is the aggregator-lied case', async () => {
   assert.equal(result.checks.filter((c) => c.status === 'failed').length, 2, 'both checks must catch it');
 });
 
-/**
- * The seed run put 50 registry entries into ONE Walrus Quilt, because 50
- * standalone blobs would have cost 100 Sui transactions and more WAL than the
- * wallet held — 565,607,700 FROST against a balance of 488,687,846. Batching was
- * not an optimisation, it was the run.
- *
- * These are the real recorded pointers for `@certscore/mcp` from that quilt.
- */
+/** The real recorded pointers for `@certscore/mcp` from the seed quilt. */
 const QUILT = {
   blobId: 't58ndYpTeZMcmD_eOUbRfRqcEBkx0Wmw61h7Xdpj3pQ',
   quiltBlobId: 't58ndYpTeZMcmD_eOUbRfRqcEBkx0Wmw61h7Xdpj3pQ',
@@ -119,8 +110,7 @@ test('a quilted record is recognised as one', () => {
 test('a quilt patch verifies against the PATCH digest, not the quilt', async () => {
   // The bug this pins: `evidence.blobId` names the quilt and `contentSha256` is
   // the patch's. Fetching the blobId returns ~9x the bytes, whose digest then
-  // fails the content check — reporting "evidence did NOT match the record" about
-  // a record that is perfectly fine. A false alarm costs as much as a miss.
+  // fails the content check on a record that is perfectly fine.
   const patchBytes = Buffer.from('pretend this is the 1169-byte patch body', 'utf8');
   const result = await verifyEvidenceBytes({
     bytes: patchBytes,
@@ -132,7 +122,6 @@ test('a quilt patch verifies against the PATCH digest, not the quilt', async () 
   const byName = Object.fromEntries(result.checks.map((c) => [c.name, c]));
   assert.equal(byName['content-sha256'].status, 'passed', 'the digest check must really run');
   assert.equal(byName['patch-in-quilt'].status, 'passed');
-  // And the honest part: a quilted record has no certified blob of its own.
   assert.equal(byName['blob-id'].status, 'asserted');
   assert.match(byName['blob-id'].detail, /no certified blob of its own/);
 });
@@ -153,8 +142,8 @@ test('a quilted record never claims the blob-id check passed', async () => {
   const result = await verifyEvidenceBytes({
     bytes,
     evidence: { ...QUILT, contentSha256: sha256Hex(bytes) },
-    // Even handed a working encoder, a patch must not claim a blob-id match:
-    // the bytes are a patch and the id is the quilt's.
+    // Even handed a working encoder, a patch must not claim a blob-id match: the
+    // bytes are a patch and the id is the quilt's.
     computeBlobId: () => QUILT.blobId,
   });
   assert.notEqual(result.checks.find((c) => c.name === 'blob-id').status, 'passed');
@@ -170,6 +159,6 @@ test('with no encoder the check reports asserted, never passed', async () => {
   const blobCheck = result.checks.find((c) => c.name === 'blob-id');
   assert.equal(blobCheck.status, 'unavailable');
   assert.notEqual(blobCheck.status, 'passed');
-  // content-sha256 still ran, so the result is still ok — but not by luck.
+  // content-sha256 still ran, so the result is still ok.
   assert.equal(result.ok, true);
 });

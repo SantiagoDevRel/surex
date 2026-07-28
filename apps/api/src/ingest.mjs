@@ -1,18 +1,13 @@
 // Handing a checked submission to the writer.
 //
-// This API holds no wallet — deliberately, so that compromising it cannot rewrite
+// This API holds no wallet, deliberately, so that compromising it cannot rewrite
 // the registry (packages/worker/src/config.mjs). Everything after the World ID
-// gate therefore happens somewhere that does: the ingest service on the DGX,
-// behind the same Cloudflare tunnel pattern the reviewer already uses.
-//
-// So this module is a forwarder and nothing more. It does not review, it does not
-// sign, and it does not decide anything about the submission — it carries a
-// checked one across, and reports honestly when it cannot.
+// gate happens in the ingest service on the DGX, so this module forwards and
+// nothing more — it does not review, sign, or decide.
 //
 // The one rule that shapes every line below: **never claim a submission was
-// queued unless the writer said so.** A submit form that says "queued" when
-// nothing was queued is precisely the class of lie this project exists to make
-// impossible, so an unreachable writer is an explicit 503 and never a 202.
+// queued unless the writer said so.** An unreachable writer is an explicit 503
+// and never a 202.
 
 /** Configured only when both are present. Half a configuration is none. */
 export function ingestConfig(env = process.env) {
@@ -31,18 +26,15 @@ export function ingestConfig(env = process.env) {
 }
 
 /**
- * A submission carries a repository and a commit. The commit is not optional and
- * not a tag: a tag can be repointed or deleted, so a submission that names one
- * cannot say which bytes it means — and the whole tier model rests on being able
- * to say that.
+ * A submission carries a repository and a full commit sha — never a tag: a tag can
+ * be repointed or deleted, so it cannot say which bytes the submission means.
  */
 export function validateSubmission(body) {
   const repo = String(body?.repo ?? '').trim();
   const commit = String(body?.commit ?? '').trim().toLowerCase();
   const release = body?.release ? String(body.release).trim() : null;
 
-  // Accept what the form sends and what a person might paste; normalise to
-  // `owner/name` because that is what the pipeline takes.
+  // Accept a URL, an SSH remote or a bare path; the pipeline takes `owner/name`.
   const match = repo
     .replace(/^[a-z]+:\/\//i, '')
     .replace(/^git@github\.com:/i, 'github.com/')
@@ -68,18 +60,7 @@ export function validateSubmission(body) {
   return { ok: true, repo: `${owner}/${name}`, commit, release };
 }
 
-/**
- * Where a submission has got to.
- *
- * A review is minutes, not seconds — a model reads the source twice, and four
- * times when the two readings disagree. Without this the submit screen has
- * nothing true to say during those minutes, and a screen with nothing true to
- * say invents something.
- *
- * It reports WHICH MODEL is doing the reading, deliberately. The verdict will
- * carry that name forever; someone watching it happen should see the same name,
- * not a spinner that could be hiding anything.
- */
+/** Where a submission has got to, and which model is doing the reading. */
 export async function submissionStatus(id, { env = process.env, fetchImpl = fetch, timeoutMs = 6000 } = {}) {
   const config = ingestConfig(env);
   if (!config.configured) return { kind: 'unconfigured', missing: config.missing };
@@ -104,27 +85,16 @@ export async function submissionStatus(id, { env = process.env, fetchImpl = fetc
       result: body.result ?? null,
       error: body.error ?? null,
       /**
-       * Where the pipeline IS, carried through untouched:
-       * `{stage, label, done, total, detail, at}`.
-       *
-       * This is not the same field as `stage` below and they must not be merged.
-       * `progress.stage` is where the pipeline has got to while it is running;
-       * `stage` is the stage that FAILED, which only exists once it has stopped.
-       * A screen that read the first as the second would report a submission
-       * still writing its blob as one that failed at the blob.
-       *
-       * Forwarded rather than reshaped. The writer already narrowed it to the
-       * agreed fields, and a second opinion here is a second place to drift.
+       * Where the pipeline currently is while it runs, forwarded untouched:
+       * `{stage, label, done, total, detail, at}`. A different field from `stage`
+       * below, and they must not be merged — `stage` names the stage that failed,
+       * which only exists once the pipeline has stopped.
        */
       progress: body.progress ?? null,
-      // The stage that failed, when the pipeline said. "exited 1" tells a
-      // watcher nothing; "the review completed and the storage did not" tells
-      // them whether re-submitting is worth anything.
+      // The stage that failed, when the pipeline said so.
       stage: body.stage ?? body.result?.stage ?? undefined,
       detail: body.detail ?? body.result?.detail ?? undefined,
       interrupted: body.interrupted ?? undefined,
-      // Named, not implied. The model doing the reading is part of what the
-      // verdict will claim, so it is visible while it is happening.
       reviewer: reviewerIdentity(env),
     };
   } catch (err) {
@@ -135,28 +105,20 @@ export async function submissionStatus(id, { env = process.env, fetchImpl = fetc
 }
 
 /**
- * Which model reads the code, in the words the verdict will use.
- *
- * Read from the same environment variable the reviewer itself reads, so the
- * screen cannot drift from what actually ran. Unset is reported as unset — a
- * hardcoded default here would be a screen confidently naming a model nobody
- * configured.
+ * Which model reads the code, from the same env var the reviewer itself reads so
+ * the screen cannot drift from what ran. Unset is reported as unset — never
+ * default it, or the screen names a model nobody configured.
  */
 export function reviewerIdentity(env = process.env) {
   const model = (env.SUREX_REVIEWER_MODEL ?? '').trim();
   return {
     model: model || null,
-    // Two paraphrased readings, and two more when they disagree — see the
-    // reviewer's merge rule. Worth saying: it explains why this takes minutes.
     readings: '2 paraphrased readings, 4 when they disagree',
     humanAudited: false,
   };
 }
 
-/**
- * Forward it. Returns what happened, in the caller's vocabulary — `queued`,
- * `unconfigured`, or `unreachable` — and never invents the first one.
- */
+/** Forward it. Returns `queued`, `unconfigured` or `unreachable` — never inventing the first. */
 export async function forwardSubmission(submission, { env = process.env, fetchImpl = fetch, timeoutMs = 8000 } = {}) {
   const config = ingestConfig(env);
   if (!config.configured) return { kind: 'unconfigured', missing: config.missing };
@@ -184,8 +146,8 @@ export async function forwardSubmission(submission, { env = process.env, fetchIm
     if (res.status === 202 && body?.id) {
       return { kind: 'queued', id: String(body.id), deduped: Boolean(body.deduped), queuePosition: body.queuePosition ?? null };
     }
-    // A 401 here is OUR misconfiguration — the wrong token — and the submitter
-    // must not be shown a message implying they were refused.
+    // A 401 here is our misconfiguration (wrong token) — the submitter must not
+    // be shown a message implying they were refused.
     return {
       kind: 'unreachable',
       status: res.status,

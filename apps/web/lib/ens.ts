@@ -1,6 +1,6 @@
 /**
- * ENS, server side only. SERVER ONLY, not by accident: `SUREX_ENS_SIGNING_KEY`
- * signs verdicts a contract believes — leaking it lets someone else sign in
+ * ENS, server side only, and not by accident: `SUREX_ENS_SIGNING_KEY` signs
+ * verdicts a contract believes, so leaking it lets someone else sign in
  * SureX's name. Never import this from a client component; the key must never
  * become `NEXT_PUBLIC_*`.
  *
@@ -17,7 +17,7 @@ import { encodePacked, keccak256, type Address, type Hex } from 'viem';
 
 import type { VerdictHead } from './types.ts';
 
-/** Deliberately NOT `sxf1_`: ENSIP-15 rejects a mid-label underscore. */
+/** Deliberately not `sxf1_`: ENSIP-15 rejects a mid-label underscore. */
 export const LABEL_PREFIX = 'sxf1-';
 
 /**
@@ -34,7 +34,7 @@ export function labelFor(fingerprint: string): string | null {
   return LABEL_PREFIX + fingerprint.slice('sxf1_'.length, 'sxf1_'.length + LABEL_HEX_LENGTH);
 }
 
-/** `sxf1-<40 hex>` → the 40 hex characters, or `null`. Returns a PREFIX to search with, never a full fingerprint — 24 hex characters were dropped. */
+/** `sxf1-<40 hex>` → the 40 hex characters, or `null`. Returns a prefix to search with, never a full fingerprint — 24 hex characters were dropped. */
 export function fingerprintPrefixOf(label: string): string | null {
   const lower = String(label ?? '').toLowerCase();
   if (!lower.startsWith(LABEL_PREFIX)) return null;
@@ -77,7 +77,7 @@ export function leftmostLabel(dnsEncoded: string): string | null {
   if (bytes.length < 2) return null;
   const length = Number.parseInt(bytes.slice(0, 2), 16);
   // length > 63 rejects the ENSIP-10 encoded-label form (0xfe): a 32-byte hash,
-  // not text. Our labels never take that path.
+  // not text. SureX labels never take that path.
   if (!Number.isFinite(length) || length === 0 || length > 63) return null;
   const hex = bytes.slice(2, 2 + length * 2);
   if (hex.length !== length * 2) return null;
@@ -115,7 +115,7 @@ export function webBase(env: NodeJS.ProcessEnv = process.env): string {
 
 /**
  * Build the record table for one head. Runs the copy law over every value and
- * THROWS on a violation, rather than signing a banned word — the test suite is
+ * throws on a violation, rather than signing a banned word — the test suite is
  * the guard, not the only defence, since a head arrives from a network call at
  * runtime.
  */
@@ -165,7 +165,7 @@ export interface DigestInput {
  * is EIP-191 "data with intended validator" — the standard ENS CCIP-Read
  * construction, unchanged.
  *
- * ⚠️ Sign this RAW with `privateKeyToAccount().sign({ hash })`, never
+ * ⚠️ Sign this raw with `privateKeyToAccount().sign({ hash })`, never
  * `signMessage()` — the latter adds a second EIP-191 prefix and `ecrecover`
  * returns a stranger's address.
  */

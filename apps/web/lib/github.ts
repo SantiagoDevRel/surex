@@ -44,7 +44,7 @@ export function parseRepo(input: string): RepoRef | null {
 }
 
 export interface McpEvidence {
-  /** True only when a positive signal was READ. */
+  /** True only when a positive signal was read. */
   isMcp: boolean;
   /** Null when nothing could be read — never conflate with `isMcp: false`. */
   undetermined: boolean;

@@ -60,7 +60,7 @@ export function stateBanner(head: VerdictHead): { label: string; body: string } 
 }
 
 /**
- * The twenty-second sentence. Prefers what the reviewer actually SAID (rv-7's
+ * The twenty-second sentence. Prefers what the reviewer actually said (rv-7's
  * `assessment`) over a sentence about what the state means — the assessment is
  * a fact about this server, the one a developer came for.
  */
@@ -117,7 +117,7 @@ export function stampView(head: VerdictHead, entry?: Entry | null): StampView {
       : COPY.stamp.counterUncontested;
     counterTone = head.state === 'clean' ? 'clean' : 'neutral';
   }
-  // The unconfirmed case deliberately sets NO counter: the required disclosure
+  // The unconfirmed case deliberately sets no counter: the required disclosure
   // (AGENTS.md §4, automated/no human audit) already lives in the Provenance
   // panel as part of the record, and repeating it here would say it twice.
 

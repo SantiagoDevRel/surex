@@ -89,7 +89,7 @@ export function FindingCard({
  *  clean (true), withheld (published elsewhere), or flagged-with-no-body
  *  (verdict stands on a blob this page isn't showing). */
 export function NoFindings({ state, reason }: { state?: string; reason?: string }) {
-  // TOTAL over the states a head can carry — `unknown` (most of the registry,
+  // Total over the states a head can carry — `unknown` (most of the registry,
   // via seeded entries) must not read as "the model saw this and found nothing".
   const { label, body } = (() => {
     if (reason === 'withheld') {

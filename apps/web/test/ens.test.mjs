@@ -29,17 +29,12 @@ const LABEL = 'sxf1-b1dad32ff73fe0791aa543000695d093dec235b1';
 /* ─────────────────────────────────────────── the cross-language vector ─────*/
 
 /**
- * The one test here that checks something no other test in either language can.
- *
  * The gateway signs what `signatureDigest()` computes; the mainnet resolver
- * accepts what `makeSignatureHash()` computes. They are written in different
- * languages in different packages. If they ever disagree, every lookup fails
- * `resolveWithProof` with an error that names neither side, and both suites stay
- * green while the product is completely broken.
- *
- * So the vector is asserted here AND pinned as a literal in the Solidity, and
- * this test reads that file as text to prove the two literals are the same one.
- * The same technique `copy.test.mjs` uses on `lib/world.ts`.
+ * accepts what `makeSignatureHash()` computes. Different languages, different
+ * packages — if they disagree, every lookup fails `resolveWithProof` with an
+ * error naming neither side while both suites stay green. So the vector is
+ * asserted here and pinned as a literal in the Solidity, which the next test
+ * reads as text to prove the two literals are the same one.
  */
 const GOLDEN = {
   resolver: '0x1111111111111111111111111111111111111111',
@@ -69,8 +64,8 @@ test('the Solidity pins the same golden vector', () => {
 
 test('the digest is bound to the resolver, the expiry, the question and the answer', () => {
   const base = signatureDigest(GOLDEN);
-  // Change one field at a time; every one of them must move the digest, or a
-  // signature is replayable along that axis.
+  // One field at a time: each must move the digest, or a signature is replayable
+  // along that axis.
   assert.notEqual(signatureDigest({ ...GOLDEN, resolver: '0x2222222222222222222222222222222222222222' }), base);
   assert.notEqual(signatureDigest({ ...GOLDEN, expires: GOLDEN.expires + 1n }), base);
   assert.notEqual(signatureDigest({ ...GOLDEN, callData: '0x00112233445566778899aabbccddee00' }), base);
@@ -83,15 +78,10 @@ test('the digest is bound to the resolver, the expiry, the question and the answ
 /* ────────────────────────────────────────────────────────── the copy law ───*/
 
 test('recordsFor throws rather than returning a banned word', () => {
-  // `reason` is the only free-ish field on a head that reaches a record. If the
-  // contract ever grew a reason like this, the gateway must refuse to sign it
-  // rather than emit it — the runtime guard, not just the test above.
-  //
-  // The probe used to be 'this server is safe'. *safe* left the banned list on
-  // 2026-07-26 (product decision, so the homepage could use it), which means
-  // that string now signs cleanly and this test was asserting a guard that had
-  // stopped existing for it. The guard itself is unchanged, so the probe moved
-  // to a word still on the list rather than the assertion being dropped.
+  // `reason` is the only free-ish field on a head that reaches a record, and the
+  // gateway must refuse to sign a violating one rather than emit it. The probe
+  // word has to stay on the banned list, or this asserts a guard that no longer
+  // applies to it.
   assert.throws(
     () => recordsFor({ fingerprint: FP, state: 'clean', severity: 0, tier: 'A', reason: 'this server is trusted' }, {}),
     /Copy law violated in ENS record/,
@@ -117,8 +107,8 @@ test('no model-generated text ever reaches a record', () => {
 /* ────────────────────────────────────────────────────── the signing key ────*/
 
 test('the signing key is never read from a NEXT_PUBLIC_ variable', () => {
-  // Same assertion `copy.test.mjs` makes about `lib/world.ts`, for the same
-  // reason: NEXT_PUBLIC_ is compiled into the browser bundle.
+  // NEXT_PUBLIC_ is compiled into the browser bundle. Same assertion
+  // `copy.test.mjs` makes about `lib/world.ts`.
   const lib = readFileSync(new URL('../lib/ens.ts', import.meta.url), 'utf8');
   const route = readFileSync(new URL('../app/api/ens/[sender]/[data]/route.ts', import.meta.url), 'utf8');
   assert.ok(!/NEXT_PUBLIC_[A-Z_]*SIGNING/.test(lib), 'lib/ens.ts must not read a public signing key');
@@ -166,17 +156,15 @@ test('the label round-trips as far as it honestly can', () => {
 });
 
 test('the label is 45 characters — under 63, and normalisable', () => {
-  // FRICTION-LOG E2: ethers `dnsEncode` throws above 63 by default while viem
-  // accepts far more, so anything over 63 resolves in one client and not the
-  // other. 45 is under every limit measured.
+  // FRICTION-LOG E2: ethers `dnsEncode` throws above the 63-byte label limit while
+  // viem accepts far more, so anything over 63 resolves in one client, not the other.
   assert.equal(labelFor(FP).length, 45);
   assert.ok(labelFor(FP).length < 64);
 });
 
 test('the label prefix is a hyphen, not the fingerprint underscore', () => {
-  // FRICTION-LOG E1: ENSIP-15 rejects a mid-label underscore, so `sxf1_…` is not
-  // a legal label at all. If this ever reverts to `_`, every name stops resolving
-  // in every normalising client.
+  // FRICTION-LOG E1: ENSIP-15 rejects a mid-label underscore, so `sxf1_…` is not a
+  // legal label — revert to `_` and every name stops resolving in every client.
   assert.equal(LABEL_PREFIX, 'sxf1-');
   assert.ok(!labelFor(FP).includes('_'));
 });
@@ -245,8 +233,8 @@ test('the records are what a client actually gets', () => {
 });
 
 test('the full fingerprint is a record, so the prefix is never the identity', () => {
-  // The label carries 40 of 64 hex characters. A caller that needs certainty
-  // reads this record and compares all 64 rather than trusting the name.
+  // The label carries 40 of 64 hex characters, so a caller that needs certainty
+  // compares all 64 from this record rather than matching on the name.
   assert.equal(recordValue({ fingerprint: FP, state: 'clean', severity: 0, tier: 'A' }, 'surex:fingerprint', {}), FP);
 });
 
@@ -275,8 +263,7 @@ test('a 45-character label survives the wire encoding', () => {
 });
 
 test('an encoded-label name is declined rather than guessed at', () => {
-  // 0xfe is the ENSIP-10 form where the label is a hash. There is no prefix to
-  // read out of it, and inventing one would be inventing an identity.
+  // 0xfe is the ENSIP-10 form where the label is a 32-byte hash: no prefix to read.
   assert.equal(leftmostLabel(`0xfe${'ab'.repeat(32)}00`), null);
   assert.equal(leftmostLabel('0x00'), null);
   assert.equal(leftmostLabel('0x'), null);

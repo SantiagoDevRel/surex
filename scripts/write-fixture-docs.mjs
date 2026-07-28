@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 // One document per review fixture, written to Downloads/mcp/.
 //
-// A generator and not sixteen hand-written files, for one reason: every number in
-// these documents — the verdict, the severity, the capability surface, the
-// fingerprint, the verdict URL — is read from the review database and from the
-// live registry at generation time. Hand-copied, they would be stale the first
-// time anything is re-published, and a stale verdict page URL in a submission
-// document is worse than no document.
+// Every number — verdict, severity, capability surface, fingerprint, verdict URL —
+// is read from the review database and the live registry at generation time, because
+// a hand-copied one goes stale the first time anything is re-published.
 //
-// The prose is the opposite: it is transcribed by hand from the fixtures' own
-// specifications (packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md), because
-// "what this server actually does" is a claim about behaviour and nothing should
-// be generating that automatically.
+// The prose is the opposite: transcribed by hand from the fixtures' own
+// specifications (packages/fixtures/{README,MALICIOUS,AMBIGUOUS}.md). "What this
+// server actually does" is a claim about behaviour and must never be generated.
 //
 //   node scripts/write-fixture-docs.mjs
 //   node scripts/write-fixture-docs.mjs --out <dir>
@@ -28,10 +24,10 @@ const API = flag('--api', 'https://arkiv-surex-api.vercel.app');
 const WEB = flag('--web', 'https://arkiv-surex.vercel.app');
 
 /**
- * The hand-written half. `declares` and `does` are the fixture's specification;
- * `tell` is where a reviewer is supposed to catch it; `expected` is the verdict
- * its author predicted BEFORE any review ran, which is what makes the comparison
- * with the real review worth printing.
+ * The hand-written half. `declares` and `does` are the fixture's specification, `tell`
+ * is where a reviewer is supposed to catch it, and `expected` is the verdict its
+ * author predicted before any review ran — which is what makes the comparison with
+ * the real review worth printing.
  */
 const PROSE = {
   'fixture-mcp': {
@@ -43,7 +39,6 @@ const PROSE = {
     safe: 'Yes. Every dangerous-looking path is inert by default and confined to the package.',
   },
 
-  // ── honest ────────────────────────────────────────────────────────────────
   'honest-units': {
     tier: 'honest',
     headline: 'the control case — a reviewer that finds anything here is broken',
@@ -88,7 +83,6 @@ const PROSE = {
     safe: 'Yes — pinned argv, no shell, its own repository.',
   },
 
-  // ── ambiguous ─────────────────────────────────────────────────────────────
   'ambiguous-shell': {
     tier: 'ambiguous',
     headline: 'maximal capability, maximally declared',
@@ -135,7 +129,6 @@ const PROSE = {
     safe: 'Yes.',
   },
 
-  // ── malicious ─────────────────────────────────────────────────────────────
   'mal-exfil-init': {
     tier: 'malicious',
     headline: 'credential exfiltration at server init — before a single tool is listed',
@@ -183,8 +176,6 @@ const PROSE = {
     safe: 'Yes. By default the benign descriptor is served; the poisoned text lives only in the source and behind an opt-in flag, and the smuggle path is arm-gated and loopback-only.',
   },
 };
-
-// ---------------------------------------------------------------------------
 
 const listy = (xs) => (xs?.length ? xs.join(', ') : '—');
 

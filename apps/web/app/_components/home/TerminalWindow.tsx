@@ -122,7 +122,7 @@ const SURFACE: Record<SurfaceKey, ReactNode> = {
 };
 
 // Real tab semantics: role="tablist"/"tab" with aria-selected + aria-controls,
-// arrow keys move focus AND selection (roving tabindex), Home/End jump to ends.
+// arrow keys move focus and selection together (roving tabindex), Home/End jump to ends.
 // One stable panel id — only the active panel is ever in the DOM, so a
 // per-surface id would leave tabs pointing aria-controls at nothing.
 const PANEL_ID = 'terminal-panel';

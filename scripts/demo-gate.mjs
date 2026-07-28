@@ -1,21 +1,16 @@
 #!/usr/bin/env node
-// The demo, rehearsed: drive the REAL gate against the LIVE registry, once per
+// The demo, rehearsed: drive the real gate against the live registry, once per
 // branch of decide().
 //
 //   node scripts/demo-gate.mjs
 //   SUREX_API_URL=http://127.0.0.1:8787 node scripts/demo-gate.mjs   # against a local API
 //
-// This is not a test — `packages/plugin/test/gate.test.mjs` is, and it stubs the
-// registry so it can assert. This runs the shipped hook binary as a child
-// process, with a real MCP config on disk, against the registry that is actually
-// deployed, and prints what Claude Code would receive. It exists because every
-// layer being green separately is not the same as the demo working, and the
-// demo is the thing being shown.
-//
-// What it proves, per server: the gate identifies it from configuration alone
-// (it never starts an MCP server to ask what it is), resolves a verdict from the
-// live API, and emits the right decision — nothing, a systemMessage, or
-// `permissionDecision: 'ask'`.
+// Not a test — `packages/plugin/test/gate.test.mjs` is, and it stubs the registry so
+// it can assert. This runs the shipped hook binary as a child process with a real MCP
+// config on disk, against the deployed registry, and prints what Claude Code would
+// receive: that the gate identifies each server from configuration alone (it never
+// starts one to ask what it is), resolves a verdict, and emits the right decision —
+// nothing, a systemMessage, or `permissionDecision: 'ask'`.
 
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,11 +25,8 @@ const GATE = join(ROOT, 'packages', 'plugin', 'bin', 'surex-gate.mjs');
 const API = process.env.SUREX_API_URL || 'https://arkiv-surex-api.vercel.app';
 
 /**
- * The three, in demo order: the one nobody should notice, the one that asks a
- * question, the one that stops.
- *
- * `key` becomes the MCP server name, so the tool call is `mcp__<key>__<tool>`.
- * Underscores only — the gate parses the server out of the tool name.
+ * The three, in demo order. `key` becomes the MCP server name, so the tool call is
+ * `mcp__<key>__<tool>` — underscores only, the gate parses the server out of the name.
  */
 const DEMO = [
   { key: 'good_weather',  dir: 'honest-weather',       expect: 'allow' },
@@ -49,16 +41,13 @@ mkdirSync(home, { recursive: true });
 mkdirSync(project, { recursive: true });
 
 // The install configuration, exactly as a developer would have it: `node <entry>`.
-// This is also what the fingerprint is computed over, which is why the entry path
-// has to be the real fixture rather than a copy.
+// The fingerprint is computed over this, so the entry path must be the real fixture
+// rather than a copy.
 const mcpServers = {};
 for (const d of DEMO) {
-  // `entryOf` rather than a hardcoded `server.mjs`: mal-tool-shadow keeps its
-  // entry at `src/server.mjs`, and hardcoding the path pointed the config at a
-  // file that does not exist. The gate then answered `local-entry-unreadable` and
-  // REFUSED to look anything up — correctly, because the entry it would have
-  // found belongs to a different server — so a real product safeguard read as a
-  // broken demo. Ask the same helper the publisher asked.
+  // `entryOf`, not a hardcoded `server.mjs` — mal-tool-shadow keeps its entry at
+  // `src/server.mjs`, and a config pointing at a missing file makes the gate answer
+  // `local-entry-unreadable` and refuse to look anything up.
   const entry = entryOf(join(ROOT, 'packages', 'fixtures', d.dir));
   if (!entry) throw new Error(`no entry point found for ${d.dir}`);
   mcpServers[d.key] = { command: 'node', args: [entry] };

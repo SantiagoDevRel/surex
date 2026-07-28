@@ -63,7 +63,7 @@ export const COPY = {
     filterSort: 'SORT',
 
     /**
-     * THE DEFAULT LIST IS FILTERED, AND IT SAYS SO ON THE PAGE: the count held
+     * The default list is filtered, and the page says so: the count held
      * back is printed, broken down by state, next to a link that brings it all
      * back. No number lives in any of these strings — every count is derived
      * from the rows the page actually received.
@@ -90,7 +90,7 @@ export const COPY = {
       'That is a fact about this registry, not about the code. An entry is missing until someone submits the release and a review runs.',
     emptyAction: 'Submit a server for review',
     /**
-     * The tier legend, at the top of the page rather than a footnote. The ONLY
+     * The tier legend, at the top of the page rather than a footnote. The only
      * wording for tiers on the registry screen — the chain on the verdict page
      * says the same thing on purpose.
      */
@@ -162,7 +162,7 @@ export const COPY = {
     findingsNoneLabel: 'FINDINGS',
     findingsNone:
       'None recorded. That is a statement about what the model saw, at that commit, at that time. Read the capability surface below for what this code can reach. It is usually the more useful half.',
-    /** For an entry whose result is HELD, not empty — "none recorded" would falsely say the reviewer found nothing. */
+    /** For an entry whose result is held, not empty — "none recorded" would falsely say the reviewer found nothing. */
     findingsWithheldLabel: 'FINDINGS · NOT PUBLISHED',
     findingsWithheld:
       'A review ran and reached a conclusion. It is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else\'s code is not grounds for a public accusation. The maintainer who submitted this was given the result in full, and can publish it themselves.',
@@ -178,10 +178,10 @@ export const COPY = {
     /** The rest of a multi-finding verdict lives in the certified record. */
     findingsRemainder:
       'Only the highest-severity finding is carried on the registry entry. The rest are in the certified review blob linked under PROVENANCE.',
-    /** rv-7. What KIND of gap this is, above the findings. */
+    /** rv-7. What kind of gap this is, above the findings. */
     concernLabel: 'WHAT KIND OF PROBLEM',
     /**
-     * Every value describes a MECHANISM rather than a motive — a wrong accusation
+     * Every value describes a mechanism rather than a motive — a wrong accusation
      * of purpose (e.g. "works to hide what it does") is an accusation about a
      * person, not a program, on the strength of an unaudited reading.
      */
@@ -259,7 +259,7 @@ export const COPY = {
       'A wrongly-flagged server hurts the humans who wrote it and the agents that depend on it. Both can defend it here. The requirements differ, the weight of the rebuttal does not.',
     humanTitle: 'You are a person',
     humanBadge: 'WORLD ID',
-    /** NOT "prove unique personhood" — only the Orb credential establishes uniqueness; that sentence lives in `world.credential.orb`. */
+    /** Not "prove unique personhood" — only the Orb credential establishes uniqueness; that sentence lives in `world.credential.orb`. */
     humanStep1:
       'Prove personhood with World ID. How much that establishes depends on which credential this deployment requests. The button states which one it got, and what it does and does not settle.',
     humanStep2: 'Write the rebuttal. Point at code: file, line, commit.',
@@ -307,7 +307,7 @@ export const COPY = {
     failedLabel: 'NO PROOF OBTAINED',
     failedBody:
       'World ID did not return a proof, so there is nothing to send. The error is shown as it arrived rather than replaced with a screen that claims otherwise.',
-    /** A PROOF IN HAND IS NOT AN ACCEPTED CLAIM. `heldShort` is always on screen; `heldBody` sits behind `heldWhy`. */
+    /** A proof in hand is not an accepted claim. `heldShort` is always on screen; `heldBody` sits behind `heldWhy`. */
     heldShort: 'Proof in hand: the registry has not seen it yet.',
     heldWhy: 'why that is not acceptance',
     heldBody:
@@ -317,9 +317,9 @@ export const COPY = {
       'This deployment points at a non-production World ID environment, where proofs come from a simulator rather than from a phone. Anything proven here is a test of the plumbing, not a human.',
 
     /**
-     * WHAT THIS DEPLOYMENT ACTUALLY ASKED FOR — named here since the credential
+     * What this deployment actually asked for — named here since the credential
      * is chosen server-side and arrives with the signature. Every other World ID
-     * string is written true of the WEAKEST of the three, since a static page
+     * string is written true of the weakest of the three, since a static page
      * can't know which one a deployment requested. `short` is always on screen;
      * `body` is the same claim in full.
      */
@@ -402,7 +402,7 @@ export const COPY = {
 
   /**
    * The live loader on /submit — what the pipeline is doing, while it does it.
-   * Every string here describes a step the backend REPORTED, never a step that
+   * Every string here describes a step the backend reported, never a step that
    * might be happening. The `…Absent` strings are load-bearing: a field the API
    * didn't send renders as one of them, never as a plausible-looking value.
    */
@@ -487,10 +487,11 @@ export const COPY = {
       'The run has not reported a stage yet.',
 
     /**
-     * THE RAIL — which technology is being touched, right now. The halftone says
-     * HOW FAR the run has got, not WHERE. Phases claim as little as possible: a
-     * stage the run has moved beyond reads as "the run is past this", not "done"
-     * — the watch can miss what happened inside an unreported stage.
+     * The rail — which technology is being touched, right now. The halftone
+     * says how far the run has got, not where it is. Phases claim as little as
+     * possible: a stage the run has moved beyond reads as "the run is past
+     * this", not "done" — the watch can miss what happened inside an
+     * unreported stage.
      */
     rail: {
       label: 'THE FLOW',
@@ -507,7 +508,7 @@ export const COPY = {
       nothingReported:
         'The run reported no identifiers for this stage. Whatever happened here, it did not say, so this panel does not say either.',
 
-      /** The tile's NAME, not a second description — `COPY.pipeline.stage` stays the one description. `done` is called `published`, what the pipeline emits. */
+      /** The tile's name, not a second description — `COPY.pipeline.stage` stays the one description. `done` is called `published`, what the pipeline emits. */
       name: {
         resolving: 'resolve',
         licence: 'licence',
@@ -530,7 +531,7 @@ export const COPY = {
       },
 
       /**
-       * THE SIX STEPS THE PAGE READS AS. Four of the pipeline's eight stages
+       * The six steps the page reads as. Four of the pipeline's eight stages
        * answer one question (where did the source come from), so the flow folds
        * them into one step; purely presentational — `flowFacts()` merges, never
        * invents. `world` has no stage behind it: it happens in this browser
@@ -546,7 +547,7 @@ export const COPY = {
           arkiv: 'Arkiv',
           published: 'Published',
         },
-        /** What the step is FOR. One line, in the vocabulary the verdict will use. */
+        /** What the step is for. One line, in the vocabulary the verdict will use. */
         caption: {
           world: 'proving a person is here',
           source: 'the repo, the commit, the licence',
@@ -581,7 +582,7 @@ export const COPY = {
           lede: 'A submission names a repository at one commit.',
         },
         licence: {
-          // This path stores the REVIEW, never the source, so a missing licence
+          // This path stores the review, never the source, so a missing licence
           // is published as `none` and the review runs.
           lede: 'The licence is read and recorded. None is an answer, not a stop.',
         },
@@ -605,7 +606,7 @@ export const COPY = {
         },
       },
 
-      /** Fact labels — `blob`/`entity`/`sha256`/`tx` are NOT repeated here; the receipts render from the `*Label` fields above. */
+      /** Fact labels — `blob`/`entity`/`sha256`/`tx` are not repeated here; the receipts render from the `*Label` fields above. */
       fact: {
         repo: 'repo',
         commit: 'commit',
@@ -652,7 +653,7 @@ export const COPY = {
     reviewRunningLabel: 'REVIEW RUNNING',
     reviewRunningBody:
       'A verdict blob will be written when the run completes. Nothing is asserted until then.',
-    /** A withheld entry is NOT a failed review — `stateMeaning.unreviewable`'s "could not be read" is FALSE for `withheld`, where the source was read and the result held back. */
+    /** A withheld entry is not a failed review — `stateMeaning.unreviewable`'s "could not be read" is false for `withheld`, where the source was read and the result held back. */
     withheldLabel: 'REVIEWED · RESULT NOT PUBLISHED',
     withheldBody:
       'The source was read and the review completed. Its result is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else’s code is not grounds for a public accusation.',

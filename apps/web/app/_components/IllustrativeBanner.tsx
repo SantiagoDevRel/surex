@@ -2,7 +2,7 @@ import { COPY } from '@/lib/copy.ts';
 import type { DataOrigin } from '@/lib/types.ts';
 
 /**
- * The illustrative banner — HARD RULE, AGENTS.md §2 and §4. Wherever a screen
+ * The illustrative banner — a hard rule (AGENTS.md §2 and §4). Wherever a screen
  * renders data that is not a real review, it says so on that screen: sticky,
  * at the top, for as long as the data is fake.
  *

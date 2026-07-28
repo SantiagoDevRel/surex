@@ -1,18 +1,13 @@
 /**
- * The live loader's logic, without a browser.
+ * The live loader's logic, without a browser. Run: node --test apps/web/test/
  *
- * Everything the loader can say about a run is derived by pure functions in
- * `lib/submission.ts`, and this file is the reason they are pure. The failure
- * these tests exist to prevent is the one the loader was built to end: a screen
- * that fills a two-minute silence with something nobody reported. So the
- * assertions are mostly about ABSENCE — that a missing field stays missing, that
- * a derived number says it is derived, and that the loudest component on the
- * screen cannot appear on a hunch.
+ * Everything the loader says about a run is derived by pure functions in
+ * `lib/submission.ts`. The assertions are mostly about absence — a missing field
+ * stays missing, a derived number says it is derived, and no component appears on
+ * a hunch — so a two-minute silence is never filled with something nobody reported.
  *
- * Run: node --test apps/web/test/
- *
- * The `.ts` imports are deliberate — Node 22 strips types, so this runs with no
- * build step between writing the logic and checking it.
+ * The `.ts` imports are deliberate — Node 22 strips types, so there is no build
+ * step between writing the logic and checking it.
  */
 
 import assert from 'node:assert/strict';
@@ -54,9 +49,8 @@ const status = (over = {}) => parseSubmissionStatus({ id: 'sub_1', status: 'runn
 /* ------------------------------------------------------------- the dither --*/
 
 test('SX_T is the fixed 48-threshold dither array the CSS expects', () => {
-  // 4 rows x 12 columns. A different length silently changes the grid, and a
-  // shuffled one makes the pattern move between renders — which reads as noise
-  // rather than as a quantity.
+  // 4 rows x 12 columns. A different length silently changes the grid; a shuffled
+  // one makes the pattern move between renders and read as noise, not a quantity.
   assert.equal(SX_T.length, 48);
   assert.equal(SX_T.length % SX_COLUMNS, 0);
   assert.equal(new Set(SX_T).size, 48, 'every threshold is distinct');
@@ -72,8 +66,8 @@ test('a payload with no id is not a status', () => {
 });
 
 test('an unrecognised status degrades to queued, never to done', () => {
-  // Degrading to `done` would stop the poll and show a completed run that is
-  // still going. Queued claims the least of the four.
+  // Degrading to `done` would stop the poll and show a completed run that is still
+  // going. Queued claims the least of the four.
   for (const weird of ['finished', 'ok', '', 42, undefined]) {
     assert.equal(parseSubmissionStatus({ id: 'x', status: weird })?.status, 'queued');
   }
@@ -132,8 +126,8 @@ test('a reported done/total is used as reported, and says so', () => {
 });
 
 test('a stage with no counts derives a density, and marks it derived', () => {
-  // The provenance flag is the whole point: the screen renders "step 5 of 8" for
-  // this and "3 of 4" for a reported one, because they are different claims.
+  // The screen renders "step 5 of 8" for a derived fraction and "3 of 4" for a
+  // reported one, because they are different claims.
   const f = progressFraction(status({ progress: { stage: 'reviewing' } }));
   assert.equal(f.from, 'stage');
   assert.equal(f.step, SUBMISSION_STAGES.indexOf('reviewing') + 1);
@@ -142,8 +136,7 @@ test('a stage with no counts derives a density, and marks it derived', () => {
 });
 
 test('a run that reported nothing gets NO fraction', () => {
-  // Not zero — zero is a number, and a zero-density halftone beside "queued" is
-  // fine only because the component is told there is no fraction at all.
+  // Not zero — zero is a number. The component is told there is no fraction at all.
   assert.equal(progressFraction(status({ status: 'queued' })), null);
   assert.equal(progressFraction(null), null);
 });
@@ -214,9 +207,8 @@ test('it mounts when the backend says so outright', () => {
 });
 
 test('it mounts on a third reading, because a third reading only happens after a split', () => {
-  // The reviewer takes two paraphrased readings and goes to four ONLY when they
-  // disagree (AGENTS.md §7). So run >= 3 is the tie-break pair running — a
-  // reported fact, not an inference about the verdict.
+  // The reviewer takes two paraphrased readings and goes to four only when they
+  // disagree (AGENTS.md §7), so run >= 3 is the tie-break pair running.
   assert.equal(
     disagreementReported(status({ progress: { stage: 'reviewing', detail: { run: 3 } } })),
     true,
@@ -246,9 +238,9 @@ test('and it uses the sides when they are reported', () => {
 /* ------------------------------------------------------------- the trace --*/
 
 test('the trace remembers a write after the payload has moved on', () => {
-  // progress.detail describes the CURRENT stage only, so the blob id is gone from
-  // the payload by the time Arkiv is being written. Losing it would unmount a
-  // receipt for a write that really happened.
+  // progress.detail describes the current stage only, so the blob id is gone from
+  // the payload by the time Arkiv is written — losing it unmounts a receipt for a
+  // write that really happened.
   let trace = {};
   trace = traceFrom(trace, status({ progress: { stage: 'walrus', detail: { blobId: 'blob-1', contentSha256: 'f0457c' } } }));
   trace = traceFrom(trace, status({ progress: { stage: 'arkiv', detail: { entityKey: 'ent-1', txHash: '0xabc' } } }));
@@ -266,8 +258,8 @@ test('a later poll that omits a field does not erase it', () => {
 });
 
 test('the final result fills in a stage the poll never saw', () => {
-  // A stage shorter than one poll interval is invisible to the watcher, and on a
-  // fast run the result is the only place its pointers ever appear.
+  // A stage shorter than one poll interval is invisible to the watcher, so on a
+  // fast run the result is the only place its pointers appear.
   const trace = traceFrom({}, parseSubmissionStatus({
     id: 'x',
     status: 'done',
@@ -291,8 +283,8 @@ test('a result fingerprint that is not a fingerprint is not recorded', () => {
 /* ----------------------------------------------------------- the receipts --*/
 
 test('no write, no receipt — there is no pending variant', () => {
-  // `.sx-write` mounts once and the mount IS the animation, so a placeholder
-  // receipt would animate a write that has not happened.
+  // `.sx-write` mounts once and the mount is the animation, so a placeholder would
+  // animate a write that has not happened.
   assert.deepEqual(writeReceipts({}), []);
   assert.deepEqual(writeReceipts({ walrus: {} }), []);
   assert.deepEqual(writeReceipts({ arkiv: { txHash: '0xabc' } }), [], 'a digest with no entity key is not an entity');
@@ -338,12 +330,9 @@ test('ids are encoded into the path', () => {
 });
 
 test('the link bases have not drifted from the API lane', () => {
-  /**
-   * This module cannot import `apps/api/src/links.mjs` — it is bundled for the
-   * browser and that file reaches `@surex/core`, which reaches `node:crypto`. So
-   * the bases are a second copy, and this reads the API file as TEXT to prove the
-   * two literals are the same one. Same technique as the ENS golden vector.
-   */
+  // This module cannot import `apps/api/src/links.mjs` — it is bundled for the
+  // browser and that file reaches `@surex/core`, which reaches `node:crypto`. So
+  // the bases are a second copy, checked by reading the API file as text.
   const links = readFileSync(new URL('../../../apps/api/src/links.mjs', import.meta.url), 'utf8');
   const blob = readFileSync(new URL('../../../packages/core/src/blob.mjs', import.meta.url), 'utf8');
 
@@ -363,12 +352,9 @@ test('the link bases have not drifted from the API lane', () => {
     'DEFAULT_AGGREGATORS[0] moved; the browser copy must move with it',
   );
 
-  /**
-   * The PATHS, not only the bases. The rail added `/object/<id>` on the browser
-   * side, and `links.mjs` is where every one of these was confirmed against a live
-   * explorer — `/entities/<key>` and `/storage/entity/<key>` both 404, so these
-   * are not guessable and a silent change to one is a page full of dead links.
-   */
+  // The paths, not only the bases. Every one was confirmed against a live explorer
+  // — `/entities/<key>` and `/storage/entity/<key>` both 404 — so they are not
+  // guessable and a silent change to one is a page full of dead links.
   for (const path of ['/v1/blobs/', '/object/', '/tx/', '/entity/']) {
     assert.ok(links.includes(path), `apps/api/src/links.mjs no longer builds ${path}`);
   }

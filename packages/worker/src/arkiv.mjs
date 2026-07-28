@@ -4,13 +4,13 @@
 //  · 0.7.0 no longer re-exports viem — `http` from 'viem', `privateKeyToAccount`
 //    from 'viem/accounts'. The `@arkiv-network/sdk/accounts` subpath is gone, so
 //    every 0.6.x snippet on the internet fails at the import line (A1).
-//  · `createEntity()` AWAITS THE RECEIPT: ~4.6 s per call. That, not index lag, is
+//  · `createEntity()` awaits the receipt: ~4.6 s per call. That, not index lag, is
 //    the cost of a seed. Batch via `mutateEntities({creates:[…]})`.
 //  · Index lag after the receipt is ~40 ms to getEntity, ~80 ms to the query index
 //    (A4) — poll, but do not budget seconds for it.
 //  · `orderBy` is accepted silently and does nothing (A2). Sort client-side.
 //  · `updateEntity` is a full replacement (see entities.mjs buildUpdate).
-//  · Consumer reads filter on `createdBy`, NEVER `ownedBy` — ownership is
+//  · Consumer reads filter on `createdBy`, never `ownedBy` — ownership is
 //    transferable via changeOwnership, so ownedBy is attacker-influenceable (A5).
 //    The writer's readBack() below therefore checks `creator`, not `owner`.
 
@@ -29,9 +29,8 @@ import {
 } from './config.mjs';
 
 /**
- * Arkiv accepts 1000 operations per mutateEntities transaction, but a seed wants a
- * chunk small enough that one failure loses little and the checkpoint stays
- * meaningful. Tech spec §4.3 says 50–100; 50 is the default here.
+ * Arkiv accepts 1000 operations per mutateEntities transaction; a seed wants a chunk
+ * small enough that one failure loses little. Tech spec §4.3 says 50–100.
  */
 export const DEFAULT_CHUNK = 50;
 
@@ -89,11 +88,8 @@ export function createArkivWriter(options = {}) {
 
   /**
    * Many entities, chunked. One transaction per chunk, so 100 entities is 2
-   * receipts rather than 100.
-   *
-   * `onChunk` fires after every successful chunk — the seed uses it to checkpoint,
-   * which is the difference between a faucet stall at record 40 costing four
-   * minutes and costing the whole run.
+   * receipts rather than 100. `onChunk` fires after every successful chunk, so the
+   * seed can checkpoint and a stall mid-run costs only the current chunk.
    */
   async function createMany(builtList, { chunk = DEFAULT_CHUNK, onChunk } = {}) {
     const created = [];
@@ -104,9 +100,8 @@ export function createArkivWriter(options = {}) {
       const res = await wallet.mutateEntities({ creates: slice.map(encode) });
       const keys = res.createdEntities ?? [];
       if (keys.length !== slice.length) {
-        // Do not paper over a short result: the caller is about to record these
-        // keys against specific records, and a silent off-by-N misattributes
-        // every entity after the gap.
+        // Never paper over a short result: the caller records these keys against
+        // specific records, so an off-by-N misattributes every entity after the gap.
         throw new Error(
           `mutateEntities created ${keys.length} of ${slice.length} entities (tx ${res.txHash})`,
         );
@@ -120,12 +115,10 @@ export function createArkivWriter(options = {}) {
   }
 
   /**
-   * Many full-replacement updates, chunked into `mutateEntities({updates})`.
-   *
-   * Each `built` must be a COMPLETE entity — attributes and payload — because
-   * updateEntity replaces, it does not merge. entities.mjs refuses to build one
-   * without the project attribute, which is the failure this would otherwise
-   * cause: the entity stays on chain and silently leaves every scoped query.
+   * Many full-replacement updates, chunked into `mutateEntities({updates})`. Each
+   * `built` must be a complete entity — attributes and payload — because
+   * updateEntity replaces rather than merges; drop the project attribute and the
+   * entity stays on chain but silently leaves every scoped query.
    */
   async function updateMany(items, { chunk = DEFAULT_CHUNK } = {}) {
     const txHashes = [];
@@ -149,7 +142,7 @@ export function createArkivWriter(options = {}) {
   /**
    * Prove a write landed the way a consumer will see it: the same
    * `.createdBy(writer)` scoped query the API and the gate run, not getEntity.
-   * getEntity has NO creator filter, so it would pass even for an entity written
+   * getEntity has no creator filter, so it would pass even for an entity written
    * from the wrong wallet — exactly the failure this check exists to catch.
    */
   async function readBackScoped({ entityType, fingerprint, limit = 1 }) {
@@ -168,14 +161,12 @@ export function createArkivWriter(options = {}) {
   }
 
   /**
-   * Every page of a scoped query. `fetch()` returns ONE cursor page, so anything
-   * that verifies a whole seed has to walk the cursor or it silently checks the
-   * first page and calls it complete.
+   * Every page of a scoped query. `fetch()` returns one cursor page, so anything
+   * checking a whole seed must walk the cursor or it silently checks page one and
+   * calls it complete. Three 0.7.0 pagination footguns, all measured:
    *
-   * Three things about 0.7.0 pagination, all measured, all easy to get wrong:
-   *
-   *  1. `hasNextPage` is a **METHOD**, not a property. `while (result.hasNextPage)`
-   *     tests a function object and is ALWAYS true, so the loop runs until it
+   *  1. `hasNextPage` is a **method**, not a property. `while (result.hasNextPage)`
+   *     tests a function object and is always true, so the loop runs until it
    *     throws. It must be `result.hasNextPage()`.
    *  2. `next()` **mutates the QueryResult in place and returns `undefined`**.
    *     `result = await result.next()` therefore sets `result` to undefined and the
@@ -222,26 +213,18 @@ export function createArkivWriter(options = {}) {
   /**
    * Remove entities by key. Returns `{ removed, txHashes, failures }`.
    *
-   * **Read AGENTS.md §4 before reaching for this.** A verdict is *superseded,
-   * never deleted* — corrections have to be as durable as the claim they correct,
-   * or a registry becomes a place where inconvenient findings quietly stop
-   * existing. So this exists for exactly two things and the caller has to be able
-   * to say which:
+   * **Read AGENTS.md §4 before reaching for this.** A verdict is *superseded, never
+   * deleted*. Exactly two things may be removed:
    *
-   *   · seeding placeholders, which are not verdicts. A head in state `unknown`
-   *     asserts "there is no head" (core defines `unknown` as the ABSENCE of an
-   *     entry), so leaving them on chain publishes a contradiction, not a record.
-   *   · verdicts about OUR OWN fixtures, where we are the subject. Nothing is
-   *     hidden from anyone by retiring a review of a server we wrote to be
-   *     reviewed.
+   *   · seeding placeholders, which are not verdicts. Core defines `unknown` as the
+   *     absence of an entry, so a head in that state on chain is a contradiction.
+   *   · verdicts about our own fixtures, where we are the subject.
    *
-   * Never for a verdict about a third party. There is no flag here that enforces
-   * that — a flag would just get passed — so it is the calling script's job to
-   * name what it is removing and why, and to refuse anything else.
+   * Never a verdict about a third party. Nothing here enforces that — a flag would
+   * just get passed — so the calling script must name what it removes and why.
    *
-   * One transaction per entity: `mutateEntities` batches creates and updates, and
-   * the failure mode that matters here is a partial run, so each result is
-   * recorded separately rather than a chunk failing as a unit.
+   * One transaction per entity, so a partial run records each result separately
+   * rather than failing as a chunk.
    */
   async function remove(entityKeys, { onEach } = {}) {
     const keys = Array.isArray(entityKeys) ? entityKeys : [entityKeys];
@@ -255,8 +238,8 @@ export function createArkivWriter(options = {}) {
         if (res?.txHash) txHashes.push(res.txHash);
         onEach?.({ entityKey, ok: true, txHash: res?.txHash });
       } catch (err) {
-        // Recorded and carried on: a key that is already gone, or expired, must
-        // not abandon the rest of a cleanup half-done.
+        // Recorded and carried on: a key already gone, or expired, must not leave
+        // the rest of a cleanup half-done.
         failures.push({ entityKey, error: err?.shortMessage ?? err?.message ?? String(err) });
         onEach?.({ entityKey, ok: false, error: err?.message });
       }
@@ -264,7 +247,7 @@ export function createArkivWriter(options = {}) {
     return { removed, txHashes, failures };
   }
 
-  /** Count, scoped and creator-filtered. Used by the seed's own final tally. */
+  /** Count, scoped and creator-filtered. */
   async function count(entityType, extra = []) {
     return pub
       .buildQuery()

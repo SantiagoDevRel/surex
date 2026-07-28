@@ -4,34 +4,20 @@
 //   node scripts/allow-self-authored.mjs <sxf1_…> --why "our own news server, repo SantiagoDevRel/mcp-medellin-news"
 //   node scripts/allow-self-authored.mjs --list
 //
-// WHY THIS IS A SEPARATE, MANUAL STEP.
+// Manual on purpose. The allowlist is the only thing between an unaudited model
+// verdict and a public accusation about named software (AGENTS.md §4) — `buildVerdictHead`
+// refuses `flagged` for anything not on it — so the submit pipeline must never write
+// to it. Deriving membership from the submitted repo's GitHub owner is unsound:
+// codeload serves every commit in a fork network from the upstream namespace, so
+// anyone who can push to a fork of a SureX public repository picks both the bytes
+// and, through `package.json`, the fingerprint that would have been allowlisted.
+// Until a human runs this, a self-owned flag publishes as `unreviewable / withheld`.
 //
-// The allowlist is the one thing standing between an unaudited model verdict and a
-// public accusation about a named piece of software (AGENTS.md §4). `buildVerdictHead`
-// refuses `flagged` for anything not on it.
-//
-// The submit pipeline deliberately cannot write to it. It was briefly allowed to —
-// adding the fingerprint whenever the submitted repository's GitHub owner was one of
-// ours — and a security review reproduced why that is unsound: GitHub serves every
-// commit in a repository's FORK NETWORK from the upstream namespace, so
-//
-//     curl -sSL --fail https://codeload.github.com/<us>/<repo>/tar.gz/<sha-from-a-fork>
-//
-// succeeds, and anyone who can push to a fork of one of our public repos chooses both
-// the bytes and — through `package.json` — the fingerprint that would have been
-// allowlisted. A guard that reads state the same request just wrote is one lock
-// wearing two hats.
-//
-// So: a human looks at the fingerprint, knows it is ours, and says so here. That is
-// slower on purpose. Until it is run, a self-owned flag publishes as
-// `unreviewable / withheld`, which is honest and safe.
-//
-// NOTE the file is also REGENERATED from the fixture directory by
-// `scripts/review-and-publish.mjs`, which would drop entries added here. That script
-// writes a plain array; this one writes `{fingerprints, provenance}`. Both shapes load
-// (see `loadSelfAuthored`), but a fixture republish still truncates the list — fail-safe
-// (nothing gains the right to be flagged) and worth knowing before you wonder where an
-// entry went.
+// `scripts/review-and-publish.mjs` regenerates this file from the fixture directory
+// and drops entries added here. It writes a plain array, this writes
+// `{fingerprints, provenance}`; both shapes load (see `loadSelfAuthored`), but a
+// fixture republish still truncates the list — fail-safe, and the reason an entry
+// can vanish.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -54,8 +40,8 @@ function read() {
     if (Array.isArray(parsed)) return { fingerprints: parsed.map(String), provenance: {} };
     return { fingerprints: (parsed?.fingerprints ?? []).map(String), provenance: parsed?.provenance ?? {} };
   } catch {
-    // Absent or unreadable is an EMPTY allowlist, never a guess. The failure mode
-    // of a lost file must be "we cannot flag our own fixtures", not the reverse.
+    // Absent or unreadable is an empty allowlist, never a guess: a lost file must
+    // fail towards "nothing may be flagged", not the reverse.
     return { fingerprints: [], provenance: {} };
   }
 }
@@ -82,8 +68,6 @@ if (!fingerprint || !isFingerprint(fingerprint)) {
   process.exit(1);
 }
 if (!why) {
-  // An allowlist entry nobody can explain later is indistinguishable from one added
-  // by mistake, and this list authorises accusations.
   console.error('refusing to add a fingerprint with no --why. Say how you know this is ours.');
   process.exit(1);
 }
@@ -98,7 +82,6 @@ const next = [...fingerprints, fingerprint];
 provenance[fingerprint] = { why, addedAt: new Date().toISOString(), addedBy: 'scripts/allow-self-authored.mjs' };
 
 mkdirSync(dirname(path), { recursive: true });
-// tmp-then-rename would be better under concurrency; this runs by hand, one at a time.
 writeFileSync(path, `${JSON.stringify({ fingerprints: next, provenance }, null, 2)}\n`);
 
 loadSelfAuthored({ reload: true });

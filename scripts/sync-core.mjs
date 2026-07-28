@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 // Vendors packages/core into the plugin.
 //
-// The plugin is installed with `/plugin marketplace add` straight from a git
-// repo. There is no npm install step on the user's machine, so the plugin
-// cannot have a single runtime dependency — including a workspace one. The
-// copies are committed so the repo is directly installable, and `--check`
-// fails the build if they have drifted from the source of truth.
+// The plugin installs straight from a git repo with no npm install step, so it may
+// not have a single runtime dependency — a workspace one included. The copies are
+// committed; `--check` fails the build once they drift from the source of truth.
 //
 //   node scripts/sync-core.mjs           write the copies
 //   node scripts/sync-core.mjs --check   fail if they differ

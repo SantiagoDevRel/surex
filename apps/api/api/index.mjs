@@ -1,30 +1,17 @@
-// Vercel function entry. NODE RUNTIME, deliberately not edge.
-//
-// Not edge because: node:crypto (the timing-safe admin compare and the dispute id),
-// the Arkiv SDK's viem transport, and JSON import attributes all want a real Node
-// runtime. There is no `export const config = { runtime: 'edge' }` here and there
-// should never be one.
+// Vercel function entry. Node runtime, deliberately not edge: node:crypto (the
+// timing-safe admin compare and the dispute id), the Arkiv SDK's viem transport
+// and JSON import attributes all need a real Node runtime. There must never be an
+// `export const config = { runtime: 'edge' }` here.
 //
 // vercel.json rewrites every path to this function, so `/v1/verdict` reaches the
 // same Hono app the tests exercise and `node src/server.mjs` serves.
 //
-// ─────────────────────────────────────────────────────────────────────────────
-// Why this is a hand-written adapter and not `@hono/node-server/vercel`:
-//
-// With `handle(app)`, every GET worked and EVERY REQUEST WITH A BODY HUNG until
-// the function timed out — `/v1/verdicts/batch`, `/v1/disputes` and
-// `/v1/submissions` all returned 504 after 20 s, while `POST /nope` (which reads
-// no body) answered in 1.3 s. That asymmetry is the tell: Vercel's Node runtime
-// PRE-PARSES the request body onto `req.body` and leaves the underlying stream
+// Hand-written rather than `@hono/node-server/vercel`: Vercel's Node runtime
+// pre-parses the request body onto `req.body` and leaves the underlying stream
 // consumed, so an adapter that builds a Web `Request` from that stream waits on
-// something that will never emit.
-//
-// It hid well, because the entire read path is GETs. The route it actually breaks
-// is the gate's SessionStart prefetch. FRICTION-LOG V6.
-//
-// So: build the Request from `req.body` when Vercel has already parsed it, and
-// only fall back to draining the stream when it has not.
-// ─────────────────────────────────────────────────────────────────────────────
+// something that will never emit — with `handle(app)` every GET worked and every
+// request carrying a body hung until the 504. So build the Request from `req.body`
+// when Vercel has already parsed it, and drain the stream only when it has not.
 
 import { createApp } from '../src/app.mjs';
 
@@ -37,8 +24,7 @@ function bodyFrom(req) {
   if (raw === undefined || raw === null) return null; // signal: try the stream
   if (typeof raw === 'string') return raw;
   if (Buffer.isBuffer(raw)) return raw;
-  // A parsed object. Re-serialise rather than guess: JSON is the only content
-  // type this API accepts, and the app validates the shape itself.
+  // A parsed object: re-serialise. JSON is the only content type this API accepts.
   try {
     return JSON.stringify(raw);
   } catch {
@@ -49,10 +35,9 @@ function bodyFrom(req) {
 function drain(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    // NOT unref'd, deliberately. An unref'd timer does not hold the event loop
-    // open, so when the stream is already spent and nothing else is pending the
-    // timer never fires and the promise never settles — which is the same hang
-    // this adapter exists to remove, wearing a different hat. A test caught it.
+    // Not unref'd, deliberately: an unref'd timer does not hold the event loop
+    // open, so with the stream already spent and nothing else pending it never
+    // fires and the promise never settles — the same hang this adapter removes.
     const timer = setTimeout(() => resolve(Buffer.concat(chunks)), 1500);
     const done = (fn) => (arg) => {
       clearTimeout(timer);

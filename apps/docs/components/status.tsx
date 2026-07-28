@@ -1,25 +1,14 @@
 /**
- * Every claim this site makes about WHAT IS BUILT, in one place.
+ * Every claim this site makes about what is built, in one place. The reference
+ * tables cannot drift because they are computed from `@surex/core`; status claims
+ * have no such source, so they get one file to edit and a test that fails on the
+ * phrasings already retracted.
  *
- * This module exists because of a measured failure, not a preference. The
- * dispute guide shipped saying SureX's own agent was not registered in
- * AgentBook — true when written, false the same afternoon, and the correction
- * had to be made in four files. The reference tables on this site cannot drift
- * because they are computed from `@surex/core`; status claims have no such
- * source, so they get the next best thing: one file to edit, and a test that
- * fails on the phrasings we have already had to retract.
+ * Editing: state what is true and how it was checked — never "coming soon", never a
+ * date for something unshipped. When something moves from unbuilt to built, edit it
+ * here and nowhere else, then run `pnpm --filter @surex/docs test`.
  *
- * RULES FOR EDITING THIS FILE
- *
- * 1. A status line states what is true and how it was checked. Never "coming
- *    soon", never a date for something unshipped.
- * 2. When something moves from unbuilt to built, edit it HERE and nowhere else,
- *    then run `pnpm --filter @surex/docs test`.
- * 3. `verifiedOn` is the day the claims below were last checked against the
- *    live product — not the day the file was touched.
- *
- * The strings are plain text on purpose: `/llms.txt` prints them verbatim, and
- * a model reading them should get the same sentence a person does.
+ * Plain text on purpose: `/llms.txt` prints these verbatim.
  */
 
 /** The day these claims were last checked against the live product. */
@@ -56,10 +45,7 @@ export const STATUS = {
     'blob-ID recompute → override.',
 } as const;
 
-/**
- * Gaps stated rather than discovered. AGENTS.md: a submission that lists only
- * what it built is not telling you anything.
- */
+/** Gaps stated rather than discovered — AGENTS.md. */
 export const KNOWN_GAPS = [
   '/v1/verdict responses are not signed. The gate makes an enforcement decision from an unsigned HTTP response — the largest knowingly-open gap in the design.',
   'A verdict covers a server’s own source, not its dependency tree — which is the actual npm attack pattern.',

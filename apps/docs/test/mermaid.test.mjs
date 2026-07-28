@@ -1,25 +1,15 @@
-// Every Mermaid diagram on this site actually parses.
-//
-// Diagrams render client-side, so a syntax error does not fail the build and
-// does not show up in the prerendered HTML — it becomes a red error box in the
-// reader's browser, on the page whose whole job was to explain the thing. The
-// parser is right there in node_modules (Nextra depends on
-// @theguild/remark-mermaid, which depends on mermaid), so there is no reason to
-// find out from a screenshot.
+// Every Mermaid diagram on this site actually parses. Diagrams render client-side,
+// so a syntax error does not fail the build and never shows up in the prerendered
+// HTML — it becomes a red error box in the reader's browser.
 //
 //   node --test apps/docs/test/mermaid.test.mjs
 //
-// One obstacle, worth writing down: in Node, `dompurify` reports
-// `isSupported: false` and exposes only `{version, removed, isSupported}` — no
-// `addHook`. mermaid's flowchart path calls `DOMPurify.addHook(...)` on first
-// use, so every flowchart failed with `DOMPurify.addHook is not a function`,
-// which reads exactly like a syntax error and is not one. Importing dompurify
-// first and adding the no-ops to that singleton fixes it: ESM hands mermaid the
-// same module instance. No new dependency, no jsdom.
-//
-// The stub only makes the sanitiser inert; the grammar is the real thing. And a
-// stub that stopped working would fail loudly rather than pass silently — the
-// first test asserts a diagram count, so an empty run cannot look green.
+// In Node, `dompurify` reports `isSupported: false` and exposes no `addHook`, which
+// mermaid's flowchart path calls on first use — every flowchart then fails with
+// `DOMPurify.addHook is not a function`, which reads exactly like a syntax error and
+// is not one. Importing dompurify first and adding the no-ops to that singleton
+// fixes it: ESM hands mermaid the same module instance. The stub only makes the
+// sanitiser inert; the grammar is the real thing.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
@@ -58,9 +48,8 @@ function diagrams() {
 const all = diagrams();
 
 test('the site still has its diagrams', () => {
-  // Five were commissioned: gate decision flow, review+write pipeline, the
-  // verdict/tier matrix, the dispute flow, and where things run. A page losing
-  // its diagram in an edit should fail here rather than be noticed later.
+  // The five: gate decision flow, review+write pipeline, verdict/tier matrix,
+  // dispute flow, and where things run.
   assert.ok(all.length >= 5, `expected at least 5 mermaid diagrams, found ${all.length}`);
 });
 

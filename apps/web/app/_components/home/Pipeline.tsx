@@ -11,7 +11,7 @@ type Step = (typeof pipeline.steps)[number];
 type StepWithOutcomes = Extract<Step, { outcomes: readonly unknown[] }>;
 type Outcome = StepWithOutcomes['outcomes'][number];
 
-// The one place this section uses a state hue — these dots ARE the gate's
+// The one place this section uses a state hue — these dots are the gate's
 // three verdicts. Everything else in the grid stays ink and form only.
 const OUTCOME_DOT: Record<Outcome['state'], string> = {
   clean: 'bg-[var(--v2-clean)]',

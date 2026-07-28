@@ -1,14 +1,9 @@
-// The Vercel function entry, driven the way Vercel drives it.
+// The Vercel function entry, driven the way Vercel drives it — one case per body
+// shape it can hand us.
 //
-// This exists because of a failure that every unit test missed and every GET hid:
-// with `@hono/node-server/vercel`, requests WITH A BODY hung until the function
-// timed out — /v1/verdicts/batch, /v1/disputes and /v1/submissions all 504 after
-// 20 s in production, while GETs and a bodyless POST answered in about a second.
 // Vercel's Node runtime pre-parses the body onto `req.body` and leaves the stream
-// consumed, so an adapter reading that stream waits forever.
-//
-// The route it actually broke is the gate's SessionStart prefetch, so it is worth
-// a test that reproduces each shape Vercel can hand us.
+// consumed, so an adapter reading that stream waits forever: every request carrying
+// a body hung until the function timed out, while GETs answered fine.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

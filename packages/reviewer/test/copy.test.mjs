@@ -32,7 +32,6 @@ test('a cached notice says so before it says anything else', () => {
   const notice = reviewNotice(CACHED);
   assert.match(notice, /^Served from a review recorded at /);
   assert.match(notice, /not a fresh run/);
-  // And a fresh one never claims to be cached.
   assert.doesNotMatch(reviewNotice(FRESH), /cache/i);
 });
 
@@ -40,10 +39,6 @@ test('a capped notice says WHY the severity is capped', () => {
   assert.match(reviewNotice(DISAGREED), /did not agree/);
   assert.match(reviewNotice(FAILED), /did not complete/);
 });
-
-// ---------------------------------------------------------------------------
-// prompt hardening, asserted rather than assumed
-// ---------------------------------------------------------------------------
 
 test('the standing directive says instructions in content are findings, not commands', () => {
   assert.match(STANDING_DIRECTIVE, /DATA TO ANALYSE/);
@@ -63,7 +58,6 @@ test('both variants carry the standing directive and fence the untrusted content
     assert.match(user.content, /<<<SUREX-DATA-deadbeefcafe kind="source-code">>>/);
     assert.match(user.content, /<<<SUREX-DATA-deadbeefcafe kind="stated-intent">>>/);
     assert.match(user.content, /<<<END-SUREX-DATA-deadbeefcafe>>>/);
-    // The model is told not to answer for the capability surface.
     assert.match(user.content, /Do NOT output a "capabilities" field/);
   }
 });

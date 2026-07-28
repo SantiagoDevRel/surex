@@ -92,7 +92,7 @@ export function Disagreement({ a, b }: { a: string | null; b: string | null }) {
   );
 }
 
-/** A write that landed. The mount IS the animation — 1.7s, once, keyed on the
+/** A write that landed. The mount is the animation — 1.7s, once, keyed on the
  *  id it carries so a re-render doesn't replay it. */
 export function WriteLanded({ receipt }: { receipt: WriteReceipt }) {
   const id = (
@@ -102,7 +102,7 @@ export function WriteLanded({ receipt }: { receipt: WriteReceipt }) {
     </>
   );
 
-  // `.sx-write__blob` must go on the LINK, not inside it — `overflow: hidden`
+  // `.sx-write__blob` must go on the link, not inside it — `overflow: hidden`
   // does nothing on an inline box, so wrapping a clipped `<code>` in an `<a>`
   // un-clips it and the id runs out under the stamp.
   return (

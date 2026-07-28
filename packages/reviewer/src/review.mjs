@@ -1,7 +1,6 @@
 // The orchestration: deterministic scan + double model run + merge.
 //
-// Three layers produce one ReviewRecord, and they are kept apart on purpose
-// (tech-spec §6):
+// Three layers produce one ReviewRecord, and they are kept apart on purpose:
 //
 //   1. The capability scan   — deterministic. Cannot be argued with by the file
 //                              it is reading. Runs whether or not the model does,
@@ -12,12 +11,12 @@
 //
 // And one hard rule sits above all of it:
 //
-//     A MALFORMED OR MISSING MODEL RESPONSE IS `unreviewable`.
-//     IT IS NEVER `clean`.
+//     A malformed or missing model response is `unreviewable`.
+//     It is never `clean`.
 //
 // `clean` is the only verdict that makes SureX silent. Reaching it by accident —
 // a parse failure, a timeout, one run out of two — would turn every glitch into a
-// pass, which is the exact failure the double run exists to prevent.
+// pass, the exact failure the double run exists to prevent.
 
 import { NO_HUMAN_AUDIT } from '@surex/core/copy';
 import {
@@ -38,39 +37,25 @@ import {
 export const REVIEW_KIND = 'review';
 
 /**
- * How a split is broken: **one more reading of each variant**, not one more
- * reading overall.
+ * How a split is broken: **one more reading of each variant**, not one more reading
+ * overall.
  *
- * The obvious tie-break — a single third call — is biased, and the bias is not
- * subtle. With readings {a₁, b₁, a₂} the third draw comes from variant `a`'s own
- * distribution, so it agrees with a₁ more often than with b₁ for reasons that
- * have nothing to do with the code. The split would resolve toward whichever
- * prompt happened to be re-run.
- *
- * A balanced panel of {a₁, b₁, a₂, b₂} has no such tilt, and it earns something
- * else: when the two prompts persistently disagree — a₁,a₂ flagged against
- * b₁,b₂ clean — there is no 3-of-4 majority, and `mergeRuns` returns
- * `unreviewable / no-agreement`. That is the correct answer for a server two
- * competent readings will not agree about, and a single tie-break would have
- * papered over it with a verdict.
- *
- * Cost is two extra calls, only on a split (1 fixture in 16), on hardware we own.
- * (There is no CAUTION_ORDER any more: the cautious side of a split is no longer
- * how a disagreement resolves. See `mergeRuns`.)
+ * A single third call is biased: with readings {a₁, b₁, a₂} the third draw comes
+ * from variant `a`'s own distribution, so the split resolves toward whichever prompt
+ * happened to be re-run. A balanced {a₁, b₁, a₂, b₂} has no such tilt, and when the
+ * two prompts persistently disagree there is no 3-of-4 majority and `mergeRuns`
+ * returns `unreviewable / no-agreement` — the correct answer for a server two
+ * competent readings will not agree about.
  */
 const TIEBREAK_VARIANTS = VARIANTS;
 
-// ---------------------------------------------------------------------------
-// wording
-// ---------------------------------------------------------------------------
-
 /**
- * The sentence that goes wherever this record is presented. Every claim the copy
- * law requires — what model, what prompt, when, how many runs, no human — in one
- * string, so no surface can render a verdict while forgetting one of them.
+ * The sentence that goes wherever this record is presented. Every claim the copy law
+ * requires — what model, what prompt, when, how many runs, no human — in one string,
+ * so no surface can render a verdict while forgetting one of them.
  *
- * Copy law (AGENTS.md §4): the word is *reviewed*. Never safe, trusted, verified
- * or secure about a server. Asserted by test/copy.test.mjs, not by good intentions.
+ * Copy law (AGENTS.md §4): the word is *reviewed*, never *trusted*, *verified* or
+ * *secure* about a server. Asserted by test/copy.test.mjs.
  */
 export function reviewNotice(record) {
   const when = (record?.run?.finishedAt ?? '').slice(0, 10) || 'unknown date';
@@ -92,19 +77,15 @@ export function reviewNotice(record) {
   return `Reviewed ${when} by model ${model}, prompt ${prompt}, ${runPhrase}. ${NO_HUMAN_AUDIT}`;
 }
 
-// ---------------------------------------------------------------------------
-// merging the two runs
-// ---------------------------------------------------------------------------
-
 function findingKey(f) {
   return `${f.file}|${f.line}|${f.category}`;
 }
 
 /**
- * The pseudo-paths a finding is allowed to cite for something that is not in the
- * source tree — a tool description, an input schema, the README. Generated from
- * the same input the prompt showed the model, so a citation outside this set and
- * outside the supplied files is a path nobody can open.
+ * The pseudo-paths a finding may cite for something not in the source tree — a tool
+ * description, an input schema, the README. Generated from the same input the prompt
+ * showed the model, so a citation outside this set and outside the supplied files is
+ * a path nobody can open.
  */
 export function statedIntentPaths(statedIntent = {}) {
   const paths = new Set();
@@ -118,19 +99,16 @@ export function statedIntentPaths(statedIntent = {}) {
 }
 
 /**
- * The panel's `concern`, and the sentence that goes with it. (rv-7)
+ * The panel's `concern`, and the sentence that goes with it.
  *
- * Same discipline as the severity merge, pointed the same way: when the deciding
- * readings disagree about what KIND of problem this is, the WEAKER reading stands.
- * `CONCERNS` is ordered from "nothing" to "actively hides what it does", so the
- * lower index wins a tie — one reading calling something deliberate concealment
- * while another calls it an undeclared ping is not a panel that established
- * concealment, and concealment is the one value that accuses a person rather than
- * describing a program.
+ * When the deciding readings disagree about what kind of problem this is, the weaker
+ * reading stands: `CONCERNS` is ordered from "nothing" to "actively hides what it
+ * does", so the lower index wins a tie. One reading calling something deliberate
+ * concealment while another calls it an undeclared ping is not a panel that
+ * established concealment.
  *
- * The assessment travels with the concern it belongs to. Taking the winning
- * concern from one reading and the prose from another would produce a sentence
- * that argues for a classification the panel rejected.
+ * The assessment travels with the concern it belongs to — winning concern from one
+ * reading plus prose from another argues for a classification the panel rejected.
  */
 export function pickConcern(deciding) {
   const tally = new Map();
@@ -148,19 +126,11 @@ export function pickConcern(deciding) {
 
 export function pickAssessment(deciding, concern) {
   /**
-   * ONLY from a reading that reached the winning concern.
-   *
-   * The fallback used to be "any reading that produced an assessment", which is
-   * exactly what the note above forbids, and it fires on a real shape: `concern`
-   * and `assessment` are independently optional, so one reading can carry
-   * `deliberate-concealment` plus its prose while the other carries
-   * `undeclared-behaviour` and no prose. The tie-break then correctly rounds the
-   * concern DOWN to the weaker value — and the old fallback published the
-   * concealment sentence underneath it. Reproduced:
-   *
-   *   concern    = undeclared-behaviour
-   *   assessment = "It base64-encodes the exfiltration URL so a reader will not spot it."
-   *
+   * Only from a reading that reached the winning concern — never "any reading that
+   * produced an assessment". `concern` and `assessment` are independently optional,
+   * so one reading can carry `deliberate-concealment` plus its prose while the other
+   * carries `undeclared-behaviour` and none; a loose fallback then publishes the
+   * concealment sentence underneath the weaker concern the tie-break chose, and
    * `summarySentence` puts that line at the top of `/r/<fp>`. Better to say nothing
    * than to say the thing the panel declined to conclude.
    */
@@ -168,22 +138,15 @@ export function pickAssessment(deciding, concern) {
 }
 
 /**
- * The one concern value a SINGLE reading may not publish on its own.
- *
+ * The one concern value a single reading may not publish on its own.
  * `deliberate-concealment` is the only value that asserts a purpose rather than
- * describing a mechanism — the schema says so, and says why: a wrong one is an
- * accusation about a person rather than about a program.
+ * describing a mechanism, and a wrong one accuses a person rather than a program. A
+ * lone reading's severity is already capped at `DISAGREEMENT_SEVERITY_CAP`, and
+ * `pickConcern`'s weaker-wins tie-break cannot help — a tie needs two votes.
  *
- * The severity merge already learned this lesson the expensive way. When one
- * reading of two is usable, its severity is capped at
- * `DISAGREEMENT_SEVERITY_CAP` — the panel does not trust a lone number. It made no
- * sense to distrust the number and publish the word uncapped from the same
- * reading, and `pickConcern`'s weaker-wins tie-break cannot help here because a
- * tie needs two votes and there is one.
- *
- * Degraded to `null` — "not stated" — rather than to a weaker label, because
- * inventing a different classification for the model would be a second guess on
- * top of the first. The findings and the severity still carry the evidence.
+ * Degraded to `null` ("not stated") rather than to a weaker label: inventing a
+ * classification would be a second guess on top of the first. The findings and the
+ * severity still carry the evidence.
  */
 const UNSUPPORTED_BY_ONE_READING = 'deliberate-concealment';
 
@@ -199,41 +162,30 @@ function explain(deciding, verdict) {
 /**
  * Merge the model runs.
  *
- * Rules from tech-spec §6.3 — "Agreement → verdict stands. Disagreement →
- * severity capped and agreementRuns recorded; do not flag on a single dissenting
- * run" — with one change made on evidence, described below.
- *
  *   all valid runs agree       → verdict stands, agreementRuns = the count. Where
- *                                severities differ, the LOWEST wins: a higher
+ *                                severities differ, the lowest wins: a higher
  *                                number was asserted by fewer runs.
  *   a strict majority agrees   → that verdict, agreementRuns = the majority size,
  *                                severity = the lowest inside the majority.
  *   no majority                → `unreviewable`, reason `no-agreement`.
  *   one valid                  → agreementRuns 1, severity capped at 2. A single
- *                                run saying `clean` becomes `unreviewable`: the
- *                                spec says every review runs twice, so one run
- *                                cannot deliver the silent verdict.
+ *                                run saying `clean` becomes `unreviewable`: every
+ *                                review runs twice, so one run cannot deliver the
+ *                                silent verdict.
  *   none valid                 → `unreviewable`, agreementRuns 0.
  *
- * **Why "no majority" is no longer the more cautious verdict.** It used to keep
- * the cautious side of a two-way split, capped at severity 2. Calibration showed
- * what that means in practice: `honest-sqlite` — a fixture we wrote, whose whole
- * point is that it is well behaved — came back **flagged, clean, clean** across
- * three identical inputs. The runs were splitting on sampling noise, and the
- * cautious rule converted that coin flip into a published accusation. Note what
- * it did NOT do: at severity 2 core `decide()` answers `warn`, exactly as it does
- * for `unreviewable`. So the user-facing action is identical either way, and the
- * only thing that changes is whether the registry calls a server flagged or
- * admits its readings would not converge. The second is true; the first is a
- * claim about somebody's code that we cannot support.
+ * "No majority" is deliberately not the more cautious verdict. Keeping the cautious
+ * side of a split turned sampling noise into a published accusation — `honest-sqlite`
+ * came back **flagged, clean, clean** across three identical inputs. At severity 2
+ * core `decide()` answers `warn` exactly as it does for `unreviewable`, so the
+ * user-facing action is the same either way; the only difference is whether the
+ * registry calls a server flagged or admits its readings would not converge.
  *
- * The caller resolves ties by asking for a third reading before it gets here —
- * see `TIEBREAK_VARIANT` in reviewServer. This function is what happens when even
- * that does not converge.
+ * The caller resolves ties by asking for another reading first (`TIEBREAK_VARIANTS`
+ * in reviewServer); this is what happens when even that does not converge.
  *
- * A finding only one run reported is kept — dropping evidence is worse than
- * showing it — but its severity is capped, and `runs` on the finding says how
- * many runs saw it.
+ * A finding only one run reported is kept — dropping evidence is worse than showing
+ * it — but its severity is capped, and `runs` on the finding says how many saw it.
  */
 export function mergeRuns(runs) {
   const valid = runs.filter((r) => r.parsed);
@@ -309,13 +261,10 @@ export function mergeRuns(runs) {
 
   if (topCount * 2 > parsed.length) {
     const severities = majority.map((p) => p.severity);
-    // A `clean` verdict carrying findings is contradictory — the schema rejects
-    // it, and rightly: a finding is a claim, and the panel has just decided not
-    // to make it. So when the majority is clean the minority's findings do not
-    // travel in `findings`. They are NOT lost: every run's raw output is kept in
-    // `rawModelOutput` and goes into the evidence blob, and the note below
-    // records that a reading dissented and how much it claimed. What is refused
-    // is publishing a `clean` verdict that quietly ships an accusation inside it.
+    // A `clean` verdict carrying findings is contradictory and the schema rejects
+    // it, so when the majority is clean the minority's findings do not travel in
+    // `findings`. Not lost: every run's raw output is kept in `rawModelOutput` and
+    // the note below records that a reading dissented.
     const setAside = topVerdict === 'clean' ? findings.length : 0;
     return {
       verdict: topVerdict,
@@ -334,9 +283,8 @@ export function mergeRuns(runs) {
     };
   }
 
-  // No majority. See the note on this function: the cautious side of a split is
-  // an accusation produced by sampling noise, and `unreviewable` warns exactly
-  // as a capped `flagged` did.
+  // No majority. See the note on this function: `unreviewable` warns exactly as a
+  // capped `flagged` did, without the accusation.
   return {
     verdict: 'unreviewable',
     reason: 'no-agreement',
@@ -350,10 +298,6 @@ export function mergeRuns(runs) {
     note: `the readings did not converge (${parsed.map((p) => p.verdict).join(', ')}); no majority formed, so no verdict is claimed`,
   };
 }
-
-// ---------------------------------------------------------------------------
-// the review
-// ---------------------------------------------------------------------------
 
 /**
  * @typedef {Object} ReviewInput
@@ -383,8 +327,8 @@ export async function reviewServer(input, options = {}) {
     writeCache = true,
     now = () => new Date(),
     // Sized for this repo's fixtures by default. A caller reviewing a real npm
-    // package must supply a budget that fits its model's context — see the note
-    // on renderSource in prompt.mjs, and read `run.sourceCoverage` afterwards.
+    // package must supply a budget that fits its model's context (see renderSource in
+    // prompt.mjs) and read `run.sourceCoverage` afterwards.
     limits = undefined,
   } = options;
 
@@ -393,9 +337,9 @@ export async function reviewServer(input, options = {}) {
   const statedIntent = input?.statedIntent ?? {};
 
   // --- layer 1: deterministic capability scan -------------------------------
-  // Runs first and unconditionally. Every path out of this function carries it,
-  // including the failure paths, because "we could not review it" and "we cannot
-  // tell you what it can reach" are two different admissions.
+  // Unconditional: every path out of this function carries it, failure paths
+  // included, because "we could not review it" and "we cannot tell you what it can
+  // reach" are two different admissions.
   const scan = files.length ? scanFiles(files) : { capabilities: emptyCapabilities(), sites: [], meta: { filesScanned: 0, filesSkipped: [] } };
 
   // --- layer 2: deterministic injection scan --------------------------------
@@ -418,16 +362,12 @@ export async function reviewServer(input, options = {}) {
 
   for (const variant of VARIANTS) await runOnce(variant, fenceId);
 
-  // The tie-break. Calibration showed that on a borderline server the split
-  // itself is sampling noise — `honest-sqlite` returned flagged, clean, clean on
-  // three identical inputs — and the old rule turned that coin flip into a
-  // published accusation. So a split buys another reading of EACH variant and
-  // the merge takes the majority of four; see TIEBREAK_VARIANTS for why both and
-  // not one.
+  // The tie-break: a split buys another reading of each variant and the merge takes
+  // the majority of four — see TIEBREAK_VARIANTS for why both and not one.
   //
-  // Each extra reading gets a fresh fence nonce, which is what makes it a new
-  // sample rather than a replay: sampling is greedy, so a re-run under the same
-  // nonce returns the same answer and decides nothing.
+  // Each extra reading gets a fresh fence nonce, and that is what makes it a new
+  // sample rather than a replay: sampling is greedy, so a re-run under the same nonce
+  // returns the same answer and decides nothing.
   const firstTwo = runResults.filter((r) => r.parsed).map((r) => r.parsed.verdict);
   if (firstTwo.length === 2 && firstTwo[0] !== firstTwo[1]) {
     for (const variant of TIEBREAK_VARIANTS) await runOnce(variant, newFenceId());
@@ -437,9 +377,8 @@ export async function reviewServer(input, options = {}) {
   const transportFailures = runResults.filter((r) => !r.call.ok);
 
   // --- the cache: only when the endpoint could not be reached ---------------
-  // Not an optimisation and not a shortcut. A reachable endpoint that returns
-  // nonsense is a real `unreviewable` result and must be reported as one — the
-  // cache is for the tunnel dropping, not for a bad answer.
+  // A reachable endpoint that returns nonsense is a real `unreviewable` result and
+  // must be reported as one. The cache is for the tunnel dropping, not a bad answer.
   if (usable === 0 && transportFailures.length === runResults.length && allowCache) {
     const fixture = readFixture(key, { dir: fixturesDir });
     if (fixture?.kind === REVIEW_KIND && fixture.value) {
@@ -449,12 +388,10 @@ export async function reviewServer(input, options = {}) {
 
   const merged = mergeRuns(runResults);
 
-  // Deterministic findings are merged on top of the model's, and they do not
-  // wait for the runs to agree — a regex has no attention to hijack, so its
-  // conclusion is not a "single dissenting run". FR-22: severity 4.
-  //
-  // The model's paths are reconciled against the files we handed it first, so a
-  // block message never points a developer at a file that is not there.
+  // Deterministic findings do not wait for the runs to agree — a regex has no
+  // attention to hijack, so its conclusion is not a "single dissenting run"
+  // (FR-22: severity 4). The model's paths are reconciled against the files we handed
+  // it first, so a block message never points a developer at a file that is not there.
   const reconciled = reconcileFindingPaths(merged.findings, files, statedIntentPaths(statedIntent));
   const collapsed = collapseInjectionDuplicates(dedupeFindings([...injectionFindings, ...reconciled]));
   const findings = collapsed.findings;
@@ -471,7 +408,7 @@ export async function reviewServer(input, options = {}) {
       notes.push('a planted instruction aimed at the reviewer was found by the deterministic scan; that finding does not depend on the model runs');
     } else {
       // The model review did not complete, so the verdict stays `unreviewable`.
-      // The deterministic finding is still reported — we know that much.
+      // The deterministic finding is still reported.
       notes.push('the model review did not complete, but the deterministic scan found a planted instruction aimed at the reviewer');
     }
   }
@@ -494,10 +431,10 @@ export async function reviewServer(input, options = {}) {
       error: r.error ?? null,
     })),
     capabilityScan: scan.meta,
-    // What the MODEL was actually shown. The capability scan reads every file it
-    // is given; the prompt is budgeted, so on anything larger than a fixture the
-    // two differ — and a verdict that does not say which files it could not see
-    // is claiming more than it knows.
+    // What the model was actually shown. The capability scan reads every file it is
+    // given, the prompt is budgeted, so on anything larger than a fixture the two
+    // differ — and a verdict that does not say which files it could not see is
+    // claiming more than it knows.
     sourceCoverage: {
       filesSupplied: files.length,
       filesOmittedOrTruncated: omittedFromPrompt.length,
@@ -542,10 +479,8 @@ export async function reviewServer(input, options = {}) {
       reason: merged.reason ?? null,
       severity,
       findings,
-      // rv-7. Carried onto the RECORD, not just merged: the record is what the
-      // blob and the head are built from, and a field that stops at the merge is a
-      // field no reader ever sees. `concern` is the one-word answer to "what kind
-      // of problem is this"; `assessment` is the sentence a developer acts on.
+      // Carried onto the record, not just the merge: the blob and the head are built
+      // from the record, so a field that stops at the merge is one no reader sees.
       concern: merged.concern ?? null,
       assessment: merged.assessment ?? null,
       statedIntentSummary: merged.statedIntentSummary,
@@ -580,9 +515,9 @@ export async function reviewServer(input, options = {}) {
     return fallback;
   }
 
-  // Record it. A real run that reached the model is worth keeping even when the
-  // verdict is `unreviewable` — that is a real result about a real input, and it
-  // is what the demo will have to fall back on.
+  // A real run that reached the model is worth keeping even when the verdict is
+  // `unreviewable`: it is a real result about a real input, and what the demo falls
+  // back on.
   if (writeCache && usable > 0) {
     writeFixture(key, {
       kind: REVIEW_KIND,
@@ -597,10 +532,6 @@ export async function reviewServer(input, options = {}) {
   return record;
 }
 
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
 function interpretRun(variant, call) {
   if (!call.ok) {
     return { variant, call, parsed: null, error: `${call.error.code}: ${call.error.message}` };
@@ -614,12 +545,9 @@ function interpretRun(variant, call) {
 
 /**
  * Reconcile every model-reported `file` and `line` against the input we actually
- * handed it.
- *
- * Observed on the first real run against the DGX: asked to review
- * `packages/fixture-mcp/src/tools/search.mjs`, the model reported findings in
- * `src/tools/search.mjs`. Not a hallucination — a shortened path — but the block
- * message tells a developer to open a file at a line, so a path that does not
+ * handed it. A model asked about `packages/fixture-mcp/src/tools/search.mjs` reports
+ * findings in `src/tools/search.mjs` — a shortened path, not a hallucination, but a
+ * block message tells a developer to open a file at a line, so a path that does not
  * resolve is a fabricated file:line as far as the reader is concerned.
  *
  * Rules:
@@ -665,11 +593,10 @@ export function reconcileFindingPaths(findings, files, pseudoPaths = new Set()) 
 }
 
 /**
- * The deterministic injection scan reports an exact line. When it has already
- * fired on a file, the model's own injection findings for that same file are
- * removed as duplicates: they describe the same planted text, from a source that
- * can be steered, at a line that is usually a few off. Keeping both turned two
- * planted comments into five findings on the first real run.
+ * Where the deterministic injection scan has already fired on a file, the model's own
+ * injection findings for that file are dropped as duplicates: same planted text, from
+ * a source that can be steered, at a line usually a few off. Keeping both turned two
+ * planted comments into five findings.
  *
  * Only `reviewer-injection` is collapsed, and only where the deterministic scan
  * covers the file. Everything else the model found is untouched.
@@ -697,7 +624,7 @@ function dedupeFindings(findings) {
     || a.line - b.line);
 }
 
-/** Kept per tech-spec §4.1 (`rawModelOutput` in the blob body), bounded. */
+/** `rawModelOutput` for the blob body, bounded. */
 function rawOutputs(runResults) {
   return runResults.map((r) => ({
     variant: r.variant,
@@ -708,16 +635,13 @@ function rawOutputs(runResults) {
 }
 
 /**
- * Serve a recorded run.
+ * Serve a recorded run. The recorded verdict and findings come back verbatim —
+ * rewriting them would make the fixture a draft rather than a record. Only the
+ * provenance changes: `cached: true`, the original `recordedAt`, and a notice that
+ * says so in the first clause. Never presented as fresh.
  *
- * The recorded verdict and findings are returned verbatim — rewriting them would
- * make the fixture a draft rather than a record. What changes is the provenance:
- * `cached: true`, the original `recordedAt`, and a notice that says so in the
- * first clause. Never presented as fresh.
- *
- * The capability scan is re-run live rather than replayed, because it is
- * deterministic and costs nothing — and if it ever disagrees with the recorded
- * one, that difference is worth seeing.
+ * The capability scan is re-run live rather than replayed: it is deterministic and
+ * costs nothing, and a disagreement with the recorded one is worth seeing.
  */
 function serveFromCache(fixture, { scan, endpoint, servedAt }) {
   const record = {

@@ -1,26 +1,21 @@
 /**
- * Probe: write a blob through the PRODUCT's publisher mode, from wherever you run it.
+ * Probe: write a blob through the product's publisher mode, from wherever you run it.
  *
  *   SUREX_WALRUS_PUBLISHER=1 node probes/walrus-publish.mjs
  *
- * This is the counterpart to `probes/walrus-write.mjs`, which exercises the SDK
- * path. That path cannot complete from a residential uplink — it uploads slivers
- * directly to all 101 committee members in parallel and fails 4/4 with
- * NotEnoughBlobConfirmationsError from the DGX, while the same code on a European
- * business line succeeds in 32 s (FRICTION-LOG S11). Publisher mode is how the
- * always-on writer gets to write at all.
+ * The counterpart to `probes/walrus-write.mjs`, which exercises the SDK path. That
+ * path uploads slivers directly to all 101 committee members and cannot complete
+ * from a residential uplink (FRICTION-LOG S11); publisher mode is how the always-on
+ * writer gets to write at all.
  *
- * Unlike walrus-write.mjs this probe deliberately does NOT reimplement the write.
- * It imports `createWalrusWriter` from the worker package, because the question it
- * answers is "does the code we ship work from this machine", and a probe that
- * reimplements the thing it is testing cannot answer that.
+ * Imports `createWalrusWriter` from the worker package rather than reimplementing
+ * the write — the question is whether the shipped code works from this machine.
  *
  * What it proves, in order:
- *   1. the publisher accepts the bytes from THIS uplink, and which publisher did
+ *   1. the publisher accepts the bytes from this uplink, and which publisher did
  *   2. the pointer states the publisher's custody rather than implying ours
- *   3. the bytes come back from the aggregator and recompute to the same digest
- *      — the property the gate relies on, and the one thing that is unaffected by
- *      whose wallet paid
+ *   3. the bytes come back from the aggregator and recompute to the same digest —
+ *      the property the gate relies on, unaffected by whose wallet paid
  *   4. a second identical write dedupes (publisher behaviour the SDK lacks, S3)
  *
  * Nothing here is product data: the payload is a probe string and no Arkiv head
@@ -40,7 +35,7 @@ if (!publishers.length) {
   process.exit(2);
 }
 
-// Unique per run: a fixed payload would dedupe on the FIRST write and the probe
+// Unique per run: a fixed payload would dedupe on the first write and the probe
 // would never exercise the fresh-write branch. Step 4 re-sends these same bytes.
 const nonce = process.argv[2] ?? `${Date.now().toString(36)}-${process.pid.toString(36)}`;
 const PAYLOAD = new TextEncoder().encode(
@@ -52,8 +47,8 @@ log('  publishers :', publishers.join(', '));
 log('  payload    :', PAYLOAD.length, 'B');
 
 const walrus = await createWalrusWriter({ log: (m) => log(m) });
-// Deliberately NOT logging walrus.address: reading it loads the Sui key, and the
-// property this probe demonstrates is that publisher mode needs no key at all.
+// Deliberately not logging walrus.address: reading it loads the Sui key, and the
+// property demonstrated here is that publisher mode needs no key at all.
 log('  our Sui key:', 'not loaded — the publisher\'s wallet pays for this write');
 
 log('\n# 1. write');
@@ -76,8 +71,7 @@ log('\n# 3. the property the gate relies on');
 log('  blobId        :', pointer.blobId);
 log('  contentSha256 :', pointer.contentSha256);
 log('  readback verified at write time:', pointer.readbackVerified);
-// Independently of the writer's own check, ask again here — the probe should not
-// take the code's word for the one thing it exists to demonstrate.
+// Asked again independently of the writer's own check.
 const served = await walrus.fetchPublished(pointer.blobId);
 const servedSha = walrus.sha256Hex(served);
 const roundTrips = servedSha === pointer.contentSha256 && served.length === PAYLOAD.length;
