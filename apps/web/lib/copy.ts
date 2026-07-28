@@ -262,8 +262,7 @@ export const COPY = {
      * about the fingerprint, because nothing was read.
      */
     unreachableTitle: 'We could not reach the registry.',
-    unreachableBody:
-      'This is a statement about the lookup, not about the server. No entry was read, so nothing on this page says whether this fingerprint has been reviewed or what a review found. The gate treats this as unknown and warns rather than stopping the call.',
+    unreachableBody: 'The registry API is not responding. Please try again later.',
     summaryLabel: 'IN TWENTY SECONDS',
     linkageLabel: 'LINKAGE · WHAT THIS VERDICT IS ABOUT VS WHAT YOU INSTALLED',
     linkageNote:
