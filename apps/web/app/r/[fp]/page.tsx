@@ -133,30 +133,31 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
 
   /* Unreachable registry, so there is no entry to show and no fixture standing
      in for one. `notFound*` below would report absence of a verdict, which is a
-     fact this page does not have: nothing was read. The reason rides on the
-     banner's note. */
+     fact this page does not have: nothing was read.
+
+     No illustrative band either, and for the same reason it goes up everywhere
+     else: it labels data that is not a real review, and this screen renders no
+     data at all. A band announcing that everything below it is placeholder
+     content, above a page with nothing below it, describes a screen that is not
+     there. The underlying error is printed here instead. */
   if (!entry && result.origin === 'fixture') {
     return (
-      <>
-        <IllustrativeBanner
-          origin={result.origin}
-          illustrative={result.illustrative}
-          note={result.note}
-        />
-        <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-7">
-          <FingerprintBar prefix="surex.dev/r/" fingerprint={decoded} />
-          <h1 className="mt-6 text-title font-semibold text-ink-3">
-            {COPY.verdict.unreachableTitle}
-          </h1>
-          <p className="mt-2 max-w-[74ch] font-serif text-prose-lg text-ink-2">
-            {COPY.verdict.unreachableBody}
-          </p>
-          <Link href="/registry" className="mt-4 inline-block text-row text-accent">
-            ← {COPY.browse.title}
-          </Link>
-          <Footer />
-        </main>
-      </>
+      <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-9">
+        <FingerprintBar prefix="surex.dev/r/" fingerprint={decoded} />
+        <h1 className="mt-6 text-title font-semibold text-ink-3">
+          {COPY.verdict.unreachableTitle}
+        </h1>
+        <p className="mt-2 max-w-[74ch] font-serif text-prose-lg text-ink-2">
+          {COPY.verdict.unreachableBody}
+        </p>
+        {result.note ? (
+          <p className="mt-3.5 text-mini uppercase tracking-[0.1em] text-ink-3">{result.note}</p>
+        ) : null}
+        <Link href="/registry" className="mt-4 inline-block text-row text-accent">
+          ← {COPY.browse.title}
+        </Link>
+        <Footer />
+      </main>
     );
   }
 
