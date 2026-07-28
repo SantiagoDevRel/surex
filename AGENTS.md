@@ -5,6 +5,25 @@ duplicate rules across the two files.
 
 ---
 
+## 0. If you are here for ONE thing, it is probably one of these
+
+Read this section, take the branch that applies, and stop. The rest of this file is for someone changing
+the code.
+
+| You are… | Go to | And nothing else |
+|---|---|---|
+| **a sponsor team** (Sui/Walrus · World · ENS) or **Arkiv/MCP/Vercel/ollama** | [`docs/FEEDBACK.md`](./docs/FEEDBACK.md) — grouped by whose codebase can act on it, with per-team anchors | it is self-contained. Every `[VERIFIED]` entry carries a repro command and version numbers; anything unverified says so and is never rounded up. IDs index into [`FRICTION-LOG.md`](./FRICTION-LOG.md) |
+| **a judge** asking what is real | [§2 Status](#2--status--read-this-before-assuming-anything-exists) | it lists what is built, what is deployed, and what is **not** built, by name |
+| **a developer** installing the gate | [`README.md`](./README.md) → the docs site, machine-readable at `/llms.txt` | two slash commands, no npm install |
+| **a maintainer** whose server got a verdict | the verdict page `/r/<fingerprint>` → **File a dispute** | the finding carries file, line, model and prompt version, so it is answerable. A rebuttal is stored as its own blob and shown beside the accusation with equal weight |
+| **an agent changing this code** | §3 onward, and §4 before anything else | §4 is the rule set; breaking one of those is worse than shipping nothing |
+
+**Sponsor feedback is submission material and it has a one-way street.** New findings go into
+`FRICTION-LOG.md` **first**, with the measurement, and only then get carried into `docs/FEEDBACK.md` — never
+the other way round, and never upgraded from *observed* to `[VERIFIED]` in the crossing.
+
+---
+
 ## 1. What this is
 
 **SureX is a trust registry for MCP servers, plus a gate that reads it.**
@@ -25,8 +44,8 @@ Built at **ETHGlobal Lisbon 2026** (24–26 July). Target tracks: **Sui — Best
 
 ## 2. Status — read this before assuming anything exists
 
-**Building. The chain runs end to end, and the submit pipeline has now published real reviews of real
-third-party servers — none of them as a public flag, by design (§4).**
+**Building. The chain runs end to end, and the submit pipeline publishes real reviews of real third-party
+servers — including as public flags, since the §4 narrowing on 2026-07-26.**
 
 | Area | State |
 |---|---|
@@ -45,11 +64,11 @@ third-party servers — none of them as a public flag, by design (§4).**
 | `packages/worker` + seeding | **done** — 50 real servers seeded from the official MCP registry into one certified Walrus quilt, resume tested twice |
 | World **AgentKit / AgentBook** | **built and live** — `SUREX_WORLD=1` on the deployed API. The agent path recovers the address from the signature locally, then reads AgentBook on World Chain 480. Exercised against a real third-party registration. **Nobody is registered as our agent yet** — that is the Orb step. |
 | World **ID** (human disputes) | **built, not provable yet** — needs a Developer Portal app (`WORLD_RP_ID`, `RP_SIGNING_KEY`, `NEXT_PUBLIC_WORLD_APP_ID`). Unset gives an explicit configuration error that says it is *our* misconfiguration and not a judgement about the contestant. Never a pass. |
-| Any **real** review of a real third-party server | **yes, five, through the submit pipeline end to end** (2026-07-26): `openbnb-org/mcp-server-airbnb`, `anaisbetts/mcp-installer` (npm path), `financial-datasets/mcp-server` (Python → `unreviewable / source-unavailable`), and `SantiagoDevRel/mcp-medellin-news` twice. Every one exited 0 and published an honest entry. **None of the third-party reviews is published as a flag** — all came back flagged from the model and are held as `unreviewable / withheld` (§4). Worth knowing and not yet explained: **none of them came back clean**, and the likely cause is that this path reads the README only and never starts the server, so more behaviour reads as undeclared than on the `review-known.mjs` path that enumerates `tools/list`. |
+| Any **real** review of a real third-party server | **yes, through the submit pipeline end to end** (2026-07-26): `AgentDeskAI/browser-tools-mcp`, `openbnb-org/mcp-server-airbnb`, `anaisbetts/mcp-installer` (npm path), `financial-datasets/mcp-server` (Python → `unreviewable / source-unavailable`), and `SantiagoDevRel/mcp-medellin-news`. Every one exited 0 and published an honest entry. Since the §4 narrowing these publish as **`flagged` with their findings**, provenance and a 72 h dispute window — `browser-tools-mcp` is live as flagged, severity 2, 7 findings. **Not yet explained and worth knowing:** none has come back clean. The likely cause is that this path reads the README only and never starts the server, so more behaviour reads as undeclared than on the `review-known.mjs` path that enumerates `tools/list` — which means some of these findings may not survive contact with the server's real tool list. Treat that as an open question, not a result. |
 | Deployed | **yes** — web `arkiv-surex.vercel.app`, API `arkiv-surex-api.vercel.app`, both on `santiago-prod`, both reading live Braga. Git-connected to this repo, so every push to `main` redeploys. |
 | Reviewer, reachable from production | **yes** — `surex-reviewer.santiagodevrel.dev`, a bearer-gated proxy on the DGX in front of ollama. `POST /admin/load-model` warms the model from the deployed API in ~7.5 s, verified. Only `/v1/chat/completions`, `/v1/completions`, `/v1/models` and `/api/tags` are forwarded — `/api/pull` is 404, so nobody can make the box download anything. |
 | **Reviewer calibration** | **built and measured** — `scripts/calibrate.mjs` scores every fixture against the ground truth its own specification recorded *before* any review ran, and exits non-zero on a regression. It is the precondition for reviewing anyone else's code: §7 carries the numbers. |
-| The registry, live | **14 verdict heads** · 7 clean · 3 flagged · 4 unreviewable, measured against the deployed API on 2026-07-26. Three of the unreviewable are `withheld` third-party submissions; one is a licence refusal. |
+| The registry, live | **19 verdict heads** · 7 clean · 6 flagged · 6 unreviewable, over 98 entries, measured against the deployed API on 2026-07-26. Ask [`/v1/stats`](https://arkiv-surex-api.vercel.app/v1/stats) rather than this row — it is the number that cannot go stale. |
 | **ENS** offchain resolver + CCIP-Read gateway | **live on Ethereum mainnet, end to end.** [`surex.eth`](https://app.ens.domains/surex.eth) (ours, expires 2027-07-25) → `SureXOffchainResolver` at `0x2BEaeC431bB22Fd1160319d0ebDAE886Ef593a8B`, signer `0x9D80524581a242a8F67c5333418B6b8b3a8a6D01`, gateway at `/api/ens/`. A stock viem client reads a verdict off a subname nobody registered: `getEnsText({name:'sxf1-<40 hex>.surex.eth', key:'surex:state'})` → `flagged`. Wildcard resolution, signed CCIP-Read response, `resolveWithProof` verifying against the pinned key, data live from Arkiv. Verify with `node probes/ens-resolve.mjs live --name <name>`. ⚠️ `0xCb140fF30c449c3782D96Bfa356cDDE8E33b2559` was the FIRST deployment and is superseded — it dropped the name from the callData (E8). This does **not** close PRD risk #10 — see §5 and `docs/surex-ens.md` §2. |
 
 **798 tests, 794 green** (`npm test` at the root, which includes the ENS record walk and the
@@ -107,8 +126,38 @@ verdicts are superseded, never deleted.
 real, no backdated commits. If a number is illustrative, it is labelled illustrative on the same screen.
 This is both an integrity rule and a submission rule — see §6.
 
-**Never publicly flag a real, named third-party project** on the strength of an unaudited model verdict.
-The only thing flagged in any demo is the fixture we wrote ourselves.
+**A review publishes what it found — including about software we did not write. Narrowed 2026-07-26.**
+
+This rule used to read *"never publicly flag a real, named third-party project; the only thing flagged in
+any demo is the fixture we wrote ourselves."* It was enforced by a fingerprint allowlist at the write
+boundary, and it did stop the harm it was written for. It also stopped the product. Every review of a real
+MCP server published as `unreviewable / withheld` — a state that reads as *we could not tell* — about public,
+open-source code that had just been read end to end and had produced a conclusion with file and line numbers.
+A registry that reviews everything and publishes nothing is not a registry, and the state word made it look
+broken at exactly the moment it was working.
+
+What the rule was actually protecting against is narrower than what it forbade: **an accusation nobody can
+answer.** So that is what is enforced now, and it is enforced at the same place:
+
+- **Provenance is mandatory.** `buildVerdictHead` refuses `flagged` or `disputed` without `modelId`,
+  `promptVersion`, and what exactly was read (`reviewedCommit` / `integrity` / `reviewedSourceBlobId`).
+- **The finding carries its evidence.** File, line, category, description — whole, onto the head and into
+  the certified blob. A maintainer can open the line.
+- **A dispute window opens.** `enforceAfter` is 72 h out, so the block message calls itself *unconfirmed*
+  until the maintainer has had time to answer, and a rebuttal is stored beside the accusation with equal
+  weight.
+- **Every verdict still says it was automated with no human audit.** That is the copy law above, unchanged.
+
+The allowlist survives as an **opt-in predicate** (`requireSelfAuthored`), and `scripts/review-and-publish.mjs`
+passes it, because a fixture publisher that reached outside the fixture directory would be a bug.
+
+⚠️ **What this makes load-bearing and is NOT built yet:** the commit must really belong to the repository
+named. GitHub serves every commit in a fork network from the upstream namespace, so `codeload` succeeds for a
+sha that lives only in a fork (reproduced against `octocat/Spoon-Knife`). While nothing third-party could be
+flagged, a forged commit could at worst mislabel one of our own entries; now it decides **whose code gets
+accused**. The submit form resolves commits from the repository's own releases, which covers the web path.
+The `--commit` flag does not go through it. Verify reachability before treating a hand-supplied commit as
+that repository's code.
 
 *How that rule is actually enforced, because "be careful" is not enforcement.* Two layers, and neither is in
 a publishing script — a script can be added, and this session found two that had been:

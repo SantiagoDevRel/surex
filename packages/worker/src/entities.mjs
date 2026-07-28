@@ -32,8 +32,19 @@ export const ENTITY_TYPES = Object.freeze([
 export const SEED_STATE = 'unknown';
 
 /**
- * The fingerprints of servers **we wrote ourselves**, and the only ones that may
- * ever be published as `flagged` or `disputed` (AGENTS.md §4).
+ * The fingerprints of servers **we wrote ourselves**.
+ *
+ * HISTORY, because the shape of this file only makes sense with it: this list used
+ * to be the gate on every public accusation — nothing outside it could be published
+ * as `flagged` or `disputed`. That rule was narrowed on 2026-07-26 (owner's call):
+ * it stopped the harm it was written for and also stopped the product, because it
+ * meant every review of a real third-party server published as "we reached no
+ * conclusion" when a conclusion had been reached. What gates an accusation now is
+ * PROVENANCE — see `buildVerdictHead`.
+ *
+ * The list is still read, and still enforced wherever a caller asks for it via
+ * `requireSelfAuthored`. `scripts/review-and-publish.mjs` does, because a fixture
+ * publisher that reached outside the fixture directory would be a bug.
  *
  * Two properties, both load-bearing. The check lives at the write boundary, not in
  * a publishing script, because the worker is the only process with a wallet and a
@@ -91,10 +102,45 @@ export function isSelfAuthored(fingerprint) {
  * is exactly the published third-party accusation §4 exists to prevent. A guard
  * consulting state the same request just wrote is not a second opinion.
  *
- * The allowlist stays an artefact a human curates off the request path
- * (`scripts/allow-self-authored.mjs`); until an operator runs it, a self-owned flag
- * is withheld. A real fix means proving the commit is reachable from a branch of
- * the named repository.
+ * The gap is real: the allowlist is regenerated from our fixture DIRECTORY, and a
+ * submitted repository is never a fixture directory — so `SUREX_SELF_OWNED`, the
+ * env that names the GitHub owners whose flags may publish, decided nothing. A
+ * self-owned submission could not publish a flag about its own code.
+ *
+ * The obvious fix was to let the pipeline add the fingerprint when the submitted
+ * repo's owner is one of ours, on the argument that `github.com/<us>/x` is a
+ * namespace nobody else can publish under, so the owner is a fact rather than a
+ * claim. **That argument is false, and a security review reproduced it:**
+ *
+ *   curl -sSL --fail https://codeload.github.com/octocat/Spoon-Knife/tar.gz/f675b3f7…
+ *   → exit 0, and the tree it returns exists only in a FORK.
+ *
+ * GitHub serves any commit in a repository's fork network from the upstream
+ * namespace. Anyone who can push to a fork of one of our public repos — which is
+ * anyone — obtains a sha that `fetchRepoAtCommit` resolves under our owner. They
+ * choose the bytes, the `package.json` name (which is what the fingerprint is
+ * derived from), and therefore which fingerprint gets allowlisted. The result is a
+ * published `flagged` verdict, with findings, for a fingerprint the attacker
+ * selected: our own real server, or — via the npm path, where the reviewed bytes
+ * come from the registry rather than the repo — somebody else's package entirely.
+ *
+ * That is the exact outcome AGENTS.md §4 exists to prevent, reached *through* the
+ * guard written to prevent it. And it collapses the two locks into one: a guard
+ * that consults state the same request just wrote is not a second opinion.
+ *
+ * So the allowlist stays an artefact a human curates, off the request path
+ * (`scripts/allow-self-authored.mjs`), and nothing derives authorship from a
+ * submission.
+ *
+ * THE FORK PROBLEM DID NOT GO AWAY WHEN THE ALLOWLIST STOPPED GATING — it got
+ * bigger. While only our own fingerprints could be flagged, a forged commit could
+ * at worst mislabel one of our entries. Now that any review publishes, the same
+ * forgery decides WHOSE code gets accused: submit `<us>/<repo>` at a sha that
+ * exists only in a fork, put any `package.json` name in it, and the fingerprint
+ * that gets flagged is the one the submitter chose. Verifying the commit is
+ * reachable from a branch of the named repository is now load-bearing and is NOT
+ * built. The submit form resolves commits from the repository's own releases,
+ * which covers the web path; the `--commit` flag does not go through it.
  */
 
 /** The states that make a public accusation about a named piece of software. */
@@ -339,6 +385,15 @@ export function buildVerdictHead({
   project = PROJECT,
   expiresIn = EXPIRES.verdictHead,
   requireReviewForClean = true,
+  /**
+   * OPTIONAL, and off by default since 2026-07-26.
+   *
+   * Pass `isSelfAuthored` (or any predicate) to re-impose the old rule that only
+   * servers SureX wrote may be published as flagged. `scripts/review-and-publish.mjs`
+   * passes it, because that script publishes our own fixtures and a fixture run
+   * that reached outside the fixture directory would be a bug worth stopping.
+   */
+  requireSelfAuthored = null,
 }) {
   const STATES = ['clean', 'flagged', 'disputed', 'unreviewable', 'stale', 'unknown'];
   if (!STATES.includes(state)) throw new Error(`unknown head state ${state}`);
@@ -356,11 +411,41 @@ export function buildVerdictHead({
   // script: this module is the one the wallet goes through, so it cannot be
   // bypassed by adding a script.
   if (ACCUSING_STATES.includes(state)) {
-    if (!isSelfAuthored(fingerprint)) {
+    /**
+     * THE SELF-AUTHORED ALLOWLIST NO LONGER GATES THIS. Owner's decision,
+     * 2026-07-26, and it is a deliberate narrowing of the rule rather than a
+     * removal of it.
+     *
+     * The rule was "only servers SureX wrote may be flagged publicly", enforced by
+     * a fingerprint allowlist. It stopped the harm it was written for and also
+     * stopped the product: a registry that reads public source, reaches a
+     * conclusion, and then publishes nothing about it is not reviewing anything a
+     * reader can use. Every third-party review came back held, so the honest
+     * answer for every real MCP server on the site was a state that reads as "we
+     * could not tell".
+     *
+     * What still gates an accusation is PROVENANCE, immediately below, and it is
+     * not a formality: a flag without the model, the prompt version and the exact
+     * bytes it read cannot be answered by the person it accuses, and that is the
+     * failure this boundary exists to prevent. Together with the 72-hour dispute
+     * window and the whole finding travelling with file and line, that is the
+     * shape of a claim somebody can argue with.
+     *
+     * WHAT THIS MAKES LOAD-BEARING, and it was not before: **the commit must
+     * really belong to the repository named.** GitHub serves every commit in a
+     * fork network from the upstream namespace, so `codeload …/<us>/<repo>/<sha>`
+     * succeeds for a sha that lives only in somebody's fork — reproduced against
+     * `octocat/Spoon-Knife`. While nothing third-party could be flagged, that only
+     * risked mislabelling our own entry. Now it decides whose code gets accused,
+     * so verifying the commit is reachable from a branch of the named repository
+     * is the next thing this path needs. It is NOT done yet — say so rather than
+     * assume the submit form's release picker covers it, because the `--commit`
+     * flag bypasses that picker entirely.
+     */
+    if (typeof requireSelfAuthored === 'function' && !requireSelfAuthored(fingerprint)) {
       throw new Error(
-        `refusing to publish state=${state} for ${fingerprint} (${name ?? 'unnamed'}): it is not on the ` +
-          'self-authored allowlist. AGENTS.md §4 — the only servers SureX flags publicly are the ones it ' +
-          'wrote itself, and the check is on the FINGERPRINT because a name is whatever the caller types.',
+        `refusing to publish state=${state} for ${fingerprint} (${name ?? 'unnamed'}): the caller supplied a ` +
+          'self-authorship predicate and it said no.',
       );
     }
     // The copy law requires every verdict to state what was reviewed, when, and by

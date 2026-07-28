@@ -115,59 +115,78 @@ export function planPublication({
   }
 
   if (verdict === 'flagged') {
-    const mayAccuse = selfOwned && canAccuse(fingerprint);
-    if (mayAccuse) {
-      return {
-        state: 'flagged',
-        reason: undefined,
-        severity: sev,
-        findings: merged,
-        topFinding: topFindingOf(merged),
-        concern,
-        assessment,
-        statedIntentSummary,
-        // `topFinding` is the first of these, not the only one — a surface that
-        // captions it "1 of 1" understates every multi-finding review.
-        findingCount: merged.length,
-        enforceAfter: now + DISPUTE_WINDOW_MS,
-        publishesFindings: true,
-        withheld: null,
-      };
-    }
-    // Held, and carrying no severity, no findings, no topFinding, no category.
-    // "unreviewable, severity 3" is the accusation with the evidence removed — it
-    // says something bad and gives the maintainer nothing to answer.
+    /**
+     * A flagged review PUBLISHES, including about software we did not write.
+     *
+     * This reversed on 2026-07-26, by the owner's decision, and the reasoning is
+     * worth keeping because the old rule was not wrong so much as too broad.
+     *
+     * AGENTS.md §4 was written to stop one specific harm: branding a real named
+     * project as malicious on the strength of an unaudited model verdict. The
+     * implementation went further and withheld EVERYTHING about a third party —
+     * which meant a registry that reads public, open-source code, reaches a
+     * conclusion about it, and then refuses to say what it found. That is not
+     * caution; at that point the product does not exist. The code is public, we
+     * read it, and declining to publish a criterion about it is withholding the
+     * only thing anyone came for.
+     *
+     * What replaces "withhold everything" is not "publish anything". Three things
+     * carry the weight instead, and they are all still here:
+     *
+     *   · PROVENANCE IS MANDATORY. `buildVerdictHead` refuses any accusing state
+     *     without the model, the prompt version and what exactly was read. A
+     *     finding nobody can trace to specific bytes cannot be answered, and an
+     *     unanswerable accusation is the thing this registry exists not to make.
+     *   · THE FINDING CARRIES ITS EVIDENCE. File, line, category, description —
+     *     whole, into the certified blob and onto the head. A maintainer can open
+     *     the line and disagree.
+     *   · A DISPUTE WINDOW OPENS. `enforceAfter` is 72 hours out, so the block
+     *     message calls itself unconfirmed until a maintainer has had time to
+     *     answer, and a rebuttal is stored beside the accusation with equal weight.
+     *
+     * `withheld` is not deleted — `fallbackPlan` still uses it, and it remains the
+     * honest state for a result we decline to publish for any other reason.
+     */
+    /**
+     * THE PUBLISHED SEVERITY MAY NOT OUTRANK ITS OWN EVIDENCE.
+     *
+     * The model returns a top-level `severity` alongside per-finding severities,
+     * and they can disagree. Measured on the first real third-party flag published
+     * under this policy — `AgentDeskAI/browser-tools-mcp` — the record came back
+     * `severity: 3` with SEVEN findings, every one of them severity 2.
+     *
+     * Three is not an arbitrary number here: `decide()` blocks at 3 and warns at 2.
+     * So that verdict would have stopped a developer's tool call on the strength of
+     * a summary figure that not one piece of its own evidence supported, and the
+     * maintainer's only possible answer would have been "which finding is a three?"
+     * — to which the record has no reply.
+     *
+     * Capped at the highest finding. The model may still be wrong about a finding;
+     * it can no longer be wrong about the total in the direction that blocks.
+     */
+    const evidenced = merged.reduce((max, f) => Math.max(max, Number(f?.severity ?? 0)), 0);
+    const published = merged.length ? Math.min(sev, evidenced) : sev;
+
     return {
-      state: 'unreviewable',
-      reason: 'withheld',
-      severity: 0,
-      findings: [],
-      topFinding: undefined,
-      // Neither travels: `concern` and `assessment` say what is wrong with a server
-      // in plain language, which is the thing being withheld. "data-leaves-the-
-      // machine" under a neutral state is the accusation in one word.
-      concern: undefined,
-      assessment: undefined,
-      /**
-       * Withheld too. It is meant to be the author's claim, but on real runs it
-       * arrives carrying the conclusion ("claims X, BUT THE ACTUAL IMPLEMENTATION
-       * …") — the finding in prose. The prompt asks the model to keep claim and
-       * conclusion apart; a prompt is a request, and this is the publish path.
-       */
-      statedIntentSummary: undefined,
-      findingCount: 0,
-      enforceAfter: undefined,
-      publishesFindings: false,
-      withheld: {
-        verdict: 'flagged',
-        concern,
-        assessment,
-        statedIntentSummary,
-        severity: sev,
-        findingCount: merged.length,
-        because: selfOwned ? WITHHELD_BECAUSE.notAllowlisted : WITHHELD_BECAUSE.thirdParty,
-        findings: merged,
-      },
+      state: 'flagged',
+      reason: undefined,
+      severity: published,
+      findings: merged,
+      topFinding: topFindingOf(merged),
+      concern,
+      assessment,
+      statedIntentSummary,
+      // `topFinding` is the FIRST of these, not the only one. A page that read one
+      // finding off the head and captioned it "finding 1 of 1" understated a
+      // five-finding review every time.
+      findingCount: merged.length,
+      enforceAfter: now + DISPUTE_WINDOW_MS,
+      publishesFindings: true,
+      withheld: null,
+      // Recorded so the entry can say whose code this is a claim about. It does
+      // not change what is published any more; it changes nothing except that a
+      // reader can tell a self-review from a review of somebody else.
+      selfOwned: Boolean(selfOwned),
     };
   }
 
