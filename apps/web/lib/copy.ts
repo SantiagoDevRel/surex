@@ -324,10 +324,9 @@ export const COPY = {
     findingsPending:
       'The certified review blob is being fetched. The finding above is the highest-severity one, carried on the registry entry itself; the rest are in that blob and appear here when it arrives.',
     /**
-     * The fetch failed. NOT "no findings" and never an empty list — the count is
-     * known and the page says so, then hands over the two places the record can
-     * be read directly rather than pretending the verdict rests on less than it
-     * does.
+     * The fetch failed. Not "no findings", and never an empty list: the count is
+     * known, the page says so, and it hands over the two places the blob can be
+     * read directly.
      */
     findingsFailedLabel: 'COULD NOT LOAD THE FINDINGS',
     findingsFailed:

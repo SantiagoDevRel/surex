@@ -54,11 +54,11 @@ function FindingList({ findings, total, head, blobId, disputeHref }: FindingsPro
 }
 
 /**
- * The record did not answer.
+ * The certified blob did not answer.
  *
  * The count stays on screen and the list does not shrink to nothing: an entry
  * whose verdict rests on seven findings still says seven, and the two links are
- * the record itself rather than this page's reading of it.
+ * the blob itself rather than this page's reading of it.
  */
 function FindingsUnavailable({ links, error }: { links?: RecordLinks; error?: string }) {
   return (
@@ -83,7 +83,7 @@ function FindingsUnavailable({ links, error }: { links?: RecordLinks; error?: st
 }
 
 /**
- * The whole list, once the certified record arrives.
+ * The whole list, once the certified blob arrives.
  *
  * Suspended rather than awaited by the page, so the verdict, the count and the
  * highest-severity finding are on screen while this is still in flight. The
@@ -135,11 +135,8 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
      in for one. `notFound*` below would report absence of a verdict, which is a
      fact this page does not have: nothing was read.
 
-     No illustrative band either, and for the same reason it goes up everywhere
-     else: it labels data that is not a real review, and this screen renders no
-     data at all. A band announcing that everything below it is placeholder
-     content, above a page with nothing below it, describes a screen that is not
-     there. The underlying error is printed here instead. */
+     No illustrative band: it labels data that is not a real review, and this
+     screen renders no data. The error is printed here instead. */
   if (!entry && result.origin === 'fixture') {
     return (
       <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-9">
