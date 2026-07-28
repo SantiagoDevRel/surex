@@ -151,9 +151,9 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
      * The whole list when the API could refetch the certified blob, the head's
      * single finding when it could not.
      *
-     * A failed fetch must NEVER collapse to `[]`: an empty findings array renders
-     * as "none recorded", which on a flagged entry states the opposite of what
-     * happened. So the fallback is the one finding we do have, and if the head has
+     * A failed fetch never collapses to `[]`: an empty findings array renders as
+     * "none recorded", which on a flagged entry states the opposite of what
+     * happened. The fallback is the one finding we do have, and if the head has
      * none either the page says so in its own words.
      */
     findings: (() => {
@@ -188,11 +188,10 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
 export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
   if (!isFingerprint(fp)) return { data: null, origin: 'api', illustrative: false };
 
-  // `?findings=1` asks the API to refetch the certified review blob and return
-  // the WHOLE finding list. The head carries only the top one — correct for the
-  // gate's hot path, wrong for the page a developer reads to decide whether to
-  // install something, which was captioning "FINDING 1 OF 7" with no route to the
-  // other six.
+  // `?findings=1` asks the API to refetch the certified review blob and return the
+  // whole finding list. The head carries only the top one — right for the gate's hot
+  // path, not enough for a page a developer reads to decide whether to install
+  // something.
   const res = await getJson<unknown>(`${ROUTES.entry(fp)}?findings=1`);
   if (res.ok) {
     const entry = normaliseEntry(fp, res.data);

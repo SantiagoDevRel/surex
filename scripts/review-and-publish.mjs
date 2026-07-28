@@ -266,10 +266,10 @@ for (const r of reviewed) {
     capabilities: result.capabilities, topFinding: top ?? undefined,
     evidence: { ...pointer, contentSha256 },
     requireReviewForClean: true,
-    // This script publishes OUR FIXTURES. The allowlist stopped gating accusations
-    // generally on 2026-07-26, but a fixture publisher that reached outside the
-    // fixture directory would be a bug, and this is how it says so at the write
-    // boundary rather than in its own control flow.
+    // This script publishes our fixtures. The allowlist does not gate accusations
+    // generally, but a fixture publisher that reached outside the fixture directory
+    // would be a bug, and asking for the predicate says so at the write boundary
+    // rather than in this script's own control flow.
     requireSelfAuthored: isSelfAuthored,
   });
 

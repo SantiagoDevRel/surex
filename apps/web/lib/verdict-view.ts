@@ -15,9 +15,9 @@ export type CounterTone = 'clean' | 'flagged' | 'disputed' | 'stale' | 'neutral'
 export interface StampView {
   state: RowStatus;
   /**
-   * What the stamp PRINTS. Usually `state` upper-cased; decoupled from it so the
-   * one case where the contract's word and the human's word differ can say the
-   * true thing without moving the state on chain. See COPY.stamp.withheldWord.
+   * What the stamp prints — usually `state` upper-cased, kept separate from it so
+   * the case where the contract's word and the human's word differ can say the true
+   * thing without moving the state on chain (`COPY.stamp.withheldWord`).
    */
   word: string;
   tier: Tier | '—';
@@ -34,10 +34,9 @@ function impressionOf(head: VerdictHead, evidenceExpired: boolean): string {
   if (head.state === 'unknown') return COPY.stamp.notInRegistry;
   if (evidenceExpired) return COPY.stamp.counterEvidenceExpired;
   if (head.state === 'unreviewable') {
-    // `reasons.withheld` reads "held for a human to release", which describes a
-    // pending step. Nothing is pending: SureX does not publish findings about
-    // software it did not write, and that is a standing policy rather than a
-    // queue. The banner says so; the stamp said something else, 60px away.
+    // Not `reasons.withheld`. It reads "held for a human to release", which puts
+    // the entry in a queue nobody is working through, 60px from a banner saying
+    // the result is not published.
     if (head.reason === 'withheld') return COPY.stamp.withheldImpression;
     const reason = REASONS[head.reason ?? ''] ?? 'the source could not be read';
     return reason.toUpperCase();

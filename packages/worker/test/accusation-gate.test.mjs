@@ -1,14 +1,10 @@
 // The write boundary: who may be publicly flagged, and with what provenance.
 //
-// The rule — "only our own fixtures get flagged" — belongs in the worker, not in a
-// publishing script a new caller can skip, and it matches on fingerprints, because
-// a name is whatever the caller types.
-//
-// The rule NARROWED on 2026-07-26 (owner's decision): the allowlist no longer gates
-// an accusation by default, because withholding every third-party result meant a
-// registry that reads public code and then publishes nothing about it. What gates an
-// accusation now is PROVENANCE, and the allowlist survives as an OPT-IN predicate
-// (`requireSelfAuthored`) for callers that want it — the fixture publisher does.
+// The allowlist does not gate an accusation. Provenance does, and the allowlist
+// survives as an opt-in predicate (`requireSelfAuthored`) for callers that want it —
+// the fixture publisher does. Both live in the worker rather than in a publishing
+// script a new caller can skip, and both match on fingerprints, because a name is
+// whatever the caller types.
 //
 // These tests are the rule as it stands. Each one fails if its guard is removed.
 
@@ -36,9 +32,9 @@ test('our own fixture can be flagged', () => {
 
 test('a third party CAN be flagged now, and only with full provenance', () => {
   setSelfAuthored([OURS]);
-  // The narrowed rule. A review of somebody else's public code publishes what it
-  // found — that is the product — and the thing that makes it answerable rather
-  // than an unanswerable accusation is the provenance travelling with it.
+  // A review of somebody else's public code publishes what it found. Provenance
+  // travelling with it is what makes that answerable rather than an accusation
+  // nobody can check.
   const head = buildVerdictHead({
     fingerprint: THEIRS, state: 'flagged', tier: 'A', severity: 4,
     name: '@someone/mcp-server', ...provenance,
@@ -85,8 +81,8 @@ test('non-accusing states are unaffected — a third party can be clean or unrev
 });
 
 test('an EMPTY allowlist still closes the gate for a caller that asked for it', () => {
-  // The fail-safe direction is unchanged where the predicate is used: a lost file
-  // means "we cannot publish our own fixtures", never "anything may be flagged".
+  // Fail-safe wherever the predicate is used: a lost file means "we cannot publish
+  // our own fixtures", never "anything may be flagged".
   setSelfAuthored([]);
   assert.throws(
     () => buildVerdictHead({

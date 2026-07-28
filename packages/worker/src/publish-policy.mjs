@@ -10,17 +10,11 @@
 // entry and no head, invisible to the listing query, which reads verdictHeads. That
 // says less than an honest `unreviewable`.
 //
-// The rule it enforces — AGENTS.md §4:
-//
-//   Never publicly flag a real, named third-party project on the strength of an
-//   unaudited model verdict. The only servers SureX flags publicly are the ones it
-//   wrote itself.
-//
-// A maintainer who submits a repository consented to a review, not to an accusation
-// published under their project's name by a model nobody audited. So a third-party
-// `flagged` is not softened, rephrased or published at a lower severity — it is
-// withheld: the entry says a review ran and its result is not being published, the
-// findings go to the maintainer, and the chain carries none of them.
+// A flagged review publishes, whoever wrote the server. What keeps the accusation
+// answerable is enforced elsewhere and each piece is load-bearing: `buildVerdictHead`
+// refuses an accusing state without provenance, the whole finding travels with its
+// file and line, and `enforceAfter` holds the block message at unconfirmed for 72
+// hours. `withheld` remains the state for a result declined for any other reason.
 
 import { ACCUSING_STATES, isSelfAuthored } from './entities.mjs';
 
@@ -116,53 +110,12 @@ export function planPublication({
 
   if (verdict === 'flagged') {
     /**
-     * A flagged review PUBLISHES, including about software we did not write.
-     *
-     * This reversed on 2026-07-26, by the owner's decision, and the reasoning is
-     * worth keeping because the old rule was not wrong so much as too broad.
-     *
-     * AGENTS.md §4 was written to stop one specific harm: branding a real named
-     * project as malicious on the strength of an unaudited model verdict. The
-     * implementation went further and withheld EVERYTHING about a third party —
-     * which meant a registry that reads public, open-source code, reaches a
-     * conclusion about it, and then refuses to say what it found. That is not
-     * caution; at that point the product does not exist. The code is public, we
-     * read it, and declining to publish a criterion about it is withholding the
-     * only thing anyone came for.
-     *
-     * What replaces "withhold everything" is not "publish anything". Three things
-     * carry the weight instead, and they are all still here:
-     *
-     *   · PROVENANCE IS MANDATORY. `buildVerdictHead` refuses any accusing state
-     *     without the model, the prompt version and what exactly was read. A
-     *     finding nobody can trace to specific bytes cannot be answered, and an
-     *     unanswerable accusation is the thing this registry exists not to make.
-     *   · THE FINDING CARRIES ITS EVIDENCE. File, line, category, description —
-     *     whole, into the certified blob and onto the head. A maintainer can open
-     *     the line and disagree.
-     *   · A DISPUTE WINDOW OPENS. `enforceAfter` is 72 hours out, so the block
-     *     message calls itself unconfirmed until a maintainer has had time to
-     *     answer, and a rebuttal is stored beside the accusation with equal weight.
-     *
-     * `withheld` is not deleted — `fallbackPlan` still uses it, and it remains the
-     * honest state for a result we decline to publish for any other reason.
-     */
-    /**
-     * THE PUBLISHED SEVERITY MAY NOT OUTRANK ITS OWN EVIDENCE.
-     *
-     * The model returns a top-level `severity` alongside per-finding severities,
-     * and they can disagree. Measured on the first real third-party flag published
-     * under this policy — `AgentDeskAI/browser-tools-mcp` — the record came back
-     * `severity: 3` with SEVEN findings, every one of them severity 2.
-     *
-     * Three is not an arbitrary number here: `decide()` blocks at 3 and warns at 2.
-     * So that verdict would have stopped a developer's tool call on the strength of
-     * a summary figure that not one piece of its own evidence supported, and the
-     * maintainer's only possible answer would have been "which finding is a three?"
-     * — to which the record has no reply.
-     *
-     * Capped at the highest finding. The model may still be wrong about a finding;
-     * it can no longer be wrong about the total in the direction that blocks.
+     * The published severity never outranks the findings it rests on. The model
+     * returns a top-level `severity` alongside per-finding severities and the two
+     * can disagree — a real record came back at 3 with every one of its seven
+     * findings at 2. `decide()` blocks at 3 and warns at 2, so uncapped that record
+     * stops a tool call on a number no piece of its own evidence supports, and the
+     * maintainer has nothing to answer.
      */
     const evidenced = merged.reduce((max, f) => Math.max(max, Number(f?.severity ?? 0)), 0);
     const published = merged.length ? Math.min(sev, evidenced) : sev;
@@ -176,16 +129,14 @@ export function planPublication({
       concern,
       assessment,
       statedIntentSummary,
-      // `topFinding` is the FIRST of these, not the only one. A page that read one
-      // finding off the head and captioned it "finding 1 of 1" understated a
-      // five-finding review every time.
+      // `topFinding` is the first of these, not the only one — a surface that
+      // captions it "1 of 1" understates every multi-finding review.
       findingCount: merged.length,
       enforceAfter: now + DISPUTE_WINDOW_MS,
       publishesFindings: true,
       withheld: null,
-      // Recorded so the entry can say whose code this is a claim about. It does
-      // not change what is published any more; it changes nothing except that a
-      // reader can tell a self-review from a review of somebody else.
+      // Lets a reader tell a self-review from a review of somebody else. It does
+      // not change what is published.
       selfOwned: Boolean(selfOwned),
     };
   }

@@ -133,23 +133,16 @@ export const COPY = {
     superseded: 'SUPERSEDED',
 
     /**
-     * THE WORD THE STAMP PRINTS FOR A WITHHELD ENTRY, and why it is not `state`.
+     * What the stamp prints for a withheld entry, and not `state`. On chain the
+     * state is `unreviewable` and has to be: the contract's states are frozen, and
+     * the gate must treat this entry as "no verdict I can act on" and warn.
      *
-     * On chain the state is `unreviewable`, and it has to be: the contract's states
-     * are frozen, and the gate must treat this entry as "no verdict I can act on"
-     * and warn. That is correct and does not change.
-     *
-     * What is NOT correct is printing that word at 24px on a page whose banner says
-     * the source was read and the review completed. `unreviewable` means "we could
-     * not reach a conclusion" everywhere else in this product — a licence that
-     * forbids storing the source, a fetch that failed, readings that would not
-     * converge. This entry is the opposite: a conclusion was reached and the
-     * registry is choosing not to publish it about somebody else's project.
-     *
-     * A reader met the biggest word on the page, read "unreviewable", and concluded
-     * SureX could not read a public open-source repository. That is the single most
-     * damaging misreading available, because it makes the tool look broken at
-     * exactly the moment it is behaving correctly.
+     * Printing that word at 24px is what breaks. `unreviewable` means "we could not
+     * reach a conclusion" everywhere else in this product — a licence that forbids
+     * storing the source, a fetch that failed, readings that would not converge.
+     * Here a conclusion was reached and is not being published, so the biggest word
+     * on a page whose banner says the source was read reads as SureX failing to open
+     * a public repository at the moment it is behaving correctly.
      */
     withheldWord: 'REVIEWED · HELD',
     withheldImpression: 'THE REVIEW COMPLETED · ITS RESULT IS NOT PUBLISHED',
@@ -187,24 +180,18 @@ export const COPY = {
     /** For an entry whose result is held, not empty — "none recorded" would falsely say the reviewer found nothing. */
     findingsWithheldLabel: 'FINDINGS · NOT PUBLISHED',
     /**
-     * The last clause used to read "The maintainer who submitted this was given
-     * the result in full, and can publish it themselves." That stopped being true
-     * the moment the findings were taken off the submission status channel — that
-     * route is public and unauthenticated, and World ID proves a person and not a
-     * maintainer, so returning an unaudited file-and-line accusation to whoever
-     * holds the job id was the withheld result leaking through a side door.
-     *
-     * The findings now go to the operator's log. Saying otherwise on a public page
-     * would be exactly the fabrication this project exists to make impossible, so
-     * the sentence says what the reader can actually do instead.
+     * The last clause may not promise the submitter their result back. The status
+     * channel is public and unauthenticated, and World ID proves a person rather
+     * than a maintainer, so returning a file-and-line accusation to whoever holds
+     * the job id hands the withheld result to anyone. It goes to the operator's log;
+     * the sentence names what the reader can actually do instead.
      */
     findingsWithheld:
       'A review ran and reached a conclusion. It is not published here: SureX publishes findings only about servers it wrote itself, because an unaudited model reading somebody else\'s code is not grounds for a public accusation. If you maintain this server and want the result, open an issue on the SureX repository.',
     /**
-     * A flagged entry whose head carries no finding. Not reachable through the
-     * submit pipeline any more — it passes the whole finding through — but heads
-     * written before that do exist on chain, and the panel must not describe them
-     * as a review that found nothing.
+     * A flagged entry whose head carries no finding. The submit pipeline passes the
+     * whole finding through, so nothing new lands here, but heads written before it
+     * did are on chain and must not read as a review that found nothing.
      */
     findingsMissing:
       'The finding behind this verdict is not on the record shown here. The certified blob under PROVENANCE is what the verdict was made from. Read that rather than this page.',

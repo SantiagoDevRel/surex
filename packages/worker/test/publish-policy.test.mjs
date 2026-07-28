@@ -53,10 +53,8 @@ test('our own code, on the allowlist, publishes a real flag with a dispute windo
 
 
 test('a third party flagged PUBLISHES, with its findings and its provenance', () => {
-  // The policy narrowed on 2026-07-26. Withholding every third-party result meant
-  // a registry that reads public code and then says nothing about it, which is not
-  // caution — at that point the product does not exist. What keeps it answerable
-  // is that the whole finding travels with it and a dispute window opens.
+  // What keeps a third-party flag answerable is that the whole finding travels with
+  // it and a dispute window opens, not that the entry withholds what was found.
   const plan = planPublication({
     verdict: 'flagged', severity: 4, findings: FINDINGS,
     concern: 'data-leaves-the-machine',
@@ -282,9 +280,9 @@ test('the fallback plan is writable even when everything else has failed', () =>
 });
 
 test('the boundary still refuses an accusation nobody could answer', () => {
-  // The allowlist stopped gating; provenance did not. A flag with no model, no
-  // prompt version and nothing saying which bytes were read is unanswerable by the
-  // person it accuses, and that is what this boundary exists to refuse.
+  // Provenance gates where the allowlist does not. A flag with no model, no prompt
+  // version and nothing saying which bytes were read cannot be answered by the
+  // person it accuses, and that is what this boundary refuses.
   setSelfAuthored([]);
   assert.throws(
     () => buildVerdictHead({

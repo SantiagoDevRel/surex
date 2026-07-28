@@ -404,28 +404,20 @@ async function main() {
   }
 
   /**
-   * A flag against a third party is held; a flag against self-owned code is not.
+   * Whose code this is. It does not decide whether the flag publishes — the entry
+   * records it so a reader can tell a self-review from a review of somebody else.
    *
-   * AGENTS.md §4 forbids publicly flagging a real, named third-party project on an
-   * unaudited model verdict — a maintainer consented to a review, not an accusation —
-   * and it is enforced twice: `planPublication` will not plan a flag the write
-   * boundary would refuse, and `buildVerdictHead` refuses one regardless.
+   * `SUREX_SELF_OWNED` is the list of GitHub owners the operator declared ours, set
+   * in the environment of the machine holding the wallet: a submitter chooses a
+   * repository, never which repositories count as self-owned.
    *
-   * `SUREX_SELF_OWNED` is the list of GitHub owners whose flags may publish, set by
-   * the operator in the environment of the machine holding the wallet — a submitter
-   * chooses a repository, never which repositories count as self-owned.
-   *
-   * It is one of two locks and never both. The other is the fingerprint allowlist the
-   * write boundary reads, curated by a human off the request path
-   * (`scripts/allow-self-authored.mjs`), and this pipeline must not add to it: `owner`
-   * is not proof of authorship, because GitHub serves every commit in a repository's
-   * fork network from the upstream namespace, so anyone who can push to a fork of a
-   * self-owned repository picks the fingerprint that would be flagged. See the note
-   * in packages/worker/src/entities.mjs.
-   *
-   * So a self-owned flag publishes only once an operator has vouched for that
-   * fingerprint. Until then it is withheld — the safe direction, and an honest state
-   * rather than a crash.
+   * This pipeline must not add to the fingerprint allowlist the write boundary
+   * reads, which a human curates off the request path
+   * (`scripts/allow-self-authored.mjs`). `owner` is not proof of authorship, because
+   * GitHub serves every commit in a repository's fork network from the upstream
+   * namespace, so anyone who can push to a fork of a self-owned repository picks the
+   * fingerprint that would be flagged — the note in packages/worker/src/entities.mjs
+   * has the reproduction.
    */
   const selfOwned = String(process.env.SUREX_SELF_OWNED ?? 'SantiagoDevRel')
     .split(',')

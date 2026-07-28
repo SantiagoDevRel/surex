@@ -380,24 +380,17 @@ export function createApp(options = {}) {
       ...(Array.isArray(entry.reviews) ? { reviews: entry.reviews.map((r) => withLinks(r, env)) } : {}),
     };
     /**
-     * `?findings=1` — the WHOLE finding list, fetched from the certified blob.
+     * `?findings=1` — the whole finding list, refetched from the certified blob.
      *
-     * The head carries one finding, deliberately: `topFinding` is what the gate
-     * prints in a block message, and a head is the hot path. But `/r/<fp>` is the
-     * page a developer reads to decide whether to install something, and it was
-     * showing "FINDING 1 OF 7" with no route to the other six except a raw JSON
-     * URL on a Walrus aggregator. A count with no account of the remainder is
-     * worse than no count — and on a registry whose neighbouring state is called
-     * `withheld`, six invisible findings is the worst ambiguity available.
+     * The head carries only `topFinding`, which is what the gate prints in a block
+     * message and all a hot path should pay for. `/r/<fp>` is read by a developer
+     * deciding whether to install something and needs the rest, so it opts in and
+     * nothing else does — a second network hop the gate must never make.
      *
-     * Opt-in rather than default, because it is a second network hop and the gate
-     * must never pay for it. The verdict page asks; nothing else does.
-     *
-     * The blob is content-addressed, so this is not a trust hop: `loadEvidence`
-     * refetches by blob id and reports which checks actually ran. A failure is
-     * reported as a failure — `findings` is absent, never an empty array, because
-     * an empty array reads as "the review found nothing" and that is the one
-     * thing it must not be mistaken for.
+     * On failure `findings` is absent, never an empty array: an empty array renders
+     * as "the review found nothing", the one thing it must not be mistaken for. The
+     * blob is content-addressed, so `loadEvidence` refetches by blob id and reports
+     * which checks actually ran rather than taking the answer on trust.
      */
     let findings;
     if (c.req.query('findings') === '1') {
