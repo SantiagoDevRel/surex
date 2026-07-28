@@ -49,9 +49,8 @@ export { apiBase } from './api-base.ts';
  * budget exists because the gate sits in front of every tool call. A page
  * render can afford to wait longer before giving up on live data.
  *
- * Sized above a cold function rather than beside a warm one. Six consecutive
- * `/v1/entry` reads against the deployed API measure 2.7-3.2 s warm, and a cold
- * one is slower; under that, every read falls back to fixtures.
+ * Sized above a cold function rather than beside a warm one. Under that, a read
+ * falls back to fixtures and the page renders placeholder content in its place.
  */
 const TIMEOUT_MS = 8000;
 
@@ -215,11 +214,10 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
 export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
   if (!isFingerprint(fp)) return { data: null, origin: 'api', illustrative: false };
 
-  // Without `?findings=1`, so this answers from the Arkiv read alone. The flag
-  // makes the API refetch the certified blob from Walrus, and measured against
-  // the deployed API that is the entire cost of the route: 2.77-2.83 s with it,
-  // 0.32-0.49 s without. `getFindings` asks for it separately so the page can
-  // render from what the head already carries and stream the rest in.
+  // Without `?findings=1`, so this answers from the Arkiv read alone. That flag
+  // makes the API refetch the certified blob from Walrus, which is the slow half
+  // of the route; `getFindings` asks for it separately so the page can render
+  // from what the head already carries and stream the rest in.
   const res = await getJson<unknown>(ROUTES.entry(fp));
   if (res.ok) {
     const entry = normaliseEntry(fp, res.data);
