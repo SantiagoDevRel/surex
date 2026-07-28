@@ -145,11 +145,6 @@ export default async function VerdictPage({ params }: { params: Promise<{ fp: st
         />
         <main className="mx-auto max-w-[1020px] px-7 pb-20 pt-7">
           <FingerprintBar prefix="surex.dev/r/" fingerprint={decoded} />
-          <div className="mt-3.5">
-            <Banner tone="stale" label={COPY.banners.unreachableLabel}>
-              {COPY.banners.unreachableBody}
-            </Banner>
-          </div>
           <h1 className="mt-6 text-title font-semibold text-ink-3">
             {COPY.verdict.unreachableTitle}
           </h1>
