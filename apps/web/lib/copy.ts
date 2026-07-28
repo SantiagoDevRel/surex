@@ -256,6 +256,13 @@ export const COPY = {
     notFoundBody:
       'No entry exists for this fingerprint. That means nobody has submitted this exact install configuration for review. It does not mean the code is fine, and it does not mean it is not. The gate treats this as unknown and warns rather than stopping the call.',
     notFoundAction: 'Submit a server for review',
+    /**
+     * The registry did not answer. A different screen from `notFound*`, which
+     * reports a registry that answered and held no entry. This one says nothing
+     * about the fingerprint, because nothing was read.
+     */
+    unreachableTitle: 'We could not reach the registry.',
+    unreachableBody: 'The registry API is not responding. Please try again later.',
     summaryLabel: 'IN TWENTY SECONDS',
     linkageLabel: 'LINKAGE · WHAT THIS VERDICT IS ABOUT VS WHAT YOU INSTALLED',
     linkageNote:
@@ -308,6 +315,24 @@ export const COPY = {
     /** A review ran, reached no verdict, and so established nothing to publish. */
     findingsNoVerdict:
       'No finding is published. A review that reaches no verdict has established nothing, and anything raised along the way is not a claim this registry will stand behind.',
+    /**
+     * The rest of the list is still being fetched. The count above it is already
+     * known — it rides on the head — so this says what is coming rather than
+     * leaving a reader to guess whether anything is.
+     */
+    findingsPendingLabel: 'LOADING THE REST',
+    findingsPending:
+      'The certified review blob is being fetched. The finding above is the highest-severity one, carried on the registry entry itself; the rest are in that blob and appear here when it arrives.',
+    /**
+     * The fetch failed. Not "no findings", and never an empty list: the count is
+     * known, the page says so, and it hands over the two places the blob can be
+     * read directly.
+     */
+    findingsFailedLabel: 'COULD NOT LOAD THE FINDINGS',
+    findingsFailed:
+      'The certified review blob did not answer. This says nothing about what the review found: the count above comes from the registry entry and stands. The blob itself can be read at either of these.',
+    findingsFailedBlob: 'Read the certified blob',
+    findingsFailedSui: 'See it on Sui',
     /** The rest of a multi-finding verdict lives in the certified record. */
     findingsRemainder:
       'Only the highest-severity finding is carried on the registry entry. The rest are in the certified review blob linked under PROVENANCE.',

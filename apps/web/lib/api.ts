@@ -33,6 +33,7 @@ import { shortCapabilities, splitName } from './format.ts';
 import type {
   Dispute,
   Entry,
+  Finding,
   RegistryRow,
   RegistryStats,
   Sourced,
@@ -46,9 +47,12 @@ export { apiBase } from './api-base.ts';
 /**
  * More generous than `GATE_BUDGET.networkTimeoutMs` (1500 ms) on purpose: that
  * budget exists because the gate sits in front of every tool call. A page
- * render can afford to wait a little longer before giving up on live data.
+ * render can afford to wait longer before giving up on live data.
+ *
+ * Sized above a cold function rather than beside a warm one. Under that, a read
+ * falls back to fixtures and the page renders placeholder content in its place.
  */
-const TIMEOUT_MS = 2500;
+const TIMEOUT_MS = 8000;
 
 type Fetched<T> =
   | { ok: true; data: T }
@@ -210,12 +214,11 @@ function normaliseEntry(fp: string, raw: unknown): Entry | null {
 export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
   if (!isFingerprint(fp)) return { data: null, origin: 'api', illustrative: false };
 
-  // `?findings=1` asks the API to refetch the certified review blob and return
-  // the WHOLE finding list. The head carries only the top one — correct for the
-  // gate's hot path, wrong for the page a developer reads to decide whether to
-  // install something, which was captioning "FINDING 1 OF 7" with no route to the
-  // other six.
-  const res = await getJson<unknown>(`${ROUTES.entry(fp)}?findings=1`);
+  // Without `?findings=1`, so this answers from the Arkiv read alone. That flag
+  // makes the API refetch the certified blob from Walrus, which is the slow half
+  // of the route; `getFindings` asks for it separately so the page can render
+  // from what the head already carries and stream the rest in.
+  const res = await getJson<unknown>(ROUTES.entry(fp));
   if (res.ok) {
     const entry = normaliseEntry(fp, res.data);
     if (entry) return live(entry, entry.illustrative === true || tainted(res.data));
@@ -227,6 +230,55 @@ export async function getEntry(fp: string): Promise<Sourced<Entry | null>> {
 
   const entry = fixtureEntry(fp);
   return fixture(entry, `${COPY.banners.unreachableLabel}: ${res.detail}`);
+}
+
+/* ---------------------------------------------------------- the findings --*/
+
+/**
+ * The whole finding list, or the reason it is not here.
+ *
+ * `loaded: false` is never the same as an empty `items`. An empty list renders
+ * as "the review found nothing", which on a flagged entry states the opposite
+ * of what happened, so a failure carries `loaded: false` and the page shows the
+ * blob's own links instead of a verdict it could not read.
+ */
+export interface FindingsResult {
+  loaded: boolean;
+  items: Finding[];
+  /** Why the list is absent, when it is. Shown, not swallowed. */
+  error?: string;
+}
+
+const notLoaded = (error: string): FindingsResult => ({ loaded: false, items: [], error });
+
+/**
+ * `GET /v1/entry/<fp>?findings=1` — the certified blob, refetched by the API.
+ *
+ * Split out of `getEntry` because it is a second network hop on top of the
+ * Arkiv read and the page must not wait on it: the head already carries
+ * `topFinding` and `findingCount`, so the verdict, the count and the first
+ * finding all render without this call ever returning.
+ */
+export async function getFindings(fp: string): Promise<FindingsResult> {
+  if (!isFingerprint(fp)) return notLoaded('not a fingerprint');
+
+  const res = await getJson<unknown>(`${ROUTES.entry(fp)}?findings=1`);
+  if (!res.ok) return notLoaded(`${COPY.banners.unreachableLabel}: ${res.detail}`);
+
+  const body = res.data as { findings?: unknown } | null;
+  const block = body?.findings as
+    | { fetched?: boolean; items?: Finding[]; error?: string; reason?: string }
+    | Finding[]
+    | undefined;
+
+  // The fixtures carry a plain array where the API sends a block.
+  if (Array.isArray(block)) {
+    return block.length ? { loaded: true, items: block } : notLoaded('the record carries no findings');
+  }
+  if (block?.fetched && Array.isArray(block.items) && block.items.length) {
+    return { loaded: true, items: block.items };
+  }
+  return notLoaded(block?.error ?? block?.reason ?? 'the certified record could not be read');
 }
 
 /* ----------------------------------------------------------- the dispute --*/
